@@ -10,5 +10,6 @@ namespace proyecto_venta_stock.Services
     public interface IUserService
     {
         Task<Result<bool>> Create(UserDTO userDTO);
+        Task<List<UserDTO>> Usets();
     }
 }
