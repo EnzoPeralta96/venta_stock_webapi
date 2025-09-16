@@ -6,7 +6,7 @@ using proyecto_venta_stock.User.DTO;
 namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -15,7 +15,7 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
-    [HttpPost]
+    [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] UserDTO user)
     {
         var result = await _userService.Create(user);
@@ -24,7 +24,4 @@ public class UserController : ControllerBase
         
         return Ok(user);
     }
-
-
-
 }

@@ -4,11 +4,11 @@ using proyecto_venta_stock.Models;
 
 namespace proyecto_venta_stock.User.Repository.PermitRepository
 {
-    public class PermitRepository : IPermitRepository
+    public class PermissionRepository : IPermissionRepository
     {
         private readonly VentaStockContext _dbContext;
 
-        public PermitRepository(VentaStockContext dbContext)
+        public PermissionRepository(VentaStockContext dbContext)
         {
             _dbContext = dbContext;
         }
@@ -28,9 +28,11 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
 
             return permissions.All(id => permissions_found.Contains(id));   
         }
-        public Task<List<Permiso>> GetPermissions()
+        public Task<List<Permiso>> GetPermissions(int id_category_permission)
         {
-            return _dbContext.Permisos.ToListAsync();
+            return _dbContext.Permisos
+                .Where(p => p.IdCategoriaPermiso == id_category_permission)
+                .ToListAsync();
         }
     }
 }

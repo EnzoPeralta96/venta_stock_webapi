@@ -270,3 +270,4 @@ C:\Users\enzo_\OneDrive\Documentos\Facultad\Proyecto\venta_stock_webapi\obj\Debu
 C:\Users\enzo_\OneDrive\Documentos\Facultad\Proyecto\venta_stock_webapi\obj\Debug\net8.0\proyecto_venta_stock.pdb
 C:\Users\enzo_\OneDrive\Documentos\Facultad\Proyecto\venta_stock_webapi\obj\Debug\net8.0\proyecto_venta_stock.genruntimeconfig.cache
 C:\Users\enzo_\OneDrive\Documentos\Facultad\Proyecto\venta_stock_webapi\obj\Debug\net8.0\ref\proyecto_venta_stock.dll
+C:\Users\enzo_\OneDrive\Documentos\Facultad\Proyecto\venta_stock_webapi\obj\Debug\net8.0\proyecto_venta_stock.sourcelink.json

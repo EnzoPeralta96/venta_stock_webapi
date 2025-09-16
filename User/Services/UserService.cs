@@ -12,9 +12,9 @@ namespace proyecto_venta_stock.User.Services
     {
         private readonly ILogger<UserService> _logger;
         private readonly IUserRepository _userRepository;
-        private readonly IPermitRepository _permitRepository;
+        private readonly IPermissionRepository _permitRepository;
         private readonly IMapper _mapper;
-        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermitRepository permitRepository)
+        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository)
         {
             _userRepository = userRepository;
             _logger = logger;
@@ -57,7 +57,7 @@ namespace proyecto_venta_stock.User.Services
             }
         }
 
-        public Task<List<UserDTO>> Usets()
+        Task<Result<List<UserDTO>>> IUserService.Users()
         {
             throw new NotImplementedException();
         }

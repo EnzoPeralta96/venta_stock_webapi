@@ -1,10 +1,8 @@
+using proyecto_venta_stock.Models;
+using proyecto_venta_stock.User.DTO;
 namespace proyecto_venta_stock.User.Profile
 {
-    using AutoMapper;
-    using proyecto_venta_stock.Models;
-    using proyecto_venta_stock.User.DTO;
-
-    public class UserProfile : Profile
+    public class UserProfile : AutoMapper.Profile
     {
         public UserProfile()
         {
