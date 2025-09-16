@@ -40,7 +40,7 @@ namespace proyecto_venta_stock.User.Services
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<bool>.Failure("error_inerperado");
+                return Result<bool>.Failure("error_inesperado");
             }
         }
 
