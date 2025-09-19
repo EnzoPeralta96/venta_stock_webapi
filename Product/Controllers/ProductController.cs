@@ -28,6 +28,31 @@ public class ProductController : ControllerBase
 
         return Ok(product);
     }
+
+    [HttpPut("update")]
+    public async Task<IActionResult> UpdateProduct([FromBody] ProductDTO product)
+    {
+        var result = await _productServices.Update(product);
+
+        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+
+        return Ok(product);
+    }   
    
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var result = await _productServices.GetAll();
+        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        return Ok(result.Value);
+    }
+
+    [HttpGet("{idProducto:int}")]
+    public async Task<IActionResult> GetById(int idProducto)
+    {
+        var result = await _productServices.GetById(idProducto);
+        if (!result.IsSucces) return NotFound(result.ErrosMessage);
+        return Ok(result.Value);
+    }
 
 }

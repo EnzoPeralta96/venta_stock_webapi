@@ -7,6 +7,7 @@ namespace proyecto_venta_stock.Product.DTO
 {
     public class ProductDTO
     {
+        public int IdProducto { get; set; }
         public string Nombre { get; set; }
         public string Marca { get; set; }
         public string? Descripcion { get; set; }

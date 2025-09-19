@@ -41,5 +41,22 @@ namespace proyecto_venta_stock.Product.ProductRepository
         {
             return _dbContext.CodigoBarras.AnyAsync(cb => cb.Codigo == codigoBarraDTO.Codigo);
         }
+        public Task<Producto> GetById(int idProducto)
+        {
+            return _dbContext.Productos
+                .Include(p => p.CodigoBarras) // Incluir los códigos de barra relacionados
+                .FirstOrDefaultAsync(p => p.IdProducto == idProducto);
+        }
+        public Task<List<Producto>> GetAll()
+        {
+            return _dbContext.Productos
+                .Include(p => p.CodigoBarras)
+                .ToListAsync();
+        }
+        public async Task Update(Producto nuevoProducto)
+        {
+            _dbContext.Productos.Update(nuevoProducto);
+            await _dbContext.SaveChangesAsync();
+        }
     }
 }
