@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
+using proyecto_venta_stock.Product.DTO;
 
 namespace proyecto_venta_stock.Product.ProductRepository
 {
@@ -35,6 +36,10 @@ namespace proyecto_venta_stock.Product.ProductRepository
         public Task<bool> ExisteUbicacion(int idUbicacion)
         {
             return _dbContext.Ubicacions.AnyAsync(u => u.IdUbicacion == idUbicacion);
+        }
+        public Task<bool> CodigoBarraExists(CodigoBarraDTO codigoBarraDTO)
+        {
+            return _dbContext.CodigoBarras.AnyAsync(cb => cb.Codigo == codigoBarraDTO.Codigo);
         }
     }
 }

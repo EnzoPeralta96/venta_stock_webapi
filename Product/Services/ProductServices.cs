@@ -33,6 +33,12 @@ namespace proyecto_venta_stock.Product.Services
                 if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
                     return Result<bool>.Failure("ubicacion_invalida");
 
+                foreach (var cb in productDTO.CodigoBarras)
+                {
+                    if (await _productRepository.CodigoBarraExists(cb))
+                        return Result<bool>.Failure($"codigo_barra_duplicado: {cb.Codigo}");
+                }
+
                 var product = _mapper.Map<Producto>(productDTO);
 
                 await _productRepository.Create(product);

@@ -16,6 +16,6 @@ namespace proyecto_venta_stock.Product.DTO
         public bool? VentaSinStock { get; set; }
         public int? IdUbicacion { get; set; }
         public int? IdCategoria { get; set; }
-        public List<string> CodigoBarras { get; set; } = [];
+        public List<CodigoBarraDTO> CodigoBarras { get; set; } = [];
     }
 }

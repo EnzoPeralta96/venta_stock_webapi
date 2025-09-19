@@ -8,9 +8,13 @@ namespace proyecto_venta_stock.Product.Profile
     {
         public ProductProfile()
         {
-           CreateMap<ProductDTO, Producto>()
-            .ForMember(dest => dest.CodigoBarras,
-                opt => opt.MapFrom(src => src.CodigoBarras.Select(cb => new CodigoBarra { Codigo = cb }).ToList()));
+            CreateMap<ProductDTO, Producto>()
+             .ForMember(dest => dest.CodigoBarras,
+                 opt => opt.MapFrom(src => src.CodigoBarras.Select(cb => new CodigoBarra { Codigo = cb.Codigo }).ToList()));
+
+            CreateMap<CodigoBarraDTO, CodigoBarra>();
         }
+        
+        
     }
 }
