@@ -71,7 +71,7 @@ public partial class VentaStockContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("descripcion");
         });
-
+        
         modelBuilder.Entity<Cliente>(entity =>
         {
             entity.HasKey(e => e.IdCliente).HasName("cliente_pkey");

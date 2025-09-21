@@ -9,7 +9,7 @@ public partial class Ubicacion
 
     public int? Fila { get; set; }
 
-    public int? Seccion { get; set; }
+    public string Seccion { get; set; }
 
     public int? Nivel { get; set; }
 

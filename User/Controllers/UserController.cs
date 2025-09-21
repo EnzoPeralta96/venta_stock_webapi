@@ -15,10 +15,22 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
-    [HttpPost("create")]
-    public async Task<IActionResult> Create([FromBody] UserDTO user)
+    [HttpGet("users")]
+    public async Task<IActionResult> GetUsers([FromQuery]int? id)
     {
-        var result = await _userService.Create(user);
+        var result = await _userService.GetUsersAsync(id);
+
+        if (!result.IsSucces) return NotFound(result.ErrosMessage);
+
+        return Ok(result.Value);
+    }    
+    
+    [HttpPost("create")]
+    public async Task<IActionResult> Create([FromBody] UserCreateDTO user)
+    {
+        if (!ModelState.IsValid) return BadRequest();
+
+        var result = await _userService.CreateAsync(user);
 
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
         

@@ -26,7 +26,7 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
                         .Select(p => p.IdPermiso)
                         .ToListAsync();
 
-            return permissions.All(id => permissions_found.Contains(id));   
+            return permissions.All(id => permissions_found.Contains(id));
         }
         public Task<List<Permiso>> GetPermissions(int id_category_permission)
         {
@@ -34,5 +34,20 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
                 .Where(p => p.IdCategoriaPermiso == id_category_permission)
                 .ToListAsync();
         }
+        
+        public Task<List<CategoriaPermiso>> GetPermissions(int? id_category_permission)
+        {
+            var query = _dbContext.CategoriaPermisos
+                .Include(c => c.Permisos)
+                .AsQueryable();
+
+            if (id_category_permission.HasValue)
+            {
+                query = query.Where(c => c.IdCategoriaPermiso == id_category_permission.Value);
+            }
+
+            return query.ToListAsync();
+        }
+
     }
 }

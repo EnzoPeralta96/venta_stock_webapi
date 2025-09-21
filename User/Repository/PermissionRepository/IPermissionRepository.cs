@@ -10,6 +10,6 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
     {
         Task<bool> Exists(List<int> roles);
         Task AssingPermision(List<PermisoUsuario> permissionsUser);// assign permission
-        Task<List<Permiso>> GetPermissions(int id_category_permission);
+        Task<List<CategoriaPermiso>> GetPermissions(int? id_category_permission);
     }
 }

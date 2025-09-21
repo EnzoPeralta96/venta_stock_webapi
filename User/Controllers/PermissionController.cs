@@ -1,6 +1,4 @@
-
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using venta_stock_webapi.User.Services;
 
 namespace venta_stock_webapi.User.Controllers
@@ -18,10 +16,10 @@ namespace venta_stock_webapi.User.Controllers
             _permissionService = permissionService;
         }
 
-        [HttpGet("permissions/{id_categoria_permission}")]
-        public async Task<IActionResult> GetPermissions(int id_categoria_permission)
+        [HttpGet("permissions")]
+        public async Task<IActionResult> GetPermissions([FromQuery] int? id_permissionCategory)
         {
-            var result = await _permissionService.GetPermissions(id_categoria_permission);
+            var result = await _permissionService.GetPermissions(id_permissionCategory);
 
             if (!result.IsSucces) return BadRequest(result.ErrosMessage);
 
