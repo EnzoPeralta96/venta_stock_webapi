@@ -1,7 +1,9 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Services;
 using proyecto_venta_stock.User.DTO;
+using venta_stock_webapi.Shared.MessageProvider;
 
 namespace proyecto_venta_stock.Controllers;
 
@@ -16,15 +18,20 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("users")]
-    public async Task<IActionResult> GetUsers([FromQuery]int? id)
+    public async Task<IActionResult> GetUsers([FromQuery] int? id)
     {
         var result = await _userService.GetUsersAsync(id);
 
-        if (!result.IsSucces) return NotFound(result.ErrosMessage);
+        if (!result.IsSucces)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
 
         return Ok(result.Value);
-    }    
-    
+    }
+
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] UserCreateDTO user)
     {
@@ -32,8 +39,45 @@ public class UserController : ControllerBase
 
         var result = await _userService.CreateAsync(user);
 
-        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
-        
+        if (!result.IsSucces)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
+
         return Ok(user);
+    }
+
+    [HttpPut("update")]
+    public async Task<IActionResult> Update([FromBody] UserUpdateDTO user)
+    {
+        if (!ModelState.IsValid) return BadRequest();
+
+        var result = await _userService.UpdateAsync(user);
+
+        if (!result.IsSucces)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete("delete/{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var result = await _userService.DeleteAsync(id);
+
+        if (!result.IsSucces)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
+
+        return NoContent();
     }
 }

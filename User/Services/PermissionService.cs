@@ -2,6 +2,7 @@ using AutoMapper;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
+using venta_stock_webapi.User.Message;
 
 namespace venta_stock_webapi.User.Services
 {
@@ -29,7 +30,7 @@ namespace venta_stock_webapi.User.Services
             catch (System.Exception ex)
             {
                  _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<List<PermissionsCategoryDTO>>.Failure("error_inerperado");
+                return Result<List<PermissionsCategoryDTO>>.Failure(PermissionErrorCode.unexpected_error);
                 throw;
             }
         }

@@ -76,16 +76,53 @@ namespace proyecto_venta_stock.User.UserRepository
             await _dbContext.SaveChangesAsync();
         }
 
-        public Task<bool> ExistsAsync(string user)
+        public Task<int> UpdateAsync(Usuario user)
         {
-            return _dbContext.Usuarios.AnyAsync(u => u.Usuario1 == user && u.FechaBaja != null);
+            return _dbContext.Usuarios
+            .Where(u => u.IdUsuario == user.IdUsuario)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.Usuario1, user.Usuario1)
+                .SetProperty(u => u.Password, user.Password)
+                .SetProperty(u => u.Nombre, user.Nombre)
+                .SetProperty(u => u.Apellido, user.Apellido)
+                .SetProperty(u => u.Email, user.Email)
+                .SetProperty(u => u.Rol, user.Rol)
+            );
         }
 
+        public Task<int> DeleteAsync(int id)
+        {
+            return _dbContext.Usuarios
+            .Where(u => u.IdUsuario == id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.FechaBaja, DateOnly.FromDateTime(DateTime.Now))
+            );
+        }
+        public Task<bool> UserNameInUseAsync(string user)
+        {
+            return _dbContext.Usuarios.AnyAsync(u => u.Usuario1 == user);
+        }
+
+        public Task<bool> UserNameInUseAsync(int id, string user)
+        {
+            return _dbContext.Usuarios.AnyAsync(u => u.Usuario1 == user && u.IdUsuario != id);
+        }
         public Task<bool> MailInUseAsync(string mail)
         {
-            return _dbContext.Usuarios.AnyAsync(u => u.Email == mail && u.FechaBaja != null);
+            return _dbContext.Usuarios.AnyAsync(u => u.Email == mail);
+        }
+        public Task<bool> MailInUseAsync(int id, string mail)
+        {
+            return _dbContext.Usuarios.AnyAsync(u => u.Email == mail && u.IdUsuario != id);
+        }
+        public Task<bool> ExistsActive(int id)
+        {
+            return _dbContext.Usuarios.AnyAsync(u => u.IdUsuario == id && u.FechaBaja == null);
         }
 
-
+        public Task<bool> Exists(int id)
+        {
+            return _dbContext.Usuarios.AnyAsync(u => u.IdUsuario == id);
+        }
     }
 }

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.MessageProvider;
+using venta_stock_webapi.User.Message;
 using venta_stock_webapi.User.Services;
 
 namespace venta_stock_webapi.User.Controllers
@@ -21,7 +23,12 @@ namespace venta_stock_webapi.User.Controllers
         {
             var result = await _permissionService.GetPermissions(id_permissionCategory);
 
-            if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+            if (!result.IsSucces)
+            {
+                var code = (PermissionErrorCode)result.ErrorCode;
+                var errorMessage = MessageProvider.Get(PermissionErrorDictionary.Messages, code);
+                return BadRequest(errorMessage);
+            }
 
             return Ok(result.Value);
         }

@@ -4,7 +4,7 @@ namespace proyecto_venta_stock.Shared.ResultPattern
     {
         public bool IsSucces { get; }
         public T Value { get; }
-        public string ErrosMessage { get; }
+        public Enum ErrorCode { get; }
 
         private Result(T value, bool isSucces)
         {
@@ -12,15 +12,15 @@ namespace proyecto_venta_stock.Shared.ResultPattern
             IsSucces = isSucces;
         }
 
-        private Result(T value, bool isSucces, string errorMessage)
+        private Result(T value, bool isSucces, Enum errorMessage)
         {
             Value = value;
             IsSucces = isSucces;
-            ErrosMessage = errorMessage;
+            ErrorCode = errorMessage;
         }
 
         public static Result<T> Succes(T value) => new Result<T>(value, true);
         public static Result<T> Succes() => new Result<T>(default, true);
-        public static Result<T> Failure(string message) => new Result<T>(default, false, message);
+        public static Result<T> Failure(Enum code) => new Result<T>(default, false, code);
     }
 }

@@ -6,8 +6,4 @@ namespace proyecto_venta_stock.User.DTO
         public string Permiso { get; set; }
         public string? Descripcion { get; set; }
     }
-
-    
-
-
 }
