@@ -1,11 +1,12 @@
+using AutoMapper;
+using System.Linq;
+using proyecto_venta_stock.Models;
+using proyecto_venta_stock.Product.DTO;
 namespace proyecto_venta_stock.Product.Profile
 {
-    using AutoMapper;
-    using System.Linq;
-    using proyecto_venta_stock.Models;
-    using proyecto_venta_stock.Product.DTO;
 
-    public class ProductProfile : Profile
+
+    public class ProductProfile : AutoMapper.Profile
     {
         public ProductProfile()
         {
@@ -27,7 +28,7 @@ namespace proyecto_venta_stock.Product.Profile
                 .ForMember(dest => dest.CodigoBarras,
                  opt => opt.MapFrom(src => src.CodigoBarras.Select(cb => new CodigoBarra { Codigo = cb.Codigo }).ToList()));
         }
-        
-        
+
+
     }
 }

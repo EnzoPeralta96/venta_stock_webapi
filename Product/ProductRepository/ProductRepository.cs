@@ -49,7 +49,7 @@ namespace proyecto_venta_stock.Product.ProductRepository
                 .Include(p => p.CodigoBarras)
                 .ToListAsync();
         }
-        public Task<List<Producto>> GetAllWithCategoryAndUbication()
+        public Task<List<Producto>> GetAllWithCategoryAndLocation()
         {
             return _dbContext.Productos
                 .Include(p => p.IdCategoriaNavigation)

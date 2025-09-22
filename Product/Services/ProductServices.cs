@@ -108,11 +108,11 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
-        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndUbication()
+        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndLocation()
         {
             try
             {
-                var products = await _productRepository.GetAllWithCategoryAndUbication();
+                var products = await _productRepository.GetAllWithCategoryAndLocation();
                 var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
                 return Result<List<ProductDetailDTO>>.Succes(dtos);
             }
