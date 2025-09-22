@@ -5,6 +5,8 @@ using proyecto_venta_stock.User.Services;
 using proyecto_venta_stock.User.UserRepository;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Product.Services;
+using proyecto_venta_stock.Category.CategoryRepository;
+using proyecto_venta_stock.Category.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,6 +46,13 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
 builder.Services.AddScoped<IProductServices, ProductServices>();
+
+/* Category */
+
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryServices, CategoryService>();
+
+
 
 
 var app = builder.Build();

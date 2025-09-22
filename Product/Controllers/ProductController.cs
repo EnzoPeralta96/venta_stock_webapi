@@ -2,9 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Product.DTO;
-/* Agrego models para la ubicacion y data */
-using proyecto_venta_stock.Models;
-using proyecto_venta_stock.Data;
+
 
 namespace proyecto_venta_stock.Controllers;
 
