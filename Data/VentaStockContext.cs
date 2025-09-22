@@ -65,7 +65,7 @@ public partial class VentaStockContext : DbContext
 
             entity.ToTable("categoria");
 
-            entity.Property(e => e.IdCategoria).HasColumnName("id_categoria");
+            entity.Property(e => e.IdCategoria).HasColumnName("id_categoria").ValueGeneratedOnAdd();
             entity.Property(e => e.Categoria)
                 .HasMaxLength(100)
                 .HasColumnName("categoria");

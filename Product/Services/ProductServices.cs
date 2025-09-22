@@ -4,17 +4,19 @@ using proyecto_venta_stock.Services;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
-
+using proyecto_venta_stock.Category.CategoryRepository;
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
     {
         private readonly ILogger<ProductServices> _logger;
         private readonly IProductRepository _productRepository;
+        private readonly ICategoryRepository _categoryRepository;
         private readonly IMapper _mapper;
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper)
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository)
         {
             _productRepository = productRepository;
+            _categoryRepository = categoryRepository;
             _logger = logger;
             _mapper = mapper;
         }
@@ -27,7 +29,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 if (productExists) return Result<bool>.Failure("product_name_in_use");
 
-                if (productDTO.IdCategoria == null || !await _productRepository.ExisteCategoria(productDTO.IdCategoria.Value))
+                if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
                 if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
@@ -65,7 +67,7 @@ namespace proyecto_venta_stock.Product.Services
                 if (productExists && (existingProduct.Nombre != productDTO.Nombre || existingProduct.Marca != productDTO.Marca))
                     return Result<bool>.Failure("product_name_in_use");
 
-                if (productDTO.IdCategoria == null || !await _productRepository.ExisteCategoria(productDTO.IdCategoria.Value))
+                if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
                 if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
@@ -103,6 +105,21 @@ namespace proyecto_venta_stock.Product.Services
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<List<ProductDTO>>.Failure("error_inesperado");
+            }
+        }
+
+        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndUbication()
+        {
+            try
+            {
+                var products = await _productRepository.GetAllWithCategoryAndUbication();
+                var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
+                return Result<List<ProductDetailDTO>>.Succes(dtos);
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex.ToString());
+                return Result<List<ProductDetailDTO>>.Failure("error_inesperado");
             }
         }
 

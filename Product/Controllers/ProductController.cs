@@ -2,9 +2,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Product.DTO;
-/* Agrego models para la ubicacion y data */
-using proyecto_venta_stock.Models;
-using proyecto_venta_stock.Data;
+
 
 namespace proyecto_venta_stock.Controllers;
 
@@ -43,6 +41,13 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _productServices.GetAll();
+        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        return Ok(result.Value);
+    }
+    [HttpGet("with-details")]
+    public async Task<IActionResult> GetAllWithDetails()
+    {
+        var result = await _productServices.GetAllWithCategoryAndUbication();
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
         return Ok(result.Value);
     }
