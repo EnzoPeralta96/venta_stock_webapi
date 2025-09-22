@@ -20,6 +20,18 @@ builder.Services.AddDbContext<VentaStockContext>(
    options => options.UseNpgsql(connectionString)
 );
 
+/* CORS */
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowReactApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // origen del front
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+              
+    });
+});
+
 
 builder.Services.AddAutoMapper(typeof(Program));
 
@@ -44,6 +56,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowReactApp");
 
 app.UseAuthorization();
 
