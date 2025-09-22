@@ -108,6 +108,21 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
+        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndUbication()
+        {
+            try
+            {
+                var products = await _productRepository.GetAllWithCategoryAndUbication();
+                var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
+                return Result<List<ProductDetailDTO>>.Succes(dtos);
+            }
+            catch (System.Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex.ToString());
+                return Result<List<ProductDetailDTO>>.Failure("error_inesperado");
+            }
+        }
+
         public async Task<Result<ProductDTO>> GetById(int idProducto)
         {
             try

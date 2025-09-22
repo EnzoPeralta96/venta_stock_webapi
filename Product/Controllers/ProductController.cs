@@ -44,6 +44,13 @@ public class ProductController : ControllerBase
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
         return Ok(result.Value);
     }
+    [HttpGet("with-details")]
+    public async Task<IActionResult> GetAllWithDetails()
+    {
+        var result = await _productServices.GetAllWithCategoryAndUbication();
+        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        return Ok(result.Value);
+    }
 
     [HttpGet("{idProducto:int}")]
     public async Task<IActionResult> GetById(int idProducto)

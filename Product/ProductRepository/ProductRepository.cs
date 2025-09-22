@@ -28,10 +28,6 @@ namespace proyecto_venta_stock.Product.ProductRepository
             return _dbContext.Productos.AnyAsync(p => p.Nombre == nombre && p.Marca == marca);
         }
 
-        public Task<bool> ExisteCategoria(int idCategoria)
-        {
-            return _dbContext.Categoria.AnyAsync(c => c.IdCategoria == idCategoria);
-        }
 
         public Task<bool> ExisteUbicacion(int idUbicacion)
         {
@@ -51,6 +47,13 @@ namespace proyecto_venta_stock.Product.ProductRepository
         {
             return _dbContext.Productos
                 .Include(p => p.CodigoBarras)
+                .ToListAsync();
+        }
+        public Task<List<Producto>> GetAllWithCategoryAndUbication()
+        {
+            return _dbContext.Productos
+                .Include(p => p.IdCategoriaNavigation)
+                .Include(p => p.IdUbicacionNavigation)
                 .ToListAsync();
         }
         public async Task Update(Producto nuevoProducto)

@@ -12,6 +12,7 @@ namespace proyecto_venta_stock.Product.Services
         Task<Result<bool>> Create(ProductDTO productDTO);
         Task<Result<bool>> Update(ProductDTO productDTO);
         Task<Result<List<ProductDTO>>> GetAll();
+        Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndUbication();
         Task<Result<ProductDTO>> GetById(int idProducto);
     }
 }
