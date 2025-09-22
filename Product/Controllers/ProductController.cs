@@ -47,7 +47,7 @@ public class ProductController : ControllerBase
     [HttpGet("with-details")]
     public async Task<IActionResult> GetAllWithDetails()
     {
-        var result = await _productServices.GetAllWithCategoryAndUbication();
+        var result = await _productServices.GetAllWithCategoryAndLocation();
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
         return Ok(result.Value);
     }
