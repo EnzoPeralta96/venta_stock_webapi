@@ -14,5 +14,7 @@ namespace proyecto_venta_stock.Product.Services
         Task<Result<List<ProductDTO>>> GetAll();
         Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndLocation();
         Task<Result<ProductDTO>> GetById(int idProducto);
+
+        Task<Result<bool>> Delete(int idProducto);
     }
 }

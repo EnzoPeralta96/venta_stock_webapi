@@ -35,8 +35,8 @@ public class ProductController : ControllerBase
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
 
         return Ok(product);
-    }   
-   
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -59,5 +59,16 @@ public class ProductController : ControllerBase
         if (!result.IsSucces) return NotFound(result.ErrosMessage);
         return Ok(result.Value);
     }
-
+    [HttpDelete("{idProducto:int}")]
+    public async Task<IActionResult> Delete(int idProducto)
+    {
+        var result = await _productServices.Delete(idProducto);
+        if (!result.IsSucces)
+        {
+            if (result.ErrosMessage == "product_not_found") return NotFound();
+            if (result.ErrosMessage == "product_in_use") return Conflict(result.ErrosMessage);
+            return BadRequest(result.ErrosMessage);
+        }
+        return NoContent();
+    }
 }

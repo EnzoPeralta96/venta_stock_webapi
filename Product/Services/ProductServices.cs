@@ -147,5 +147,30 @@ namespace proyecto_venta_stock.Product.Services
                 return Result<ProductDTO>.Failure("error_inesperado");
             }
         }
+
+        public async Task<Result<bool>> Delete(int idProducto)
+        {
+            try
+            {
+                var existing = await _productRepository.GetById(idProducto);
+                if (existing == null)
+                    return Result<bool>.Failure("product_not_found");
+
+                await _productRepository.Delete(existing);
+                return Result<bool>.Succes(true);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                // FK en uso (ventas, listas, etc.)
+                _logger.LogWarning(ex, "Product in use, cannot delete");
+                return Result<bool>.Failure("product_in_use");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex);
+                return Result<bool>.Failure("error_inesperado");
+            }
+        }
+
     }
 }
