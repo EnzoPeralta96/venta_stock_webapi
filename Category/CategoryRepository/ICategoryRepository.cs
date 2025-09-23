@@ -12,5 +12,6 @@ namespace proyecto_venta_stock.Category.CategoryRepository
         Task<bool> ExistsByName(string nombre, int? excludeId = null);
         Task<List<Categorium>> GetAll();
         Task<Categorium?> GetById(int idCategoria);
+        Task Delete(Categorium category);
     }
 }
