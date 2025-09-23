@@ -9,7 +9,8 @@ namespace proyecto_venta_stock.Location.Profile
     {
         public LocationProfile()
         {
-             CreateMap<LocationDTO, Ubicacion>()
+            CreateMap<LocationDTO, Ubicacion>()
+              .ForMember(d => d.IdUbicacion, o => o.Ignore())
                 .ForMember(d => d.Seccion, o => o.MapFrom(s => (s.Seccion ?? string.Empty).Trim().ToUpper()))
                 .ReverseMap()
                 // Al volver al DTO, no forzamos mayúsculas; solo evitamos nulls

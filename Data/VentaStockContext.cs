@@ -439,7 +439,7 @@ public partial class VentaStockContext : DbContext
 
             entity.ToTable("ubicacion");
 
-            entity.Property(e => e.IdUbicacion).HasColumnName("id_ubicacion");
+            entity.Property(e => e.IdUbicacion).HasColumnName("id_ubicacion").ValueGeneratedOnAdd();
             entity.Property(e => e.Fila).HasColumnName("fila");
             entity.Property(e => e.Nivel).HasColumnName("nivel");
             entity.Property(e => e.Seccion).HasColumnName("seccion");

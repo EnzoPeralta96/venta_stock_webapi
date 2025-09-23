@@ -12,8 +12,10 @@ namespace proyecto_venta_stock.Location.LocationRepository
     {
         public Task Create(Ubicacion ubicacion);
         Task<bool> Exists(int fila, string seccion, int nivel);
+        Task<bool> ExistsExceptId(int idUbicacion, int fila, string seccion, int nivel);
         public Task<Ubicacion> GetById(int idUbicacion);
         public Task<List<Ubicacion>> GetAll();
         public Task Update(Ubicacion nuevaUbicacion);
+        public Task Delete(Ubicacion ubicacion);
     }
 }
