@@ -28,11 +28,6 @@ namespace proyecto_venta_stock.Product.ProductRepository
             return _dbContext.Productos.AnyAsync(p => p.Nombre == nombre && p.Marca == marca);
         }
 
-
-        public Task<bool> ExisteUbicacion(int idUbicacion)
-        {
-            return _dbContext.Ubicacions.AnyAsync(u => u.IdUbicacion == idUbicacion);
-        }
         public Task<bool> CodigoBarraExists(CodigoBarraDTO codigoBarraDTO)
         {
             return _dbContext.CodigoBarras.AnyAsync(cb => cb.Codigo == codigoBarraDTO.Codigo);

@@ -5,6 +5,7 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Category.CategoryRepository;
+using proyecto_venta_stock.Location.LocationRepository;
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
@@ -12,11 +13,13 @@ namespace proyecto_venta_stock.Product.Services
         private readonly ILogger<ProductServices> _logger;
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
+        private readonly ILocationRepository _locationRepository;
         private readonly IMapper _mapper;
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository)
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
+            _locationRepository = locationRepository;
             _logger = logger;
             _mapper = mapper;
         }
@@ -32,7 +35,10 @@ namespace proyecto_venta_stock.Product.Services
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
-                if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
+                var ubic = productDTO.IdUbicacion == null
+                ? null
+                : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 
                 foreach (var cb in productDTO.CodigoBarras)
@@ -70,7 +76,10 @@ namespace proyecto_venta_stock.Product.Services
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
-                if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
+                var ubic = productDTO.IdUbicacion == null
+                   ? null
+                   : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 
                 foreach (var cb in productDTO.CodigoBarras)
