@@ -159,12 +159,6 @@ namespace proyecto_venta_stock.Product.Services
                 await _productRepository.Delete(existing);
                 return Result<bool>.Succes(true);
             }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
-            {
-                // FK en uso (ventas, listas, etc.)
-                _logger.LogWarning(ex, "Product in use, cannot delete");
-                return Result<bool>.Failure("product_in_use");
-            }
             catch (Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex);

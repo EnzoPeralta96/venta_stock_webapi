@@ -60,14 +60,9 @@ namespace proyecto_venta_stock.Product.ProductRepository
         public async Task Delete(Producto product)
         {
             // Asegurar eliminación de hijos si no hay cascade configurado
-            await _dbContext.Entry(product)
-                .Collection(p => p.CodigoBarras)
-                .LoadAsync();
+            product.Activo = false;
 
-            if (product.CodigoBarras != null && product.CodigoBarras.Count > 0)
-                _dbContext.CodigoBarras.RemoveRange(product.CodigoBarras);
-
-            _dbContext.Productos.Remove(product);
+            _dbContext.Productos.Update(product);
             await _dbContext.SaveChangesAsync();
         }
     }

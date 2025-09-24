@@ -24,6 +24,8 @@ public partial class Producto
     public int? IdUbicacion { get; set; }
 
     public int? IdCategoria { get; set; }
+    public bool Activo { get; set; } = true;
+
 
     public virtual ICollection<CodigoBarra> CodigoBarras { get; set; } = new List<CodigoBarra>();
 
