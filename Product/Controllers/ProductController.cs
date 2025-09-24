@@ -71,4 +71,15 @@ public class ProductController : ControllerBase
         }
         return NoContent();
     }
+    [HttpPatch("{idProducto:int}/toggle-estado")]
+    public async Task<IActionResult> ToggleEstado(int idProducto)
+    {
+        var result = await _productServices.ToggleEstado(idProducto);
+
+        if (!result.IsSucces)
+            return BadRequest(result.ErrosMessage);
+
+        return Ok(new { idProducto, activo = result.Value });
+    }
+
 }

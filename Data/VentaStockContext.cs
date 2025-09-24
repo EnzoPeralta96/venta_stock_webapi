@@ -361,6 +361,10 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Stock).HasColumnName("stock");
             entity.Property(e => e.StockMinimo).HasColumnName("stock_minimo");
             entity.Property(e => e.VentaSinStock).HasColumnName("venta_sin_stock");
+            entity.Property(e => e.Activo)
+                        .HasColumnName("activo")
+                        .HasDefaultValue(true);
+
 
             entity.HasOne(d => d.IdCategoriaNavigation).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.IdCategoria)

@@ -16,5 +16,6 @@ namespace proyecto_venta_stock.Product.Services
         Task<Result<ProductDTO>> GetById(int idProducto);
 
         Task<Result<bool>> Delete(int idProducto);
+        Task<Result<bool>> ToggleEstado(int idProducto);
     }
 }

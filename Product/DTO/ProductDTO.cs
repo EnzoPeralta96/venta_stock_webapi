@@ -17,6 +17,7 @@ namespace proyecto_venta_stock.Product.DTO
         public bool? VentaSinStock { get; set; }
         public int? IdUbicacion { get; set; }
         public int? IdCategoria { get; set; }
+        public bool Activo { get; set; }
         public List<CodigoBarraDTO> CodigoBarras { get; set; } = [];
     }
 
@@ -32,6 +33,7 @@ namespace proyecto_venta_stock.Product.DTO
         public bool? VentaSinStock { get; set; }
         public int? IdUbicacion { get; set; }
         public int? IdCategoria { get; set; }
+        public bool Activo { get; set; }
 
         // Info extra para “with category and ubication”
         public string? Categoria { get; set; }

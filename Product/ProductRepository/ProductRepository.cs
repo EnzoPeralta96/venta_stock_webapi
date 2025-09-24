@@ -35,18 +35,21 @@ namespace proyecto_venta_stock.Product.ProductRepository
         public Task<Producto> GetById(int idProducto)
         {
             return _dbContext.Productos
+                .Where(p => p.Activo) // Asegurar que el producto está activo
                 .Include(p => p.CodigoBarras) // Incluir los códigos de barra relacionados
                 .FirstOrDefaultAsync(p => p.IdProducto == idProducto);
         }
         public Task<List<Producto>> GetAll()
         {
             return _dbContext.Productos
+                .Where(p => p.Activo) 
                 .Include(p => p.CodigoBarras)
                 .ToListAsync();
         }
         public Task<List<Producto>> GetAllWithCategoryAndLocation()
         {
             return _dbContext.Productos
+                .Where(p => p.Activo)
                 .Include(p => p.IdCategoriaNavigation)
                 .Include(p => p.IdUbicacionNavigation)
                 .ToListAsync();

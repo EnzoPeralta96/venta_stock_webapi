@@ -165,6 +165,26 @@ namespace proyecto_venta_stock.Product.Services
                 return Result<bool>.Failure("error_inesperado");
             }
         }
+        public async Task<Result<bool>> ToggleEstado(int idProducto)
+        {
+            try
+            {
+                var existing = await _productRepository.GetById(idProducto);
+                if (existing == null)
+                    return Result<bool>.Failure("product_not_found");
+
+                existing.Activo = !existing.Activo;  // 👈 invierte el estado
+                await _productRepository.Update(existing);
+
+                return Result<bool>.Succes(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex);
+                return Result<bool>.Failure("error_inesperado");
+            }
+        }
+
 
     }
 }
