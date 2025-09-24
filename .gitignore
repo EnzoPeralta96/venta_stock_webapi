@@ -1,0 +1,19 @@
+# Build artifacts
+bin/
+obj/
+.vs/
+TestResults/
+*.user
+*.suo
+*.cache
+*.log
+*.nupkg
+# Rider/VS Code
+.idea/
+.vscode/
+# Coverage
+coverage*/
+*.coverage
+# OS
+Thumbs.db
+.DS_Store
