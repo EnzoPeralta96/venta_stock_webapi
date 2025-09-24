@@ -7,6 +7,8 @@ using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Category.Services;
+using proyecto_venta_stock.Location.Services;
+using proyecto_venta_stock.Location.LocationRepository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +54,10 @@ builder.Services.AddScoped<IProductServices, ProductServices>();
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryServices, CategoryService>();
 
+/* Location */
+
+builder.Services.AddScoped<ILocationRepository, LocationRepository>();
+builder.Services.AddScoped<ILocationServices, LocationServices>();
 
 
 

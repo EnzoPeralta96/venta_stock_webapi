@@ -28,11 +28,6 @@ namespace proyecto_venta_stock.Product.ProductRepository
             return _dbContext.Productos.AnyAsync(p => p.Nombre == nombre && p.Marca == marca);
         }
 
-
-        public Task<bool> ExisteUbicacion(int idUbicacion)
-        {
-            return _dbContext.Ubicacions.AnyAsync(u => u.IdUbicacion == idUbicacion);
-        }
         public Task<bool> CodigoBarraExists(CodigoBarraDTO codigoBarraDTO)
         {
             return _dbContext.CodigoBarras.AnyAsync(cb => cb.Codigo == codigoBarraDTO.Codigo);
@@ -49,7 +44,7 @@ namespace proyecto_venta_stock.Product.ProductRepository
                 .Include(p => p.CodigoBarras)
                 .ToListAsync();
         }
-        public Task<List<Producto>> GetAllWithCategoryAndUbication()
+        public Task<List<Producto>> GetAllWithCategoryAndLocation()
         {
             return _dbContext.Productos
                 .Include(p => p.IdCategoriaNavigation)
@@ -59,6 +54,20 @@ namespace proyecto_venta_stock.Product.ProductRepository
         public async Task Update(Producto nuevoProducto)
         {
             _dbContext.Productos.Update(nuevoProducto);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task Delete(Producto product)
+        {
+            // Asegurar eliminación de hijos si no hay cascade configurado
+            await _dbContext.Entry(product)
+                .Collection(p => p.CodigoBarras)
+                .LoadAsync();
+
+            if (product.CodigoBarras != null && product.CodigoBarras.Count > 0)
+                _dbContext.CodigoBarras.RemoveRange(product.CodigoBarras);
+
+            _dbContext.Productos.Remove(product);
             await _dbContext.SaveChangesAsync();
         }
     }

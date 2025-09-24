@@ -13,6 +13,8 @@ namespace proyecto_venta_stock.Category.Services
         Task<Result<bool>> Update(CategoryDetailDTO categoryDTO);
         Task<Result<List<CategoryBasicDTO>>> GetAll();
         Task<Result<CategoryBasicDTO>> GetById(int idCategoria);
+
+        Task<Result<bool>> Delete(int idCategoria);
     }
 }
    

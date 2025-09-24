@@ -12,13 +12,14 @@ namespace proyecto_venta_stock.Product.ProductRepository
     {
         Task Create(Producto producto);
         public Task<bool> Exists(string nombre, string marca);
-        public Task<bool> ExisteUbicacion(int idUbicacion);
         public Task<bool> CodigoBarraExists(CodigoBarraDTO codigoBarraDTO);
 
         public Task<Producto> GetById(int idProducto);
         public Task<List<Producto>> GetAll();
-        public Task<List<Producto>> GetAllWithCategoryAndUbication();
-        
+        public Task<List<Producto>> GetAllWithCategoryAndLocation();
+
         public Task Update(Producto nuevoProducto);
+        
+        Task Delete(Producto producto);
     }
 }

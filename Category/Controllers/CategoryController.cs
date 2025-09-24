@@ -51,4 +51,17 @@ public class CategoryController : ControllerBase
         if (!result.IsSucces) return NotFound(result.ErrosMessage);
         return Ok(result.Value);
     }
+
+    [HttpDelete("{idCategoria:int}")]
+    public async Task<IActionResult> Delete(int idCategoria)
+    {
+        var result = await _categoryServices.Delete(idCategoria);
+        if (!result.IsSucces)
+        {
+            if (result.ErrosMessage == "category_not_found") return NotFound();
+            if (result.ErrosMessage == "category_in_use") return Conflict(result.ErrosMessage);
+            return BadRequest(result.ErrosMessage);
+        }
+        return NoContent(); // <- no devolver false/true al front
+    }
 }

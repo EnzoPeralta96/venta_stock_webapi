@@ -104,5 +104,28 @@ namespace proyecto_venta_stock.Category.Services
                 return Result<bool>.Failure("error_inesperado");
             }
         }
+
+
+        public async Task<Result<bool>> Delete(int idCategoria)
+        {
+            try
+            {
+                var existing = await _categoryRepo.GetById(idCategoria);
+                if (existing == null) return Result<bool>.Failure("category_not_found");
+
+                await _categoryRepo.Delete(existing);
+                return Result<bool>.Succes(true); // <- importante: true
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _logger.LogWarning(ex, "Category in use");
+                return Result<bool>.Failure("category_in_use");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected");
+                return Result<bool>.Failure("error_inesperado");
+            }
+        }
     }
 }

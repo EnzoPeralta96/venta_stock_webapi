@@ -5,6 +5,7 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Category.CategoryRepository;
+using proyecto_venta_stock.Location.LocationRepository;
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
@@ -12,11 +13,13 @@ namespace proyecto_venta_stock.Product.Services
         private readonly ILogger<ProductServices> _logger;
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
+        private readonly ILocationRepository _locationRepository;
         private readonly IMapper _mapper;
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository)
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
+            _locationRepository = locationRepository;
             _logger = logger;
             _mapper = mapper;
         }
@@ -32,7 +35,10 @@ namespace proyecto_venta_stock.Product.Services
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
-                if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
+                var ubic = productDTO.IdUbicacion == null
+                ? null
+                : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 
                 foreach (var cb in productDTO.CodigoBarras)
@@ -70,7 +76,10 @@ namespace proyecto_venta_stock.Product.Services
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure("categoria_invalida");
 
-                if (productDTO.IdUbicacion == null || !await _productRepository.ExisteUbicacion(productDTO.IdUbicacion.Value))
+                var ubic = productDTO.IdUbicacion == null
+                   ? null
+                   : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 
                 foreach (var cb in productDTO.CodigoBarras)
@@ -108,11 +117,11 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
-        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndUbication()
+        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndLocation()
         {
             try
             {
-                var products = await _productRepository.GetAllWithCategoryAndUbication();
+                var products = await _productRepository.GetAllWithCategoryAndLocation();
                 var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
                 return Result<List<ProductDetailDTO>>.Succes(dtos);
             }
@@ -138,5 +147,30 @@ namespace proyecto_venta_stock.Product.Services
                 return Result<ProductDTO>.Failure("error_inesperado");
             }
         }
+
+        public async Task<Result<bool>> Delete(int idProducto)
+        {
+            try
+            {
+                var existing = await _productRepository.GetById(idProducto);
+                if (existing == null)
+                    return Result<bool>.Failure("product_not_found");
+
+                await _productRepository.Delete(existing);
+                return Result<bool>.Succes(true);
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                // FK en uso (ventas, listas, etc.)
+                _logger.LogWarning(ex, "Product in use, cannot delete");
+                return Result<bool>.Failure("product_in_use");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex);
+                return Result<bool>.Failure("error_inesperado");
+            }
+        }
+
     }
 }

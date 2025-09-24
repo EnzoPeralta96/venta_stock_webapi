@@ -10,7 +10,7 @@ using proyecto_venta_stock.Category.DTO;
 namespace proyecto_venta_stock.Category.CategoryRepository
 {
     public class CategoryRepository : ICategoryRepository
-    { 
+    {
         private readonly VentaStockContext _dbContext;
 
         public CategoryRepository(VentaStockContext dbContext)
@@ -41,7 +41,7 @@ namespace proyecto_venta_stock.Category.CategoryRepository
                     (excludeId == null || c.IdCategoria != excludeId.Value));
         }
 
-/* Consultar si hago uso del AsNoTracking */
+        /* Consultar si hago uso del AsNoTracking */
         public async Task<List<Categorium>> GetAll()
         {
             return await _dbContext.Categoria.AsNoTracking().ToListAsync();
@@ -52,6 +52,11 @@ namespace proyecto_venta_stock.Category.CategoryRepository
             return await _dbContext.Categoria.AsNoTracking().FirstOrDefaultAsync(c => c.IdCategoria == idCategoria);
         }
 
+        public async Task Delete(Categorium category)
+        {
+            _dbContext.Categoria.Remove(category);
+            await _dbContext.SaveChangesAsync();
+        }
         
     }
 }
