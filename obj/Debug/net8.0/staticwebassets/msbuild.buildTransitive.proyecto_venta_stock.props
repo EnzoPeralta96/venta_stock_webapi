@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="..\buildMultiTargeting\proyecto_venta_stock.props" />
-</Project>
