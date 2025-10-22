@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Services;
@@ -29,6 +28,22 @@ public class UserController : ControllerBase
             return NotFound(errorMessage);
         }
 
+        return Ok(result.Value);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers(int pageIndex = 1, string searchTerm = "")
+    {
+        int sizePage = 10;
+        var result = await _userService.UsersPagedAsync(pageIndex, sizePage, searchTerm);
+
+        if (!result.IsSucces)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
+        
         return Ok(result.Value);
     }
 

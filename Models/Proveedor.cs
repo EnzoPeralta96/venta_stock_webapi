@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
-
+﻿namespace proyecto_venta_stock.Models;
 public partial class Proveedor
 {
     public int IdProveedor { get; set; }

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Models;
-
 namespace proyecto_venta_stock.Data;
-
-
 public partial class VentaStockContext : DbContext
 {
     public VentaStockContext()

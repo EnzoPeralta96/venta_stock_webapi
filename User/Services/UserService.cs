@@ -1,4 +1,6 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Services;
@@ -7,7 +9,6 @@ using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
 using venta_stock_webapi.Shared.Paged;
-using venta_stock_webapi.User.Services;
 
 namespace proyecto_venta_stock.User.Services
 {
@@ -17,25 +18,28 @@ namespace proyecto_venta_stock.User.Services
         private readonly IUserRepository _userRepository;
         private readonly IPermissionRepository _permitRepository;
         private readonly IMapper _mapper;
-        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, IPermissionService permissionService)
+        private readonly VentaStockContext _dbContext;
+        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext)
         {
             _userRepository = userRepository;
             _logger = logger;
             _mapper = mapper;
             _permitRepository = permitRepository;
+            _dbContext = dbContext;
         }
 
         public async Task<Result<bool>> CreateAsync(UserCreateDTO userDTO)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 bool userNameExists = await _userRepository.UserNameInUseAsync(userDTO.Nombre);
                 if (userNameExists) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
 
                 bool mailExists = await _userRepository.MailInUseAsync(userDTO.Email);
-                if (mailExists) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
+                if (mailExists) return Result<bool>.Failure(UserErrorCode.user_mail_in_use);
 
-                bool permissions_exists = await _permitRepository.Exists(userDTO.Permisos);
+                bool permissions_exists = await _permitRepository.ExistsAsync(userDTO.Permisos);
                 if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
 
                 var user = _mapper.Map<Usuario>(userDTO);
@@ -50,12 +54,15 @@ namespace proyecto_venta_stock.User.Services
                     FechaAsignacion = DateOnly.FromDateTime(DateTime.Now)
                 }).ToList();
 
-                await _permitRepository.AssingPermision(permissionsUser);
+                await _permitRepository.AssingPermisionAsync(permissionsUser);
+
+                await transaction.CommitAsync();
 
                 return Result<bool>.Succes();
             }
             catch (System.Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(UserErrorCode.unexpected_error);
             }
@@ -63,6 +70,7 @@ namespace proyecto_venta_stock.User.Services
 
         public async Task<Result<bool>> UpdateAsync(UserUpdateDTO userDTO)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 bool exists = await _userRepository.ExistsActive(userDTO.IdUsuario);
@@ -74,16 +82,48 @@ namespace proyecto_venta_stock.User.Services
                 bool mailInUse = await _userRepository.MailInUseAsync(userDTO.IdUsuario, userDTO.Email);
                 if (mailInUse) return Result<bool>.Failure(UserErrorCode.user_mail_in_use);
 
+                bool permissions_exists = await _permitRepository.ExistsAsync(userDTO.Permisos);
+
+                if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
+
                 var user = _mapper.Map<Usuario>(userDTO);
 
                 var row = await _userRepository.UpdateAsync(user);
 
-                if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
+                if (row == 0)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<bool>.Failure(UserErrorCode.user_not_found);
+                }
 
+                var newPermissions = userDTO.Permisos;
+                var currentPermissions = await _permitRepository.GetPermissionsUserAsync(user.IdUsuario);
+
+                //Obtengo los permisos nuevos que no esten en los permisos actuales.
+                var toAdd = newPermissions.Except(currentPermissions).ToList();
+                //Obtengo los permisos viejos que no estan en los permisos actuales.
+                var toRemove = currentPermissions.Except(newPermissions).ToList();
+
+                if (toAdd.Any())
+                {
+                    List<PermisoUsuario> newPermissionsAdd = toAdd.Select(id => new PermisoUsuario
+                    {
+                        IdUsuario = user.IdUsuario,
+                        IdPermiso = id,
+                        FechaAsignacion = DateOnly.FromDateTime(DateTime.Now)
+                    }).ToList();
+
+                    await _permitRepository.AssingPermisionAsync(newPermissionsAdd);
+                }
+
+                if (toRemove.Any()) await _permitRepository.RemovePermissionsAsync(user.IdUsuario, toRemove);
+
+                await transaction.CommitAsync();
                 return Result<bool>.Succes();
             }
             catch (System.Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(UserErrorCode.unexpected_error);
             }
@@ -133,11 +173,11 @@ namespace proyecto_venta_stock.User.Services
         {
             try
             {
-                var query = _userRepository.UsersQueryable(searchTerm);
+                var query = _userRepository.UsersQueryable(searchTerm); //Select ... from usuarios
 
-                var projected = _mapper.ProjectTo<UserDTO>(query);
+                var projected = _mapper.ProjectTo<UserDTO>(query);//  Select id, nombre, usuario, pass, ...,
 
-                var paged = await PagedList<UserDTO>.CreateAsync(projected, pageSize, pageIndex);
+                var paged = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
 
                 return Result<PagedList<UserDTO>>.Succes(paged);
             }

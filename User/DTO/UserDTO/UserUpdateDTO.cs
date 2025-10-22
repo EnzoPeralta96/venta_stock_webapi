@@ -25,5 +25,7 @@ namespace proyecto_venta_stock.User.DTO
 
         [Required(ErrorMessage = "El rol de usuario es requerido")]
         public string Rol { get; set; }
+        public List<int> Permisos { get; set; } = [];
+
     }
 }

@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿
 
 namespace proyecto_venta_stock.Models;
-
 public partial class TipoMovimiento
 {
     public int IdMovimiento { get; set; }
