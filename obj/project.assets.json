@@ -3495,19 +3495,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\enzo_\\.nuget\\packages\\": {}
+    "C:\\Users\\juani\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
+      "projectUniqueName": "C:\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
       "projectName": "proyecto_venta_stock",
-      "projectPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
-      "packagesPath": "C:\\Users\\enzo_\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\obj\\",
+      "projectPath": "C:\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
+      "packagesPath": "C:\\Users\\juani\\.nuget\\packages\\",
+      "outputPath": "C:\\Facultad\\Proyecto\\venta_stock_webapi\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\enzo_\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\juani\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -3584,7 +3584,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.404/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.408/PortableRuntimeIdentifierGraph.json"
       }
     }
   }
