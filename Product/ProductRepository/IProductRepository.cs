@@ -16,10 +16,12 @@ namespace proyecto_venta_stock.Product.ProductRepository
 
         public Task<Producto> GetById(int idProducto);
         public Task<List<Producto>> GetAll();
-        public Task<List<Producto>> GetAllWithCategoryAndLocation();
+        public Task<List<Producto>> GetAllWithCategoryAndLocation(bool? activo = true);
 
         public Task Update(Producto nuevoProducto);
-        
+
         Task Delete(Producto producto);
+
+        IQueryable<Producto> QueryAllWithCategoryAndLocation(bool? activo = true);
     }
 }

@@ -45,9 +45,9 @@ public class ProductController : ControllerBase
         return Ok(result.Value);
     }
     [HttpGet("with-details")]
-    public async Task<IActionResult> GetAllWithDetails()
+    public async Task<IActionResult> GetAllWithDetails([FromQuery] bool? activo = true)
     {
-        var result = await _productServices.GetAllWithCategoryAndLocation();
+        var result = await _productServices.GetAllWithCategoryAndLocation(activo);
         if (!result.IsSucces) return BadRequest(result.ErrosMessage);
         return Ok(result.Value);
     }
@@ -81,5 +81,18 @@ public class ProductController : ControllerBase
 
         return Ok(new { idProducto, activo = result.Value });
     }
+
+    [HttpGet("with-details-paged")]
+    public async Task<IActionResult> GetAllWithDetailsPaged(
+    [FromQuery] int pageIndex = 1,
+    [FromQuery] int pageSize = 9,
+    [FromQuery] bool? activo = true,
+    [FromQuery] string? search = null)
+    {
+        var result = await _productServices.GetAllWithCategoryAndLocationPaged(pageIndex, pageSize, activo, search);
+        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        return Ok(result.Value);
+    }
+
 
 }

@@ -6,6 +6,7 @@ using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Location.LocationRepository;
+using venta_stock_webapi.Shared.Paged;
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
@@ -117,11 +118,11 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
-        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndLocation()
+        public async Task<Result<List<ProductDetailDTO>>> GetAllWithCategoryAndLocation(bool? activo = true)
         {
             try
             {
-                var products = await _productRepository.GetAllWithCategoryAndLocation();
+                var products = await _productRepository.GetAllWithCategoryAndLocation(activo);
                 var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
                 return Result<List<ProductDetailDTO>>.Succes(dtos);
             }
@@ -184,6 +185,43 @@ namespace proyecto_venta_stock.Product.Services
                 return Result<bool>.Failure("error_inesperado");
             }
         }
+
+       public async Task<Result<PagedList<ProductDetailDTO>>> GetAllWithCategoryAndLocationPaged(
+    int pageIndex,
+    int pageSize,
+    bool? activo = true,
+    string? search = null)
+{
+    try
+    {
+        var query = _productRepository.QueryAllWithCategoryAndLocation(activo);
+
+        // aplicar búsqueda si hay
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var lower = search.ToLower();
+            query = query.Where(p =>
+                p.Nombre.ToLower().Contains(lower) ||
+                p.Marca.ToLower().Contains(lower) ||
+                (p.Descripcion != null && p.Descripcion.ToLower().Contains(lower))
+            );
+        }
+
+        var paged = await PagedList<Producto>.CreateAsync(query, pageIndex, pageSize);
+        var dtoItems = _mapper.Map<List<ProductDetailDTO>>(paged.Items);
+
+        var dtoPaged = new PagedList<ProductDetailDTO>(
+            dtoItems, paged.TotalCount, paged.PagedIndex, paged.PageSize);
+
+        return Result<PagedList<ProductDetailDTO>>.Succes(dtoPaged);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError("Error inesperado:" + ex);
+        return Result<PagedList<ProductDetailDTO>>.Failure("error_inesperado");
+    }
+}
+
 
 
     }

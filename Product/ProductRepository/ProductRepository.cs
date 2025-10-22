@@ -35,24 +35,28 @@ namespace proyecto_venta_stock.Product.ProductRepository
         public Task<Producto> GetById(int idProducto)
         {
             return _dbContext.Productos
-                .Where(p => p.Activo) // Asegurar que el producto está activo
                 .Include(p => p.CodigoBarras) // Incluir los códigos de barra relacionados
                 .FirstOrDefaultAsync(p => p.IdProducto == idProducto);
         }
         public Task<List<Producto>> GetAll()
         {
             return _dbContext.Productos
-                .Where(p => p.Activo) 
+                .Where(p => p.Activo)
                 .Include(p => p.CodigoBarras)
                 .ToListAsync();
         }
-        public Task<List<Producto>> GetAllWithCategoryAndLocation()
+        public async Task<List<Producto>> GetAllWithCategoryAndLocation(bool? activo = true)
         {
-            return _dbContext.Productos
-                .Where(p => p.Activo)
-                .Include(p => p.IdCategoriaNavigation)
-                .Include(p => p.IdUbicacionNavigation)
-                .ToListAsync();
+            var query = _dbContext.Productos
+       .Include(p => p.CodigoBarras)
+       .Include(p => p.IdCategoriaNavigation)
+       .Include(p => p.IdUbicacionNavigation)
+       .AsQueryable();
+
+            if (activo.HasValue)
+                query = query.Where(p => p.Activo == activo.Value);
+
+            return await query.ToListAsync();
         }
         public async Task Update(Producto nuevoProducto)
         {
@@ -62,11 +66,26 @@ namespace proyecto_venta_stock.Product.ProductRepository
 
         public async Task Delete(Producto product)
         {
-            // Asegurar eliminación de hijos si no hay cascade configurado
             product.Activo = false;
-
             _dbContext.Productos.Update(product);
             await _dbContext.SaveChangesAsync();
         }
+
+        public IQueryable<Producto> QueryAllWithCategoryAndLocation(bool? activo = true)
+        {
+            var query = _dbContext.Productos
+                .Include(p => p.CodigoBarras)
+                .Include(p => p.IdCategoriaNavigation)
+                .Include(p => p.IdUbicacionNavigation)
+                .AsQueryable();
+
+            if (activo.HasValue)
+                query = query.Where(p => p.Activo == activo.Value);
+
+            return query;
+        }
+
+
     }
+
 }
