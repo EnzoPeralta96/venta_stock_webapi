@@ -33,7 +33,7 @@ namespace proyecto_venta_stock.User.Services
                 if (userNameExists) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
 
                 bool mailExists = await _userRepository.MailInUseAsync(userDTO.Email);
-                if (mailExists) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
+                if (mailExists) return Result<bool>.Failure(UserErrorCode.user_mail_in_use);
 
                 bool permissions_exists = await _permitRepository.Exists(userDTO.Permisos);
                 if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
@@ -133,11 +133,11 @@ namespace proyecto_venta_stock.User.Services
         {
             try
             {
-                var query = _userRepository.UsersQueryable(searchTerm);
+                var query = _userRepository.UsersQueryable(searchTerm); //Select ... from usuarios
 
-                var projected = _mapper.ProjectTo<UserDTO>(query);
+                var projected = _mapper.ProjectTo<UserDTO>(query);//  Select id, nombre, usuario, pass, ...,
 
-                var paged = await PagedList<UserDTO>.CreateAsync(projected, pageSize, pageIndex);
+                var paged = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
 
                 return Result<PagedList<UserDTO>>.Succes(paged);
             }
