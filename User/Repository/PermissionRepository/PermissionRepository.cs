@@ -13,13 +13,13 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
             _dbContext = dbContext;
         }
 
-        public async Task AssingPermision(List<PermisoUsuario> permissionsUser)
+        public async Task AssingPermisionAsync(List<PermisoUsuario> permissionsUser)
         {
             _dbContext.PermisoUsuarios.AddRange(permissionsUser);
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task<bool> Exists(List<int> permissions)
+        public async Task<bool> ExistsAsync(List<int> permissions)
         {
             var permissions_found = await _dbContext.Permisos
                         .Where(p => permissions.Contains(p.IdPermiso))
@@ -35,7 +35,7 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
                 .ToListAsync();
         }
         
-        public Task<List<CategoriaPermiso>> GetPermissions(int? id_category_permission)
+        public Task<List<CategoriaPermiso>> GetPermissionsAsync(int? id_category_permission)
         {
             var query = _dbContext.CategoriaPermisos
                 .Include(c => c.Permisos)
@@ -49,5 +49,24 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
             return query.ToListAsync();
         }
 
+        public Task<List<int>> GetPermissionsUserAsync(int id)
+        {
+            return _dbContext.PermisoUsuarios
+                .AsNoTracking()
+                .Where(u => u.IdUsuario == id)
+                .Select(per => per.IdPermiso)
+                .ToListAsync();
+        }
+
+        public async Task RemovePermissionsAsync(int userId, List<int> toRemove)
+        {
+            var permissionsRemove = await _dbContext.PermisoUsuarios
+                .Where(p => p.IdUsuario == userId && toRemove.Contains(p.IdPermiso))
+                .ToListAsync();
+
+            _dbContext.PermisoUsuarios.RemoveRange(permissionsRemove);
+
+            await _dbContext.SaveChangesAsync(); 
+        }
     }
 }
