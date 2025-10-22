@@ -9,7 +9,6 @@ using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
 using venta_stock_webapi.Shared.Paged;
-using venta_stock_webapi.User.Services;
 
 namespace proyecto_venta_stock.User.Services
 {

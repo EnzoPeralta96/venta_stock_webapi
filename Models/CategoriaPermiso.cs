@@ -1,4 +1,3 @@
-
 namespace proyecto_venta_stock.Models;
 public partial class CategoriaPermiso
 {
