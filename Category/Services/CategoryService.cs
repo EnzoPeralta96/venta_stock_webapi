@@ -4,6 +4,7 @@ using proyecto_venta_stock.Services;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Category.DTO;
 using proyecto_venta_stock.Category.CategoryRepository;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.Category.Services
 {
@@ -126,6 +127,11 @@ namespace proyecto_venta_stock.Category.Services
                 _logger.LogError(ex, "Unexpected");
                 return Result<bool>.Failure("error_inesperado");
             }
+        }
+
+        public Task<Result<PagedList<CategoryDetailDTO>>> GetAllWithCategoryAndLocationPaged(int pageIndex, int pageSize, bool? activo = true, string search = null)
+        {
+            throw new NotImplementedException();
         }
     }
 }
