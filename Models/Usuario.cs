@@ -6,6 +6,7 @@ public partial class Usuario
     public string Usuario1 { get; set; } = null!;
 
     public string Password { get; set; } = null!;
+    
     public string Nombre { get; set; }
 
     public string Apellido { get; set; }

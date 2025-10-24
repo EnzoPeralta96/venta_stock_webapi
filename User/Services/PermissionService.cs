@@ -34,5 +34,5 @@ namespace venta_stock_webapi.User.Services
                 throw;
             }
         }
-    }
+    }   
 }

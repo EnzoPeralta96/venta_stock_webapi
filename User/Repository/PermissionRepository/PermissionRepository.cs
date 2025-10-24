@@ -28,12 +28,6 @@ namespace proyecto_venta_stock.User.Repository.PermitRepository
 
             return permissions.All(id => permissions_found.Contains(id));
         }
-        public Task<List<Permiso>> GetPermissions(int id_category_permission)
-        {
-            return _dbContext.Permisos
-                .Where(p => p.IdCategoriaPermiso == id_category_permission)
-                .ToListAsync();
-        }
         
         public Task<List<CategoriaPermiso>> GetPermissionsAsync(int? id_category_permission)
         {
