@@ -169,24 +169,34 @@ namespace proyecto_venta_stock.User.Services
             }
         }
 
-        public async Task<Result<PagedList<UserDTO>>> UsersPagedAsync(int pageIndex, int pageSize, string searchTerm)
+        public async Task<Result<PagedList<UserDTO>>> UsersPagedAsync(int pageIndex, int pageSize, string searchTerm, string estado = "activos")
         {
             try
             {
-                var query = _userRepository.UsersQueryable(searchTerm); //Select ... from usuarios
+                // Base query desde el repositorio
+                var query = _userRepository.UsersQueryable(searchTerm);
 
-                var projected = _mapper.ProjectTo<UserDTO>(query);//  Select id, nombre, usuario, pass, ...,
+                // 🔹 Filtro por estado
+                if (estado.ToLower() == "activos")
+                    query = query.Where(u => u.FechaBaja == null);
+                else if (estado.ToLower() == "eliminados")
+                    query = query.Where(u => u.FechaBaja != null);
 
+                // 🔹 Proyección
+                var projected = _mapper.ProjectTo<UserDTO>(query);
+
+                // 🔹 Paginación
                 var paged = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
 
                 return Result<PagedList<UserDTO>>.Succes(paged);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex.ToString());
+                _logger.LogError("Error inesperado: " + ex);
                 return Result<PagedList<UserDTO>>.Failure(UserErrorCode.unexpected_error);
             }
         }
+
 
     }
 }
