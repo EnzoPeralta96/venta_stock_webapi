@@ -27,7 +27,9 @@ namespace proyecto_venta_stock.User.UserRepository
                 query = query.Where(
                     c => c.Apellido.ToLower().Contains(searchTerm) ||
                     c.Nombre.ToLower().Contains(searchTerm) ||
-                    (c.Nombre + " " + c.Apellido).ToLower().Contains(searchTerm)
+                    (c.Nombre + " " + c.Apellido).ToLower().Contains(searchTerm) ||
+                    c.Email.ToLower().Contains(searchTerm) ||
+                    c.Rol.ToLower().Contains(searchTerm)
                 );
             }
             return query;
