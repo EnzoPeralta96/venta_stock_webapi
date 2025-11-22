@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
-using proyecto_venta_stock.Services;
-using proyecto_venta_stock.User.Services;
-using proyecto_venta_stock.User.UserRepository;
+using venta_stock_webapi.Cliente.Repository;
+using venta_stock_webapi.Cliente.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,9 +21,10 @@ builder.Services.AddDbContext<VentaStockContext>(
 
 builder.Services.AddAutoMapper(typeof(Program));
 
-builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IAccountMovementRepository, AccountMovementRepository>();
 
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
 
 
 

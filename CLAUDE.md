@@ -176,6 +176,124 @@ Controllers check `result.IsSucces` and return appropriate HTTP responses based 
 ### AutoMapper Configuration
 AutoMapper is configured globally in `Program.cs:22` with `typeof(Program)` to scan for all Profile classes. Entity-to-DTO mappings are defined in feature-specific Profile classes (e.g., `User/Profile/UserProfile.cs`).
 
+### MessageProvider Pattern
+The project uses a centralized message provider system (`Shared/MessageProvider/MessageProvider.cs`) to convert error codes into user-friendly messages for API responses.
+
+**Implementation per feature** (e.g., `Cliente/Message/ClienteErrorCode.cs`):
+```csharp
+// 1. Define error code enum
+public enum ClienteErrorCode
+{
+    cliente_not_found,
+    dni_in_use,
+    email_in_use,
+    unexpected_error
+}
+
+// 2. Create static dictionary with friendly messages
+public static class ClienteErrorDictionary
+{
+    public static readonly Dictionary<ClienteErrorCode, string> Messages = new()
+    {
+        { ClienteErrorCode.cliente_not_found, "El cliente indicado no existe." },
+        { ClienteErrorCode.dni_in_use, "El DNI ya está registrado." },
+        { ClienteErrorCode.email_in_use, "El correo electrónico ya está en uso." },
+        { ClienteErrorCode.unexpected_error, "Ocurrió un error inesperado, por favor intente nuevamente." }
+    };
+}
+```
+
+**Usage in Controllers**:
+```csharp
+if (!result.IsSucces)
+{
+    var code = (ClienteErrorCode)result.ErrorCode;
+    var errorMessage = MessageProvider.Get(ClienteErrorDictionary.Messages, code);
+    return NotFound(errorMessage); // Returns friendly message to API client
+}
+```
+
+**Pattern Benefits**:
+- Centralized error message management
+- Type-safe error codes
+- Easy to maintain and update messages
+- Consistent error responses across all endpoints
+
+### PagedList Pattern
+The project implements a generic pagination system (`Shared/Paged/PagedList.cs`) for all list endpoints.
+
+**PagedList Properties**:
+- `Items` - List of items for current page
+- `PagedIndex` - Current page number
+- `PageSize` - Items per page
+- `TotalPages` - Total number of pages
+- `TotalCount` - Total number of items
+- `HasPrevioPage` - Boolean indicating if previous page exists
+- `HasNextPage` - Boolean indicating if next page exists
+
+**Implementation in Services**:
+```csharp
+public async Task<Result<PagedList<ClienteDTO>>> ClientesPagedAsync(
+    int pageIndex,
+    int pageSize,
+    string searchTerm,
+    string estado = "activos")
+{
+    try
+    {
+        // 1. Get base queryable from repository
+        var query = _clienteRepository.ClientesQueryable(searchTerm);
+
+        // 2. Apply filters
+        if (estado.ToLower() == "activos")
+            query = query.Where(c => c.FechaBaja == null);
+        else if (estado.ToLower() == "eliminados")
+            query = query.Where(c => c.FechaBaja != null);
+
+        // 3. Project to DTO using AutoMapper
+        var projected = _mapper.ProjectTo<ClienteDTO>(query);
+
+        // 4. Create paginated result
+        var paged = await PagedList<ClienteDTO>.CreateAsync(projected, pageIndex, pageSize);
+
+        return Result<PagedList<ClienteDTO>>.Succes(paged);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError("Error inesperado: " + ex);
+        return Result<PagedList<ClienteDTO>>.Failure(ClienteErrorCode.unexpected_error);
+    }
+}
+```
+
+**Controller Endpoint Example**:
+```csharp
+[HttpGet("search")]
+public async Task<IActionResult> SearchClientes(
+    int pageIndex = 1,
+    string searchTerm = "",
+    string estado = "activos")
+{
+    int pageSize = 10;
+    var result = await _clienteService.ClientesPagedAsync(pageIndex, pageSize, searchTerm, estado);
+
+    if (!result.IsSucces)
+    {
+        var code = (ClienteErrorCode)result.ErrorCode;
+        var errorMessage = MessageProvider.Get(ClienteErrorDictionary.Messages, code);
+        return NotFound(errorMessage);
+    }
+
+    return Ok(result.Value); // Returns PagedList<ClienteDTO> with metadata
+}
+```
+
+**Pattern Benefits**:
+- Consistent pagination across all features
+- Includes navigation metadata (HasNextPage, TotalPages, etc.)
+- Efficient database queries using Skip/Take
+- Generic implementation works with any entity type
+
 ## Domain Model Overview
 
 ### Core Entities

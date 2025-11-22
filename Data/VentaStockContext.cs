@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Models;
-
 namespace proyecto_venta_stock.Data;
-
 
 public partial class VentaStockContext : DbContext
 {
@@ -53,10 +49,7 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Ventum> Venta { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=shuttle.proxy.rlwy.net;Port=23500;Database=railway;Username=postgres;Password=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH");
-
+    public virtual DbSet<ConfiguracionCc> ConfiguracionCcs { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Categorium>(entity =>
@@ -510,6 +503,19 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Venta)
                 .HasForeignKey(d => d.IdUsuario)
                 .HasConstraintName("venta_id_usuario_fkey");
+        });
+
+        modelBuilder.Entity<ConfiguracionCc>(e =>
+        {
+            e.ToTable("configuracion_cc");
+            e.HasKey(x => x.IdConfig);
+            e.Property(x => x.IdConfig).HasColumnName("id_config");
+            e.Property(x => x.Nombre).HasColumnName("nombre").IsRequired();
+            e.Property(x => x.MontoLimite).HasColumnName("monto_limite").HasPrecision(18, 2);
+            e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+            e.HasIndex(x => x.Nombre).IsUnique();
+            // EF Core permite check constraints:
+            e.ToTable(t => t.HasCheckConstraint("CK_configuracion_cc_monto_limite", "monto_limite > 0"));
         });
 
         OnModelCreatingPartial(modelBuilder);

@@ -1,11 +1,1 @@
-{
-  "Version": 1,
-  "Hash": "brxt4FgL14OIfRhOuRQGWe5DBZ70P6p6qZp60r257j0=",
-  "Source": "proyecto_venta_stock",
-  "BasePath": "_content/proyecto_venta_stock",
-  "Mode": "Default",
-  "ManifestType": "Build",
-  "ReferencedProjectsConfiguration": [],
-  "DiscoveryPatterns": [],
-  "Assets": []
-}
+{"Version":1,"Hash":"nlw9Lzf8zoTjZ2AvvdUm9quEGQt5713RRswBIlkL9As=","Source":"proyecto_venta_stock","BasePath":"/","Mode":"Root","ManifestType":"Build","ReferencedProjectsConfiguration":[],"DiscoveryPatterns":[],"Assets":[],"Endpoints":[]}
