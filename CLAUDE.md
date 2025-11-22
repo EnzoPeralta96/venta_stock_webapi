@@ -6,6 +6,105 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a sales and inventory management Web API built with ASP.NET Core 8.0. The system manages products, sales, purchases, customers, suppliers, and user permissions for a stock management system.
 
+**Project Context**: Final university project for "Programador Universitario" degree. Backend developed by Enzo (student developer with medium/advanced technical knowledge), frontend in React by teammate.
+
+## Developer Profile (Enzo)
+
+### Academic Background
+University programming student in final stage - all courses completed, working on final project.
+
+### Technical Knowledge
+
+**Databases** (Medium/Advanced):
+- SQL databases: SQLite, PostgreSQL, MySQL
+- Database analysis, design, and implementation
+- Simple, medium, and complex SQL queries
+- Stored procedures and functions
+- Transactions, triggers, indexes for query optimization
+- Data type definitions, views
+
+**Programming Languages**:
+- **C** (Advanced): Structured programming up to double pointers, basic file handling (open, read, write), data structures (linked lists, stacks, queues, binary trees), console systems using data structures, threads, MPI implementations (e.g., parallelization of numerical methods)
+- **C++** (Strong): Console management systems using OOP and SOLID principles
+- **C#/.NET** (Strong): Console applications using OOP and SOLID principles, REST API consumption, RESTful Web API development, MVC web applications, client-server applications
+- **Python**: Numerical methods (polynomial roots, linear equation systems, interpolation, quadrature, linear regression, trigonometric approximation/Fourier series, ODEs with IVP), data science (data analysis, exploration, clustering, neural networks including RNNs)
+- **Web**: HTML, CSS, JavaScript (very basic), PHP (not used recently, but created a small shopping cart sales system)
+
+**Software Engineering**:
+- Medium/high proficiency in OOP
+- Theoretical knowledge of software architectures
+- Design patterns: Result, Observer, Singleton, State, Template, Factory, Strategy, Repository
+- Unit testing with XUnit (C#)
+
+**Additional Knowledge**:
+- Communications: OSI model, TCP/IP
+- Operating Systems (theory): Processes, memory scheduling, process scheduling, concurrency, deadlock, virtualization
+
+### Coding Style & Architectural Preferences
+
+**Technology Stack**:
+- Backend: .NET 7/8 (C#)
+- Database: PostgreSQL with EF Core
+- Architecture: Strict layered architecture (Controllers → Services → Repositories → DTOs)
+- Patterns: Result Pattern, Repository Pattern, AutoMapper
+- Authentication: JWT with roles and permissions
+
+**Implemented System Modules**:
+- **Usuarios y Permisos**: Roles, permission categories, claims, JWT authentication
+- **Productos**: Categories, locations, stock history, stock movements
+- **Compras y Ventas**: Complete stock update logic, validations, automatic calculations
+- **Cuenta Corriente**: Movements, balances, payments, debts
+- **Auditoría**: Timestamps, user tracking, traceability
+- **Reportes**: Advanced queries using LINQ and expressions
+
+**Coding Principles**:
+- Use DTOs for all input/output
+- Clean AutoMapper Profiles
+- **Keep business logic in Services, NEVER in Controllers**
+- Abstract Repositories with interfaces
+- Error handling with `Result<T>` or typed responses
+- Clean, readable, predictable, and well-structured code
+
+**EF Core Practices**:
+- Migrations and well-defined relationships
+- Fluent API for complex configurations
+- Advanced LINQ queries
+- Optimized queries with `.Include()` and `.AsNoTracking()`
+
+### Code Generation Expectations
+
+When generating code for this project:
+
+**Models**: Classes with validations and attributes
+
+**DTOs**: Clear separation between input/output DTOs
+
+**Services**:
+- Complete business logic implementation
+- All necessary validations
+- Calculations and transformations
+- No repository implementation details exposed
+
+**Repositories**:
+- Optimized LINQ queries
+- Use `.Include()` for eager loading
+- Use `.AsNoTracking()` for read-only operations
+- Return only necessary data
+
+**Controllers**:
+- Minimalist endpoints
+- Only call service methods
+- Return appropriate HTTP status codes
+- Zero business logic
+
+**Mappings**: Clear and explicit AutoMapper Profile configurations
+
+**General**:
+- Suggest architectural improvements when appropriate
+- Complete missing implementations assuming project best practices
+- Follow existing patterns consistently
+- Maintain strict separation of concerns
+
 ## Essential Commands
 
 ### Build and Run
@@ -102,11 +201,124 @@ AutoMapper is configured globally in `Program.cs:22` with `typeof(Program)` to s
 
 PostgreSQL connection is configured in `appsettings.json` under `ConnectionStrings:PostgresSQLConnection`. The database is hosted on Railway (postgres.railway.internal).
 
+## System Requirements & Documentation
+
+### User Roles & Permissions
+
+**Roles**:
+- **Administrador Principal**: Full system access, cannot be deleted, manages all users and permissions
+- **Encargado de Precios**: Product management, pricing, stock control, supplier price lists
+- **Vendedor**: Sales, customer management, invoice generation, stock queries
+
+**Permission System**: Fine-grained permissions organized by categories (Gestión de Usuarios, Ventas y Finanzas, Reportes y Auditoría)
+
+### Core Business Rules
+
+**Products (Productos)**:
+- Each product has: name, brand, category, location (warehouse), price, stock, minimum stock level
+- Multiple barcodes per product supported
+- Products can be configured for "sell without stock"
+- Warehouse location format: `Fila-Sección-Nivel` (e.g., "01 A 01")
+- Logical deletion (soft delete) - products marked as inactive
+
+**Customers (Clientes)**:
+- Supports both individuals (DNI) and businesses (CUIT/Razón Social)
+- Payment types: Cash (Contado) or Current Account (Cuenta Corriente)
+- Current account includes credit limit management
+- Logical deletion
+
+**Sales (Ventas)**:
+- Automatic stock update on sale
+- Credit limit validation for current account customers
+- Administrator can authorize sales exceeding credit limits (requires explicit approval)
+- Invoices must show total in both numbers and words
+- All sales tracked with timestamp and responsible user
+
+**Current Account (Cuenta Corriente)**:
+- Tracks: Invoices, Debit Notes (ND), Credit Notes (NC), Payment Receipts (RP)
+- Automatic debit notes for overdue invoices
+- Complete movement history per customer
+
+**Stock Management**:
+- Low stock notifications (email + UI list)
+- Stock updates when receiving merchandise
+- Optional sell-without-stock configuration per product
+- Stock history tracking
+
+**Audit & Traceability**:
+- All important actions logged (user, timestamp, action, affected entity)
+- Accessible only to users with audit permissions
+- Enables complete operation traceability
+
+### Search Functionality
+
+Domain-specific search (not a global search):
+- **Users**: by name, last name, email, role
+- **Clients**: by name, DNI, phone, email
+- **Products**: by name, category, barcode, location
+- **Sales**: by receipt number, customer, date range, amount
+
+All searches are reactive and show partial results as user types.
+
+### Non-Functional Requirements
+
+- **Response Time**: Max 1.5s for simple operations, max 3s for complex operations (reports, exports)
+- **Availability**: 100% during business hours (8:00 AM - 6:00 PM, Monday-Friday)
+- **Security**: HTTPS only, JWT authentication, encrypted sensitive data, SQL injection protection
+- **Data Validation**: All inputs validated before storage
+- **Export Formats**: PDF and Excel for reports and listings
+
 ## Current Implementation Status
 
-The User management feature is partially implemented:
-- User creation endpoint: `POST /User`
-- Validation for duplicate usernames and emails
-- AutoMapper integration for UserDTO to Usuario mapping
+### Implemented Features
+- **User Management**: Partially implemented
+  - User creation endpoint: `POST /User`
+  - Validation for duplicate usernames and emails
+  - AutoMapper integration for UserDTO to Usuario mapping
 
-**Note**: There's a potential bug in `User/Repository/UserRepository/UserRepository.cs` at lines 27 and 32 - the `Exists` and `MailInUse` methods check for `FechaBaja != null` which would only find deleted users. This should likely be `FechaBaja == null` to find active users.
+- **Products**: Partially implemented (according to git history)
+
+### Known Issues & Bugs
+
+**Note**: Bug in `main` branch - `User/Repository/UserRepository/UserRepository.cs:27` and `:32`:
+- The `Exists` and `MailInUse` methods check for `FechaBaja != null` (deleted users)
+- Should be `FechaBaja == null` to find active users
+- **✅ This is correctly implemented in `dev_user` branch**
+
+### Next Implementation: Clientes (Customers)
+
+When implementing the Customer CRUD (RF004.1), follow the established architecture:
+
+**Structure to Create**:
+```
+Cliente/
+├── Controllers/
+│   └── ClienteController.cs
+├── Services/
+│   ├── IClienteService.cs
+│   └── ClienteService.cs
+├── Repository/
+│   ├── IClienteRepository.cs
+│   └── ClienteRepository.cs
+├── DTO/
+│   ├── ClienteCreateDTO.cs
+│   ├── ClienteUpdateDTO.cs
+│   └── ClienteResponseDTO.cs
+└── Profile/
+    └── ClienteProfile.cs
+```
+
+**Key Validations**:
+- DNI or CUIT must be unique
+- Email must be unique (if provided)
+- Either DNI/Nombre/Apellido OR CUIT/Razón Social must be provided
+- Logical deletion only (set FechaBaja, never physical delete)
+- Validate credit limit if cuenta corriente is enabled
+
+**Search Criteria**: nombre, DNI, teléfono, email
+
+**Remember**:
+- Register all operations in audit history
+- Use Result<T> pattern for all service methods
+- Keep controllers thin - business logic in services only
+- Use `.AsNoTracking()` for read-only queries

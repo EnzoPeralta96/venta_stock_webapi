@@ -3495,24 +3495,31 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\enzo_\\.nuget\\packages\\": {}
+    "C:\\Users\\enzo_\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
+      "projectUniqueName": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\ProyectoFinal\\venta_stock_webapi\\proyecto_venta_stock.csproj",
       "projectName": "proyecto_venta_stock",
-      "projectPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\proyecto_venta_stock.csproj",
+      "projectPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\ProyectoFinal\\venta_stock_webapi\\proyecto_venta_stock.csproj",
       "packagesPath": "C:\\Users\\enzo_\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\Proyecto\\venta_stock_webapi\\obj\\",
+      "outputPath": "C:\\Users\\enzo_\\OneDrive\\Documentos\\Facultad\\ProyectoFinal\\venta_stock_webapi\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
       "configFilePaths": [
-        "C:\\Users\\enzo_\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\enzo_\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -3530,7 +3537,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net8.0": {
@@ -3576,6 +3584,24 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.22, 8.0.22]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.win-x64",
+            "version": "[8.0.22, 8.0.22]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.22, 8.0.22]"
+          },
+          {
+            "name": "Microsoft.WindowsDesktop.App.Ref",
+            "version": "[8.0.22, 8.0.22]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -3584,7 +3610,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.404/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.100/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

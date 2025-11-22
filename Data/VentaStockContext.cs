@@ -426,7 +426,7 @@ public partial class VentaStockContext : DbContext
                 .HasDefaultValueSql("nextval('tipomovimiento_id_movimiento_seq'::regclass)")
                 .HasColumnName("id_movimiento");
             entity.Property(e => e.Accion)
-                .HasMaxLength(20)
+                .HasMaxLength(150)
                 .HasColumnName("accion");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(50)
