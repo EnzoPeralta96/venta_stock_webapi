@@ -1,11 +1,11 @@
-namespace proyecto_venta_stock.Models
+
+namespace venta_stock_webapi.CurrentAccount.DTO
 {
-    public partial class ConfiguracionCc
+    public class AccountConfigDTO
     {
         public int IdConfig { get; set; }
         public string Nombre { get; set; } = null!;
         public decimal MontoLimite { get; set; }
-        public bool Activo { get; set; } = true;
-    }   
+        public bool Activo { get; set; }
+    }
 }
-

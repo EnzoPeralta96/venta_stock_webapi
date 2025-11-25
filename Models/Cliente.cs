@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
+﻿namespace proyecto_venta_stock.Models;
 
 public partial class Cliente
 {
@@ -20,6 +17,9 @@ public partial class Cliente
     public string? Telefono { get; set; }
 
     public string? Mail { get; set; }
+
+    public DateOnly? FechaAlta {get; set;}
+    public DateOnly? FechaBaja { get; set; }
 
     public virtual ICollection<MovimientoCc> MovimientoCcs { get; set; } = new List<MovimientoCc>();
 

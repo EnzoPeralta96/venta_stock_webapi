@@ -95,6 +95,10 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(20)
                 .HasColumnName("telefono");
+            entity.Property(e => e.FechaAlta)
+                .HasColumnName("fecha_alta");
+            entity.Property(e => e.FechaBaja)
+                .HasColumnName("fecha_baja");
         });
 
         modelBuilder.Entity<CodigoBarra>(entity =>

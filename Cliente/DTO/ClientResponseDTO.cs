@@ -1,6 +1,6 @@
-namespace venta_stock_webapi.Cliente.DTO
+namespace venta_stock_webapi.Client.DTO
 {
-    public class ClienteUpdateDTO
+    public class ClientResponseDTO
     {
         public int IdCliente { get; set; }
         public string Nombre { get; set; }
@@ -10,5 +10,7 @@ namespace venta_stock_webapi.Cliente.DTO
         public string Cuit { get; set; }
         public string Telefono { get; set; }
         public string Mail { get; set; }
+        public bool EsEmpresa { get; set; }
+        public bool TieneCuentaCorriente { get; set; }
     }
 }
