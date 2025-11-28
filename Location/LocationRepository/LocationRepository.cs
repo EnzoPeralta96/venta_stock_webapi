@@ -18,55 +18,113 @@ namespace proyecto_venta_stock.Location.LocationRepository
             _dbContext = dbContext;
         }
 
-        public async Task Create(Ubicacion ubicacion)
+        // 🔍 Devuelve un IQueryable filtrado y ordenado
+        public IQueryable<Ubicacion> LocationsQueryable(string searchTerm, bool activos)
         {
-            await _dbContext.Ubicacions.AddAsync(ubicacion);
+            var query = _dbContext.Ubicacions
+                .AsNoTracking()
+                .Where(u => u.Activo == activos);
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                var term = searchTerm.Trim();
+
+                // Soporte patrón "Seccion-Fila-Nivel" (ej: A-3-2)
+                var parts = term.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                if (parts.Length == 3)
+                {
+                    var sec = parts[0];
+                    int? fila = int.TryParse(parts[1], out var f) ? f : null;
+                    int? nivel = int.TryParse(parts[2], out var n) ? n : null;
+
+                    query = query.Where(u =>
+                        (string.IsNullOrEmpty(sec) || (u.Seccion != null && EF.Functions.ILike(u.Seccion, $"%{sec}%"))) &&
+                        (!fila.HasValue || (u.Fila.HasValue && u.Fila == fila.Value)) &&
+                        (!nivel.HasValue || (u.Nivel.HasValue && u.Nivel == nivel.Value))
+                    );
+                }
+                else
+                {
+                    // Búsqueda general: Seccion contiene, o Fila/Nivel igual al número si term es numérico
+                    int? number = int.TryParse(term, out var n) ? n : null;
+
+                    query = query.Where(u =>
+                        (u.Seccion != null && EF.Functions.ILike(u.Seccion, $"%{term}%")) ||
+                        (number.HasValue && u.Fila.HasValue && u.Fila == number.Value) ||
+                        (number.HasValue && u.Nivel.HasValue && u.Nivel == number.Value)
+                    );
+                }
+            }
+
+            return query
+                .OrderBy(u => u.Seccion)
+                .ThenBy(u => u.Fila)
+                .ThenBy(u => u.Nivel);
+        }
+
+        // 🧱 Crear
+        public async Task CreateAsync(Ubicacion ubicacion)
+        {
+            _dbContext.Ubicacions.Add(ubicacion);
             await _dbContext.SaveChangesAsync();
         }
 
-        
-
-        public Task<bool> Exists(int fila, string seccion, int nivel)
-        {
-            var sec = (seccion ?? string.Empty).Trim().ToUpper();
-            return _dbContext.Ubicacions.AnyAsync(u =>
-                u.Fila == fila &&
-                u.Nivel == nivel &&
-                u.Seccion != null && u.Seccion.ToUpper() == sec);
-        }
-
-        public Task<bool> ExistsExceptId(int idUbicacion, int fila, string seccion, int nivel)
-        {
-            var sec = (seccion ?? string.Empty).Trim().ToUpper();
-            return _dbContext.Ubicacions.AnyAsync(u =>
-                u.IdUbicacion != idUbicacion &&
-                u.Fila == fila &&
-                u.Nivel == nivel &&
-                u.Seccion != null && u.Seccion.ToUpper() == sec);
-        }
-
-
-        public async Task<List<Ubicacion>> GetAll()
-        {
-            return await _dbContext.Ubicacions.ToListAsync();
-        }
-
-        public Task<Ubicacion> GetById(int idUbicacion)
-        {
-            return _dbContext.Ubicacions.FirstOrDefaultAsync(u => u.IdUbicacion == idUbicacion);
-        }
-
-        public async Task Update(Ubicacion ubicacion)
+        // ✏️ Actualizar
+        public async Task UpdateAsync(Ubicacion ubicacion)
         {
             _dbContext.Ubicacions.Update(ubicacion);
             await _dbContext.SaveChangesAsync();
         }
-        public async Task Delete(Ubicacion ubicacion)
+
+        // 🔍 Obtener por ID
+        public async Task<Ubicacion?> GetByIdAsync(int id)
         {
-            _dbContext.Ubicacions.Remove(ubicacion);
-            await _dbContext.SaveChangesAsync();
+            return await _dbContext.Ubicacions
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.IdUbicacion == id);
         }
 
-        
+        // ❌ Borrado lógico
+        public async Task DeleteAsync(int id)
+        {
+            var ubicacion = await _dbContext.Ubicacions.FindAsync(id);
+            if (ubicacion != null)
+            {
+                ubicacion.Activo = false;
+                await _dbContext.SaveChangesAsync();
+            }
+        }
+
+        // 🔄 Toggle Activo/Inactivo
+        public async Task ToggleActivoAsync(int id)
+        {
+            var ubicacion = await _dbContext.Ubicacions.FindAsync(id);
+            if (ubicacion != null)
+            {
+                ubicacion.Activo = !ubicacion.Activo;
+                await _dbContext.SaveChangesAsync();
+            }
+        }
+
+        public async Task<bool> ExistsAsync(int fila, string seccion, int nivel)
+        {
+            return await _dbContext.Ubicacions.AnyAsync(u =>
+                u.Fila == fila &&
+                u.Seccion.ToLower() == seccion.ToLower() &&
+                u.Nivel == nivel &&
+                u.Activo);
+        }
+
+        public async Task<bool> ExistsExceptIdAsync(int id, int fila, string seccion, int nivel)
+        {
+            return await _dbContext.Ubicacions.AnyAsync(u =>
+                u.IdUbicacion != id &&
+                u.Fila == fila &&
+                u.Seccion.ToLower() == seccion.ToLower() &&
+                u.Nivel == nivel &&
+                u.Activo);
+        }
+
+
     }
 }

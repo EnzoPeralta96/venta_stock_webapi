@@ -38,7 +38,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 var ubic = productDTO.IdUbicacion == null
                 ? null
-                : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
                 if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 
@@ -79,7 +79,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 var ubic = productDTO.IdUbicacion == null
                    ? null
-                   : await _locationRepository.GetById(productDTO.IdUbicacion.Value);
+                   : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
                 if (ubic == null)
                     return Result<bool>.Failure("ubicacion_invalida");
 

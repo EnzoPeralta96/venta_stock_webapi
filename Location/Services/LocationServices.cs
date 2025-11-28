@@ -3,10 +3,11 @@ using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Location.DTO;
 using proyecto_venta_stock.Location.LocationRepository;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.Location.Services
 {
-    public class LocationServices : ILocationServices
+    public class LocationServices : ILocationService
     {
         private readonly ILogger<LocationServices> _logger;
         private readonly ILocationRepository _locationRepository;
@@ -17,105 +18,118 @@ namespace proyecto_venta_stock.Location.Services
             _logger = logger;
             _mapper = mapper;
         }
-        public async Task<Result<bool>> Create(LocationDTO locationDTO)
+       public async Task<Result<PagedList<LocationDTO>>> SearchAsync(int pageIndex, int pageSize, string searchTerm, bool activos)
         {
             try
             {
-                bool locationExists = await _locationRepository.Exists(locationDTO.Fila, locationDTO.Seccion, locationDTO.Nivel);
-                if (locationExists)
-                {
-                    _logger.LogWarning("Location already exists");
-                    return Result<bool>.Failure("location_already_exists");
-                }
-
-                var location = _mapper.Map<Ubicacion>(locationDTO);
-                await _locationRepository.Create(location);
-                return Result<bool>.Succes(true);
+                var query = _locationRepository.LocationsQueryable(searchTerm, activos);
+                var projected = _mapper.ProjectTo<LocationDTO>(query);
+                var paged = await PagedList<LocationDTO>.CreateAsync(projected, pageIndex, pageSize);
+                return Result<PagedList<LocationDTO>>.Succes(paged);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<bool>.Failure("error_inesperado");
+                _logger.LogError(ex, "Error al listar ubicaciones");
+                return Result<PagedList<LocationDTO>>.Failure("unexpected_error");
             }
         }
 
-        public async Task<Result<List<LocationDTO>>> GetAll()
+        // 🔎 Obtener ubicación por ID
+        public async Task<Result<LocationDTO>> GetByIdAsync(int id)
         {
             try
             {
-                var locations = await _locationRepository.GetAll();
-                var locationDTOs = _mapper.Map<List<LocationDTO>>(locations);
-                return Result<List<LocationDTO>>.Succes(locationDTOs);
+                var ubicacion = await _locationRepository.GetByIdAsync(id);
+                if (ubicacion == null)
+                    return Result<LocationDTO>.Failure("location_not_found");
+
+                var dto = _mapper.Map<LocationDTO>(ubicacion);
+                return Result<LocationDTO>.Succes(dto);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<List<LocationDTO>>.Failure("error_inesperado");
+                _logger.LogError(ex, "Error al obtener ubicación");
+                return Result<LocationDTO>.Failure("unexpected_error");
             }
         }
 
-        public async Task<Result<LocationDTO>> GetById(int idUbicacion)
+        // ➕ Crear ubicación
+        public async Task<Result<LocationDTO>> CreateAsync(LocationCreateUpdateDTO dto)
         {
             try
             {
-                var location = await _locationRepository.GetById(idUbicacion);
-                if (location == null) return Result<LocationDTO>.Failure("location_not_found");
-                var locationDTO = _mapper.Map<LocationDTO>(location);
-                return Result<LocationDTO>.Succes(locationDTO);
+                var exists = await _locationRepository.ExistsAsync(dto.Fila, dto.Seccion, dto.Nivel);
+                if (exists)
+                    return Result<LocationDTO>.Failure("duplicate_location");
+
+                var ubicacion = _mapper.Map<Ubicacion>(dto);
+                ubicacion.Activo = true;
+
+                await _locationRepository.CreateAsync(ubicacion);
+
+                var created = _mapper.Map<LocationDTO>(ubicacion);
+                return Result<LocationDTO>.Succes(created);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<LocationDTO>.Failure("error_inesperado");
+                _logger.LogError(ex, "Error al crear ubicación");
+                return Result<LocationDTO>.Failure("unexpected_error");
             }
         }
 
-        public async Task<Result<bool>> Update(LocationDTO locationDTO)
+        // ✏️ Actualizar ubicación
+        public async Task<Result<LocationDTO>> UpdateAsync(int id, LocationCreateUpdateDTO dto)
         {
             try
             {
-                var existingLocation = await _locationRepository.GetById(locationDTO.IdUbicacion);
-                if (existingLocation == null)
-                    return Result<bool>.Failure("location_not_found");
+                var ubicacion = await _locationRepository.GetByIdAsync(id);
+                if (ubicacion == null)
+                    return Result<LocationDTO>.Failure("location_not_found");
 
-                // validar unicidad (fila, seccion, nivel) excluyendo este Id
-                if (await _locationRepository.ExistsExceptId(locationDTO.IdUbicacion, locationDTO.Fila, locationDTO.Seccion, locationDTO.Nivel))
-                    return Result<bool>.Failure("location_already_exists");
+                var exists = await _locationRepository.ExistsExceptIdAsync(id, dto.Fila, dto.Seccion, dto.Nivel);
+                if (exists)
+                    return Result<LocationDTO>.Failure("duplicate_location");
 
-                // aplicar cambios sobre la entidad existente (trackeada)
-                _mapper.Map(locationDTO, existingLocation);
+                _mapper.Map(dto, ubicacion);
+                await _locationRepository.UpdateAsync(ubicacion);
 
-                await _locationRepository.Update(existingLocation);
+                var updated = _mapper.Map<LocationDTO>(ubicacion);
+                return Result<LocationDTO>.Succes(updated);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al actualizar ubicación");
+                return Result<LocationDTO>.Failure("unexpected_error");
+            }
+        }
+
+        // 🗑️ Eliminado lógico
+        public async Task<Result<bool>> DeleteAsync(int id)
+        {
+            try
+            {
+                await _locationRepository.DeleteAsync(id);
                 return Result<bool>.Succes(true);
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex);
-                return Result<bool>.Failure("error_inesperado");
+                _logger.LogError(ex, "Error al eliminar ubicación");
+                return Result<bool>.Failure("unexpected_error");
             }
         }
 
-        public async Task<Result<bool>> Delete(int idUbicacion)
+        // 🔄 Cambiar estado (activo/inactivo)
+        public async Task<Result<bool>> ToggleActivoAsync(int id)
         {
             try
             {
-                var existing = await _locationRepository.GetById(idUbicacion);
-                if (existing == null)
-                    return Result<bool>.Failure("location_not_found");
-
-                await _locationRepository.Delete(existing);
+                await _locationRepository.ToggleActivoAsync(id);
                 return Result<bool>.Succes(true);
-            }
-            catch (Microsoft.EntityFrameworkCore.DbUpdateException dbEx)
-            {
-                // Probable FK en uso (productos referenciando la ubicación)
-                _logger.LogWarning(dbEx, "Location in use, cannot delete");
-                return Result<bool>.Failure("location_in_use");
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error inesperado:" + ex);
-                return Result<bool>.Failure("error_inesperado");
+                _logger.LogError(ex, "Error al cambiar estado de la ubicación");
+                return Result<bool>.Failure("unexpected_error");
             }
         }
     }

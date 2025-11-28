@@ -12,6 +12,7 @@ public partial class Ubicacion
     public string? Seccion { get; set; }
 
     public int? Nivel { get; set; }
+    public bool Activo { get; set; } = true;
 
     public virtual ICollection<Producto> Productos { get; set; } = new List<Producto>();
 }

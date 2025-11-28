@@ -8,6 +8,7 @@ using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Category.Services;
 using proyecto_venta_stock.Location.Services;
+
 using proyecto_venta_stock.Location.LocationRepository;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,7 +30,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // origen del front
+        policy.WithOrigins("http://localhost:5175") // origen del front
               .AllowAnyHeader()
               .AllowAnyMethod();
               
@@ -57,7 +58,7 @@ builder.Services.AddScoped<ICategoryServices, CategoryService>();
 /* Location */
 
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
-builder.Services.AddScoped<ILocationServices, LocationServices>();
+builder.Services.AddScoped<ILocationService, LocationServices>();
 
 
 

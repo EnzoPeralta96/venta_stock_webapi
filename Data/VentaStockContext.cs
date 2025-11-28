@@ -447,6 +447,9 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Fila).HasColumnName("fila");
             entity.Property(e => e.Nivel).HasColumnName("nivel");
             entity.Property(e => e.Seccion).HasColumnName("seccion");
+            entity.Property(e=> e.Activo)
+                        .HasColumnName("activo")
+                        .HasDefaultValue(true);
         });
 
         modelBuilder.Entity<Usuario>(entity =>
