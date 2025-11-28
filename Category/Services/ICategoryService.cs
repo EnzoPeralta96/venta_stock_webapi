@@ -18,8 +18,8 @@ namespace proyecto_venta_stock.Category.Services
         bool? activo = true,
         string? search = null
         );
-        Task<Result<List<CategoryBasicDTO>>> GetAll();
-        Task<Result<CategoryBasicDTO>> GetById(int idCategoria);
+        Task<Result<List<CategoryDetailDTO>>> GetAll();
+        Task<Result<CategoryDetailDTO>> GetById(int idCategoria);
 
         Task<Result<bool>> Delete(int idCategoria);
     }

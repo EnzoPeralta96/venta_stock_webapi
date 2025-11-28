@@ -44,38 +44,38 @@ namespace proyecto_venta_stock.Category.Services
             }
         }
 
-        public async Task<Result<List<CategoryBasicDTO>>> GetAll()
+        public async Task<Result<List<CategoryDetailDTO>>> GetAll()
         {
             try
             {
                 var categorias = await _categoryRepo.GetAll();
-                var dtos = _mapper.Map<List<CategoryBasicDTO>>(categorias);
-                return Result<List<CategoryBasicDTO>>.Succes(dtos);
+                var dtos = _mapper.Map<List<CategoryDetailDTO>>(categorias);
+                return Result<List<CategoryDetailDTO>>.Succes(dtos);
             }
             catch (System.Exception ex)
             {
 
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<List<CategoryBasicDTO>>.Failure("error_inesperado");
+                return Result<List<CategoryDetailDTO>>.Failure("error_inesperado");
             }
         }
 
-        public async Task<Result<CategoryBasicDTO>> GetById(int idCategoria)
+        public async Task<Result<CategoryDetailDTO>> GetById(int idCategoria)
         {
             try
             {
                 var category = await _categoryRepo.GetById(idCategoria);
                 if (category == null)
                 {
-                    return Result<CategoryBasicDTO>.Failure("category_not_found");
+                    return Result<CategoryDetailDTO>.Failure("category_not_found");
                 }
-                var categoryDTO = _mapper.Map<CategoryBasicDTO>(category);
-                return Result<CategoryBasicDTO>.Succes(categoryDTO);
+                var categoryDTO = _mapper.Map<CategoryDetailDTO>(category);
+                return Result<CategoryDetailDTO>.Succes(categoryDTO);
             }
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<CategoryBasicDTO>.Failure("error_inesperado");
+                return Result<CategoryDetailDTO>.Failure("error_inesperado");
             }
         }
 
