@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-
+﻿
 namespace proyecto_venta_stock.Models;
-
 public partial class PermisoUsuario
 {
     public int IdPermiso { get; set; }

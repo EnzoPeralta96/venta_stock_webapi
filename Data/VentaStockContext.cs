@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Models;
-
 namespace proyecto_venta_stock.Data;
-
-
 public partial class VentaStockContext : DbContext
 {
     public VentaStockContext()
@@ -37,6 +32,7 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Permiso> Permisos { get; set; }
 
+    public virtual DbSet<CategoriaPermiso> CategoriaPermisos { get; set; }
     public virtual DbSet<PermisoUsuario> PermisoUsuarios { get; set; }
 
     public virtual DbSet<Producto> Productos { get; set; }
@@ -53,9 +49,6 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Ventum> Venta { get; set; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseNpgsql("Host=shuttle.proxy.rlwy.net;Port=23500;Database=railway;Username=postgres;Password=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,7 +66,7 @@ public partial class VentaStockContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("descripcion");
         });
-
+        
         modelBuilder.Entity<Cliente>(entity =>
         {
             entity.HasKey(e => e.IdCliente).HasName("cliente_pkey");
@@ -302,19 +295,49 @@ public partial class VentaStockContext : DbContext
         });
 
         modelBuilder.Entity<Permiso>(entity =>
+     {
+         entity.HasKey(e => e.IdPermiso).HasName("permiso_pkey");
+
+         entity.ToTable("permiso");
+
+         entity.Property(e => e.IdPermiso)
+             .HasColumnName("id_permiso");
+
+         entity.Property(e => e.Permiso1)
+             .HasColumnName("permiso")
+             .HasMaxLength(100);
+
+         entity.Property(e => e.Descripcion)
+             .HasColumnName("descripcion")
+             .HasMaxLength(150);
+
+         entity.Property(e => e.IdCategoriaPermiso)
+             .HasColumnName("id_categoria_permiso");
+
+         entity.HasOne(d => d.CategoriaPermiso)
+             .WithMany(p => p.Permisos)
+             .HasForeignKey(d => d.IdCategoriaPermiso)
+             .OnDelete(DeleteBehavior.Restrict)
+             .HasConstraintName("permiso_id_categoria_permiso_fkey");
+     });
+
+        modelBuilder.Entity<CategoriaPermiso>(entity =>
         {
-            entity.HasKey(e => e.IdPermiso).HasName("permiso_pkey");
+            entity.HasKey(e => e.IdCategoriaPermiso).HasName("categoria_permiso_pkey");
 
-            entity.ToTable("permiso");
+            entity.ToTable("categoria_permiso");
 
-            entity.Property(e => e.IdPermiso).HasColumnName("id_permiso");
-            entity.Property(e => e.Descripcion)
-                .HasMaxLength(100)
-                .HasColumnName("descripcion");
-            entity.Property(e => e.Permiso1)
-                .HasMaxLength(100)
-                .HasColumnName("permiso");
+            entity.Property(e => e.IdCategoriaPermiso)
+                .HasColumnName("id_categoria_permiso");
+
+            entity.Property(e => e.Categoria)
+                .HasColumnName("categoria")
+                .HasMaxLength(100) // o el tamaño que definiste en la DB
+                .IsRequired();
         });
+
+
+
 
         modelBuilder.Entity<PermisoUsuario>(entity =>
         {

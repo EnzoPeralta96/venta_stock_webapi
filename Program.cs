@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Services;
+using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.Services;
 using proyecto_venta_stock.User.UserRepository;
 using proyecto_venta_stock.Product.ProductRepository;
@@ -8,73 +9,89 @@ using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Category.Services;
 using proyecto_venta_stock.Location.Services;
-
 using proyecto_venta_stock.Location.LocationRepository;
+using venta_stock_webapi.User.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
+// =======================
+// 📦 Servicios base
+// =======================
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var connectionString = builder.Configuration.GetConnectionString("PostgresSQLConnection");
-builder.Services.AddDbContext<VentaStockContext>(
-   options => options.UseNpgsql(connectionString)
-);
+// =======================
+// 🌐 CORS CONFIG
+// =======================
+// Nombre de la política CORS
+const string FrontendCorsPolicy = "Frontend";
 
-/* CORS */
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", policy =>
+    options.AddPolicy(name: FrontendCorsPolicy, policy =>
     {
-        policy.WithOrigins("http://localhost:5175") // origen del front
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-              
+        policy
+            // ⚠️ Es importante especificar el dominio exacto del front-end.
+            // No usar AllowAnyOrigin() si AllowCredentials() está presente.
+            .WithOrigins("http://localhost:5175")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // 🔑 Habilita envío de cookies o headers de auth
     });
 });
 
+// =======================
+// 💾 Base de datos
+// =======================
+var connectionString = builder.Configuration.GetConnectionString("PostgresSQLConnection");
+builder.Services.AddDbContext<VentaStockContext>(options =>
+    options.UseNpgsql(connectionString)
+);
 
+// =======================
+// 🧩 AutoMapper
+// =======================
 builder.Services.AddAutoMapper(typeof(Program));
 
+// =======================
+// 👥 Servicios de usuario y permisos
+// =======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
-
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
-/* Product */
-
+// =======================
+// 📦 Servicios de Product, Category y Location
+// =======================
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
-
 builder.Services.AddScoped<IProductServices, ProductServices>();
-
-/* Category */
 
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryServices, CategoryService>();
 
-/* Location */
-
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<ILocationService, LocationServices>();
 
-
-
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// =======================
+// 🚀 Middleware
+// =======================
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+// ⚠️ El orden de los middlewares importa:
 app.UseHttpsRedirection();
 
-app.UseCors("AllowReactApp");
+// ✅ CORS debe ir antes de Authentication / Authorization
+app.UseCors(FrontendCorsPolicy);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

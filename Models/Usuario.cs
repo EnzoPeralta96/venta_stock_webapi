@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
-
+﻿namespace proyecto_venta_stock.Models;
 public partial class Usuario
 {
     public int IdUsuario { get; set; }
@@ -10,7 +6,6 @@ public partial class Usuario
     public string Usuario1 { get; set; } = null!;
 
     public string Password { get; set; } = null!;
-
     public string Nombre { get; set; }
 
     public string Apellido { get; set; }
