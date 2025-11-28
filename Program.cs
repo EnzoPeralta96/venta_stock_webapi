@@ -28,7 +28,7 @@ builder.Services.AddCors(options =>
         policy
             // ⚠️ Es importante especificar el dominio exacto del front-end.
             // No usar AllowAnyOrigin() si AllowCredentials() está presente.
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins("http://localhost:5175")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); // 🔑 Habilita envío de cookies o headers de auth
