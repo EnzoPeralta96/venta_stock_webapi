@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Services;
 using proyecto_venta_stock.Shared.ResultPattern;
@@ -31,21 +32,21 @@ namespace proyecto_venta_stock.Product.Services
                 bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
 
 
-                if (productExists) return Result<bool>.Failure("product_name_in_use");
+                if (productExists) return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
 
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
-                    return Result<bool>.Failure("categoria_invalida");
+                    return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
 
                 var ubic = productDTO.IdUbicacion == null
                 ? null
                 : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
                 if (ubic == null)
-                    return Result<bool>.Failure("ubicacion_invalida");
+                    return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
 
                 foreach (var cb in productDTO.CodigoBarras)
                 {
                     if (await _productRepository.CodigoBarraExists(cb))
-                        return Result<bool>.Failure($"codigo_barra_duplicado: {cb.Codigo}");
+                        return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
                 }
 
                 var product = _mapper.Map<Producto>(productDTO);
@@ -57,7 +58,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<bool>.Failure("error_inesperado");
+                return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -67,26 +68,26 @@ namespace proyecto_venta_stock.Product.Services
             {
                 // Verificar si el producto existe
                 var existingProduct = await _productRepository.GetById(productDTO.IdProducto);
-                if (existingProduct == null) return Result<bool>.Failure("product_not_found");
+                if (existingProduct == null) return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
                 // Verificar si el nuevo nombre y marca ya están en uso por otro producto
                 bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
                 if (productExists && (existingProduct.Nombre != productDTO.Nombre || existingProduct.Marca != productDTO.Marca))
-                    return Result<bool>.Failure("product_name_in_use");
+                    return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
 
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
-                    return Result<bool>.Failure("categoria_invalida");
+                    return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
 
                 var ubic = productDTO.IdUbicacion == null
                    ? null
                    : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
                 if (ubic == null)
-                    return Result<bool>.Failure("ubicacion_invalida");
+                    return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
 
                 foreach (var cb in productDTO.CodigoBarras)
                 {
                     if (await _productRepository.CodigoBarraExists(cb) && !existingProduct.CodigoBarras.Any(e => e.Codigo == cb.Codigo))
-                        return Result<bool>.Failure($"codigo_barra_duplicado: {cb.Codigo}");
+                        return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
                 }
 
                 // Mapear los cambios al producto existente
@@ -99,7 +100,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<bool>.Failure("error_inesperado");
+                return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -114,7 +115,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<List<ProductDTO>>.Failure("error_inesperado");
+                return Result<List<ProductDTO>>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -129,7 +130,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<List<ProductDetailDTO>>.Failure("error_inesperado");
+                return Result<List<ProductDetailDTO>>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -138,14 +139,14 @@ namespace proyecto_venta_stock.Product.Services
             try
             {
                 var product = await _productRepository.GetById(idProducto);
-                if (product == null) return Result<ProductDTO>.Failure("product_not_found");
+                if (product == null) return Result<ProductDTO>.Failure(ProductErrorCode.product_not_found);
                 var dto = _mapper.Map<ProductDTO>(product);
                 return Result<ProductDTO>.Succes(dto);
             }
             catch (System.Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
-                return Result<ProductDTO>.Failure("error_inesperado");
+                return Result<ProductDTO>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -155,7 +156,7 @@ namespace proyecto_venta_stock.Product.Services
             {
                 var existing = await _productRepository.GetById(idProducto);
                 if (existing == null)
-                    return Result<bool>.Failure("product_not_found");
+                    return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
                 await _productRepository.Delete(existing);
                 return Result<bool>.Succes(true);
@@ -163,7 +164,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex);
-                return Result<bool>.Failure("error_inesperado");
+                return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
         public async Task<Result<bool>> ToggleEstado(int idProducto)
@@ -172,7 +173,7 @@ namespace proyecto_venta_stock.Product.Services
             {
                 var existing = await _productRepository.GetById(idProducto);
                 if (existing == null)
-                    return Result<bool>.Failure("product_not_found");
+                    return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
                 existing.Activo = !existing.Activo;  // 👈 invierte el estado
                 await _productRepository.Update(existing);
@@ -182,7 +183,7 @@ namespace proyecto_venta_stock.Product.Services
             catch (Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex);
-                return Result<bool>.Failure("error_inesperado");
+                return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
@@ -218,7 +219,7 @@ namespace proyecto_venta_stock.Product.Services
     catch (Exception ex)
     {
         _logger.LogError("Error inesperado:" + ex);
-        return Result<PagedList<ProductDetailDTO>>.Failure("error_inesperado");
+        return Result<PagedList<ProductDetailDTO>>.Failure(ProductErrorCode.error_inesperado);
     }
 }
 

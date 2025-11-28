@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Location.DTO;
@@ -30,7 +31,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al listar ubicaciones");
-                return Result<PagedList<LocationDTO>>.Failure("unexpected_error");
+                return Result<PagedList<LocationDTO>>.Failure(LocationErrorCode.unexpected_error);
             }
         }
 
@@ -41,7 +42,7 @@ namespace proyecto_venta_stock.Location.Services
             {
                 var ubicacion = await _locationRepository.GetByIdAsync(id);
                 if (ubicacion == null)
-                    return Result<LocationDTO>.Failure("location_not_found");
+                    return Result<LocationDTO>.Failure(LocationErrorCode.location_not_found);
 
                 var dto = _mapper.Map<LocationDTO>(ubicacion);
                 return Result<LocationDTO>.Succes(dto);
@@ -49,7 +50,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al obtener ubicación");
-                return Result<LocationDTO>.Failure("unexpected_error");
+                return Result<LocationDTO>.Failure(LocationErrorCode.unexpected_error);
             }
         }
 
@@ -60,7 +61,7 @@ namespace proyecto_venta_stock.Location.Services
             {
                 var exists = await _locationRepository.ExistsAsync(dto.Fila, dto.Seccion, dto.Nivel);
                 if (exists)
-                    return Result<LocationDTO>.Failure("duplicate_location");
+                    return Result<LocationDTO>.Failure(LocationErrorCode.duplicate_location);
 
                 var ubicacion = _mapper.Map<Ubicacion>(dto);
                 ubicacion.Activo = true;
@@ -73,7 +74,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al crear ubicación");
-                return Result<LocationDTO>.Failure("unexpected_error");
+                return Result<LocationDTO>.Failure(LocationErrorCode.unexpected_error);
             }
         }
 
@@ -84,11 +85,11 @@ namespace proyecto_venta_stock.Location.Services
             {
                 var ubicacion = await _locationRepository.GetByIdAsync(id);
                 if (ubicacion == null)
-                    return Result<LocationDTO>.Failure("location_not_found");
+                    return Result<LocationDTO>.Failure(LocationErrorCode.location_not_found);
 
                 var exists = await _locationRepository.ExistsExceptIdAsync(id, dto.Fila, dto.Seccion, dto.Nivel);
                 if (exists)
-                    return Result<LocationDTO>.Failure("duplicate_location");
+                    return Result<LocationDTO>.Failure(LocationErrorCode.duplicate_location);
 
                 _mapper.Map(dto, ubicacion);
                 await _locationRepository.UpdateAsync(ubicacion);
@@ -99,7 +100,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al actualizar ubicación");
-                return Result<LocationDTO>.Failure("unexpected_error");
+                return Result<LocationDTO>.Failure(LocationErrorCode.unexpected_error);
             }
         }
 
@@ -114,7 +115,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al eliminar ubicación");
-                return Result<bool>.Failure("unexpected_error");
+                return Result<bool>.Failure(LocationErrorCode.unexpected_error);
             }
         }
 
@@ -129,7 +130,7 @@ namespace proyecto_venta_stock.Location.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al cambiar estado de la ubicación");
-                return Result<bool>.Failure("unexpected_error");
+                return Result<bool>.Failure(LocationErrorCode.unexpected_error);
             }
         }
     }

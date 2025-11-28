@@ -21,7 +21,7 @@ public class CategoryController : ControllerBase
     {
         var result = await _categoryServices.Create(category);
 
-        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        if (!result.IsSucces) return BadRequest(result.ErrorCode);
 
         return Ok(category);
     }
@@ -31,7 +31,7 @@ public class CategoryController : ControllerBase
     {
         var result = await _categoryServices.Update(category);
 
-        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        if (!result.IsSucces) return BadRequest(result.ErrorCode);
 
         return Ok(category);
     }
@@ -40,7 +40,7 @@ public class CategoryController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _categoryServices.GetAll();
-        if (!result.IsSucces) return BadRequest(result.ErrosMessage);
+        if (!result.IsSucces) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }
 
@@ -48,7 +48,7 @@ public class CategoryController : ControllerBase
     public async Task<IActionResult> GetById(int idCategoria)
     {
         var result = await _categoryServices.GetById(idCategoria);
-        if (!result.IsSucces) return NotFound(result.ErrosMessage);
+        if (!result.IsSucces) return NotFound(result.ErrorCode);
         return Ok(result.Value);
     }
 
@@ -58,9 +58,9 @@ public class CategoryController : ControllerBase
         var result = await _categoryServices.Delete(idCategoria);
         if (!result.IsSucces)
         {
-            if (result.ErrosMessage == "category_not_found") return NotFound();
-            if (result.ErrosMessage == "category_in_use") return Conflict(result.ErrosMessage);
-            return BadRequest(result.ErrosMessage);
+            if (Convert.ToString(result.ErrorCode) == "category_not_found") return NotFound();
+            if (Convert.ToString(result.ErrorCode) == "category_in_use") return Conflict(result.ErrorCode);
+            return BadRequest(result.ErrorCode);
         }
         return NoContent(); // <- no devolver false/true al front
     }

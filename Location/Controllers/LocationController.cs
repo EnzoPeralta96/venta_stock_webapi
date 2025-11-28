@@ -29,7 +29,7 @@ public class LocationController : ControllerBase
     {
         var result = await _service.SearchAsync(pageIndex, pageSize, searchTerm, activos);
         if (!result.IsSucces)
-            return BadRequest(result.ErrosMessage);
+            return BadRequest(result.ErrorCode);
 
         return Ok(result.Value);
     }
@@ -40,7 +40,7 @@ public class LocationController : ControllerBase
     {
         var result = await _service.GetByIdAsync(id);
         if (!result.IsSucces)
-            return NotFound(result.ErrosMessage);
+            return NotFound(result.ErrorCode);
 
         return Ok(result.Value);
     }
@@ -55,10 +55,10 @@ public class LocationController : ControllerBase
         var result = await _service.CreateAsync(dto);
         if (!result.IsSucces)
         {
-            if (result.ErrosMessage == "duplicate_location")
+            if (Convert.ToString(result.ErrorCode) == "duplicate_location")
                 return Conflict("Ya existe una ubicación con esa Fila, Sección y Nivel");
 
-            return BadRequest(result.ErrosMessage);
+            return BadRequest(result.ErrorCode);
         }
 
         return Ok(result.Value);
@@ -74,13 +74,13 @@ public class LocationController : ControllerBase
         var result = await _service.UpdateAsync(id, dto);
         if (!result.IsSucces)
         {
-            if (result.ErrosMessage == "duplicate_location")
+            if (Convert.ToString(result.ErrorCode) == "duplicate_location")
                 return Conflict("Ya existe otra ubicación con esa Fila, Sección y Nivel");
 
-            if (result.ErrosMessage == "location_not_found")
+            if (Convert.ToString(result.ErrorCode) == "location_not_found")
                 return NotFound("Ubicación no encontrada");
 
-            return BadRequest(result.ErrosMessage);
+            return BadRequest(result.ErrorCode);
         }
 
         return Ok(result.Value);
@@ -92,7 +92,7 @@ public class LocationController : ControllerBase
     {
         var result = await _service.DeleteAsync(id);
         if (!result.IsSucces)
-            return BadRequest(result.ErrosMessage);
+            return BadRequest(result.ErrorCode);
 
         return Ok(new { message = "Ubicación eliminada correctamente" });
     }
@@ -103,7 +103,7 @@ public class LocationController : ControllerBase
     {
         var result = await _service.ToggleActivoAsync(id);
         if (!result.IsSucces)
-            return BadRequest(result.ErrosMessage);
+            return BadRequest(result.ErrorCode);
 
         return Ok(new { message = "Estado de la ubicación actualizado" });
     }
