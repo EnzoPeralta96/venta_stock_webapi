@@ -27,5 +27,8 @@ namespace proyecto_venta_stock.Product.Services
 );
         public Task<byte[]> ExportarCsvAsync();
         public Task<byte[]> ExportarExcelAsync();
+
+        public byte[] ExportarPlantillaExcel();
+        public byte[] ExportarPlantillaCsv();
     }
 }

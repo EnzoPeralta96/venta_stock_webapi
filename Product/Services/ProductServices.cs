@@ -189,97 +189,128 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
-       public async Task<Result<PagedList<ProductDetailDTO>>> GetAllWithCategoryAndLocationPaged(
-    int pageIndex,
-    int pageSize,
-    bool? activo = true,
-    string? search = null)
-{
-    try
-    {
-        var query = _productRepository.QueryAllWithCategoryAndLocation(activo);
-
-        // aplicar búsqueda si hay
-        if (!string.IsNullOrWhiteSpace(search))
+        public async Task<Result<PagedList<ProductDetailDTO>>> GetAllWithCategoryAndLocationPaged(
+     int pageIndex,
+     int pageSize,
+     bool? activo = true,
+     string? search = null)
         {
-            var lower = search.ToLower();
-            query = query.Where(p =>
-                p.Nombre.ToLower().Contains(lower) ||
-                p.Marca.ToLower().Contains(lower) ||
-                (p.Descripcion != null && p.Descripcion.ToLower().Contains(lower))
-            );
+            try
+            {
+                var query = _productRepository.QueryAllWithCategoryAndLocation(activo);
+
+                // aplicar búsqueda si hay
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var lower = search.ToLower();
+                    query = query.Where(p =>
+                        p.Nombre.ToLower().Contains(lower) ||
+                        p.Marca.ToLower().Contains(lower) ||
+                        (p.Descripcion != null && p.Descripcion.ToLower().Contains(lower))
+                    );
+                }
+
+                var paged = await PagedList<Producto>.CreateAsync(query, pageIndex, pageSize);
+                var dtoItems = _mapper.Map<List<ProductDetailDTO>>(paged.Items);
+
+                var dtoPaged = new PagedList<ProductDetailDTO>(
+                    dtoItems, paged.TotalCount, paged.PagedIndex, paged.PageSize);
+
+                return Result<PagedList<ProductDetailDTO>>.Succes(dtoPaged);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado:" + ex);
+                return Result<PagedList<ProductDetailDTO>>.Failure(ProductErrorCode.error_inesperado);
+            }
         }
 
-        var paged = await PagedList<Producto>.CreateAsync(query, pageIndex, pageSize);
-        var dtoItems = _mapper.Map<List<ProductDetailDTO>>(paged.Items);
+        public async Task<byte[]> ExportarCsvAsync()
+        {
+            var productos = await _productRepository.GetAllWithCodigosAsync();
 
-        var dtoPaged = new PagedList<ProductDetailDTO>(
-            dtoItems, paged.TotalCount, paged.PagedIndex, paged.PageSize);
+            var sb = new StringBuilder();
 
-        return Result<PagedList<ProductDetailDTO>>.Succes(dtoPaged);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError("Error inesperado:" + ex);
-        return Result<PagedList<ProductDetailDTO>>.Failure(ProductErrorCode.error_inesperado);
-    }
-}
+            // Encabezado
+            sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion");
 
-public async Task<byte[]> ExportarCsvAsync()
-{
-    var productos = await _productRepository.GetAllWithCodigosAsync();
+            foreach (var p in productos)
+            {
+                string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
 
-    var sb = new StringBuilder();
+                sb.AppendLine($"{codigo};{p.Nombre};{p.Marca};{p.Precio};{p.IdCategoria};{p.IdUbicacion}");
+            }
 
-    // Encabezado
-    sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion");
+            return Encoding.UTF8.GetBytes(sb.ToString());
+        }
 
-    foreach (var p in productos)
-    {
-        string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+        public async Task<byte[]> ExportarExcelAsync()
+        {
+            var productos = await _productRepository.GetAllWithCodigosAsync();
 
-        sb.AppendLine($"{codigo};{p.Nombre};{p.Marca};{p.Precio};{p.IdCategoria};{p.IdUbicacion}");
-    }
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("Productos");
 
-    return Encoding.UTF8.GetBytes(sb.ToString());
-}
+            // Encabezados
+            ws.Cells[1, 1].Value = "CodigoBarra";
+            ws.Cells[1, 2].Value = "Nombre";
+            ws.Cells[1, 3].Value = "Marca";
+            ws.Cells[1, 4].Value = "Precio";
+            ws.Cells[1, 5].Value = "IdCategoria";
+            ws.Cells[1, 6].Value = "IdUbicacion";
 
-public async Task<byte[]> ExportarExcelAsync()
-{
-    var productos = await _productRepository.GetAllWithCodigosAsync();
+            int row = 2;
 
-    using var package = new ExcelPackage();
-    var ws = package.Workbook.Worksheets.Add("Productos");
+            foreach (var p in productos)
+            {
+                string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
 
-    // Encabezados
-    ws.Cells[1,1].Value = "CodigoBarra";
-    ws.Cells[1,2].Value = "Nombre";
-    ws.Cells[1,3].Value = "Marca";
-    ws.Cells[1,4].Value = "Precio";
-    ws.Cells[1,5].Value = "IdCategoria";
-    ws.Cells[1,6].Value = "IdUbicacion";
+                ws.Cells[row, 1].Value = codigo;
+                ws.Cells[row, 2].Value = p.Nombre;
+                ws.Cells[row, 3].Value = p.Marca;
+                ws.Cells[row, 4].Value = p.Precio;
+                ws.Cells[row, 5].Value = p.IdCategoria;
+                ws.Cells[row, 6].Value = p.IdUbicacion;
 
-    int row = 2;
+                row++;
+            }
 
-    foreach (var p in productos)
-    {
-        string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+            ws.Cells.AutoFitColumns();
 
-        ws.Cells[row,1].Value = codigo;
-        ws.Cells[row,2].Value = p.Nombre;
-        ws.Cells[row,3].Value = p.Marca;
-        ws.Cells[row,4].Value = p.Precio;
-        ws.Cells[row,5].Value = p.IdCategoria;
-        ws.Cells[row,6].Value = p.IdUbicacion;
+            return await package.GetAsByteArrayAsync();
+        }
 
-        row++;
-    }
+        public byte[] ExportarPlantillaCsv()
+        {
+            var sb = new StringBuilder();
 
-    ws.Cells.AutoFitColumns();
+            // Encabezado EXACTO de la plantilla
+            sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion");
 
-    return await package.GetAsByteArrayAsync();
-}
+            // Podés dejar el archivo vacío o incluir un ejemplo comentado
+            // Ejemplo descomentable por si querés:
+            // sb.AppendLine("7796584001234;Martillo;Acme;3500;1;2");
 
+            return Encoding.UTF8.GetBytes(sb.ToString());
+        }
+
+        public byte[] ExportarPlantillaExcel()
+        {
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("Plantilla");
+
+            ws.Cells[1, 1].Value = "CodigoBarra";
+            ws.Cells[1, 2].Value = "Nombre";
+            ws.Cells[1, 3].Value = "Marca";
+            ws.Cells[1, 4].Value = "Precio";
+            ws.Cells[1, 5].Value = "IdCategoria";
+            ws.Cells[1, 6].Value = "IdUbicacion";
+
+            ws.Cells["A1:F1"].Style.Font.Bold = true;
+            ws.Cells.AutoFitColumns();
+
+            return package.GetAsByteArray();
+        }
 
 
     }

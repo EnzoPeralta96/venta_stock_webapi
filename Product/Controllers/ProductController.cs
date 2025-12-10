@@ -112,5 +112,23 @@ public class ProductController : ControllerBase
         );
     }
 
+    [HttpGet("export/plantilla-csv")]
+    public IActionResult ExportarPlantillaCsv()
+    {
+        var csv = _productServices.ExportarPlantillaCsv();
+        return File(csv, "text/csv", "plantilla_productos.csv");
+    }
+
+    [HttpGet("export/plantilla-excel")]
+    public IActionResult ExportarPlantillaExcel()
+    {
+        var file = _productServices.ExportarPlantillaExcel();
+        return File(
+            file,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "plantilla_productos.xlsx"
+        );
+    }
+
 
 }
