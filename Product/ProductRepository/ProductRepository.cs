@@ -85,6 +85,13 @@ namespace proyecto_venta_stock.Product.ProductRepository
             return query;
         }
 
+        public async Task<List<Producto>> GetAllWithCodigosAsync()
+{
+    return await _dbContext.Productos
+        .Include(p => p.CodigoBarras)
+        .ToListAsync();
+}
+
 
     }
 

@@ -23,5 +23,8 @@ namespace proyecto_venta_stock.Product.ProductRepository
         Task Delete(Producto producto);
 
         IQueryable<Producto> QueryAllWithCategoryAndLocation(bool? activo = true);
+
+        Task<List<Producto>> GetAllWithCodigosAsync();
+
     }
 }

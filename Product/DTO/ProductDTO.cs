@@ -41,4 +41,14 @@ namespace proyecto_venta_stock.Product.DTO
 
         public List<CodigoBarraDTO> CodigoBarras { get; set; } = [];
     }
+
+    public class ProductExportDTO
+    {
+        public string CodigoBarra { get; set; }
+        public string Nombre { get; set; }
+        public string Marca { get; set; }
+        public decimal Precio { get; set; }
+        public int IdCategoria { get; set; }
+        public int IdUbicacion { get; set; }
+    }
 }

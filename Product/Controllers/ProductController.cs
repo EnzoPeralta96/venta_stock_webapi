@@ -94,5 +94,23 @@ public class ProductController : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpGet("export/csv")]
+    public async Task<IActionResult> ExportarCsv()
+    {
+        var file = await _productServices.ExportarCsvAsync();
+        return File(file, "text/csv", "productos.csv");
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportarExcel()
+    {
+        var file = await _productServices.ExportarExcelAsync();
+        return File(
+            file,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "productos.xlsx"
+        );
+    }
+
 
 }

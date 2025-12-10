@@ -8,6 +8,8 @@ using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.Shared.Paged;
+using OfficeOpenXml;
+using System.Text;
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
@@ -221,6 +223,61 @@ namespace proyecto_venta_stock.Product.Services
         _logger.LogError("Error inesperado:" + ex);
         return Result<PagedList<ProductDetailDTO>>.Failure(ProductErrorCode.error_inesperado);
     }
+}
+
+public async Task<byte[]> ExportarCsvAsync()
+{
+    var productos = await _productRepository.GetAllWithCodigosAsync();
+
+    var sb = new StringBuilder();
+
+    // Encabezado
+    sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion");
+
+    foreach (var p in productos)
+    {
+        string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+
+        sb.AppendLine($"{codigo};{p.Nombre};{p.Marca};{p.Precio};{p.IdCategoria};{p.IdUbicacion}");
+    }
+
+    return Encoding.UTF8.GetBytes(sb.ToString());
+}
+
+public async Task<byte[]> ExportarExcelAsync()
+{
+    var productos = await _productRepository.GetAllWithCodigosAsync();
+
+    using var package = new ExcelPackage();
+    var ws = package.Workbook.Worksheets.Add("Productos");
+
+    // Encabezados
+    ws.Cells[1,1].Value = "CodigoBarra";
+    ws.Cells[1,2].Value = "Nombre";
+    ws.Cells[1,3].Value = "Marca";
+    ws.Cells[1,4].Value = "Precio";
+    ws.Cells[1,5].Value = "IdCategoria";
+    ws.Cells[1,6].Value = "IdUbicacion";
+
+    int row = 2;
+
+    foreach (var p in productos)
+    {
+        string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+
+        ws.Cells[row,1].Value = codigo;
+        ws.Cells[row,2].Value = p.Nombre;
+        ws.Cells[row,3].Value = p.Marca;
+        ws.Cells[row,4].Value = p.Precio;
+        ws.Cells[row,5].Value = p.IdCategoria;
+        ws.Cells[row,6].Value = p.IdUbicacion;
+
+        row++;
+    }
+
+    ws.Cells.AutoFitColumns();
+
+    return await package.GetAsByteArrayAsync();
 }
 
 

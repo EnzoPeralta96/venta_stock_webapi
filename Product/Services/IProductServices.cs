@@ -25,6 +25,7 @@ namespace proyecto_venta_stock.Product.Services
     bool? activo = true,
     string? search = null
 );
-
+        public Task<byte[]> ExportarCsvAsync();
+        public Task<byte[]> ExportarExcelAsync();
     }
 }
