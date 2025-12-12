@@ -130,5 +130,15 @@ public class ProductController : ControllerBase
         );
     }
 
+    [HttpPost("importar")]
+    public async Task<IActionResult> ImportarProductos(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Debe subir un archivo CSV o Excel válido.");
+
+        var result = await _productServices.ImportarProductosAsync(file);
+        return Ok(result);
+    }
+
 
 }

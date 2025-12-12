@@ -26,5 +26,8 @@ namespace proyecto_venta_stock.Product.ProductRepository
 
         Task<List<Producto>> GetAllWithCodigosAsync();
 
+        Task<Producto> GetByBarcode(string codigo);
+
+
     }
 }

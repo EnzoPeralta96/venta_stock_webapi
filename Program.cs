@@ -11,6 +11,7 @@ using proyecto_venta_stock.Category.Services;
 using proyecto_venta_stock.Location.Services;
 using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.User.Services;
+using proyecto_venta_stock.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,7 +35,7 @@ builder.Services.AddCors(options =>
         policy
             // ⚠️ Es importante especificar el dominio exacto del front-end.
             // No usar AllowAnyOrigin() si AllowCredentials() está presente.
-            .WithOrigins("http://localhost:5175")
+            .WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials(); // 🔑 Habilita envío de cookies o headers de auth
@@ -53,6 +54,11 @@ builder.Services.AddDbContext<VentaStockContext>(options =>
 // 🧩 AutoMapper
 // =======================
 builder.Services.AddAutoMapper(typeof(Program));
+
+// Registrar opciones de importación (Defaults)
+builder.Services.Configure<ImportDefaultsOptions>(
+    builder.Configuration.GetSection("Defaults")
+);
 
 // =======================
 // 👥 Servicios de usuario y permisos

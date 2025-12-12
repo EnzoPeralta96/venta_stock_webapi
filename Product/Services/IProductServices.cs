@@ -30,5 +30,6 @@ namespace proyecto_venta_stock.Product.Services
 
         public byte[] ExportarPlantillaExcel();
         public byte[] ExportarPlantillaCsv();
+        public Task<BulkImportResultDTO> ImportarProductosAsync(IFormFile file);
     }
 }

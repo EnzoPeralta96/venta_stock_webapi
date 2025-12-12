@@ -86,11 +86,20 @@ namespace proyecto_venta_stock.Product.ProductRepository
         }
 
         public async Task<List<Producto>> GetAllWithCodigosAsync()
-{
-    return await _dbContext.Productos
-        .Include(p => p.CodigoBarras)
-        .ToListAsync();
-}
+        {
+            return await _dbContext.Productos
+                .Include(p => p.CodigoBarras)
+                .ToListAsync();
+        }
+
+        public async Task<Producto> GetByBarcode(string codigo)
+        {
+            return await _dbContext.CodigoBarras
+                .Where(cb => cb.Codigo == codigo)
+                .Select(cb => cb.IdProductoNavigation)
+                .FirstOrDefaultAsync();
+        }
+
 
 
     }

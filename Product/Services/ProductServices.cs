@@ -10,6 +10,10 @@ using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.Shared.Paged;
 using OfficeOpenXml;
 using System.Text;
+using System.ComponentModel.DataAnnotations;
+using proyecto_venta_stock.Configuration;
+using Microsoft.Extensions.Options;
+
 namespace proyecto_venta_stock.Product.Services
 {
     public class ProductServices : IProductServices
@@ -19,13 +23,16 @@ namespace proyecto_venta_stock.Product.Services
         private readonly ICategoryRepository _categoryRepository;
         private readonly ILocationRepository _locationRepository;
         private readonly IMapper _mapper;
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository)
+        private readonly IOptions<ImportDefaultsOptions> _defaultsOptions;
+    
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository, IOptions<ImportDefaultsOptions> defaultsOptions)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
             _locationRepository = locationRepository;
             _logger = logger;
             _mapper = mapper;
+            _defaultsOptions = defaultsOptions;
         }
         public async Task<Result<bool>> Create(ProductDTO productDTO)
         {
@@ -310,6 +317,138 @@ namespace proyecto_venta_stock.Product.Services
             ws.Cells.AutoFitColumns();
 
             return package.GetAsByteArray();
+        }
+
+        /* Importacion */
+
+        private List<ProductImportRowDTO> ParseCsv(IFormFile file)
+        {
+            var rows = new List<ProductImportRowDTO>();
+
+            using var reader = new StreamReader(file.OpenReadStream());
+            string header = reader.ReadLine(); // ignorar encabezado
+
+            while (!reader.EndOfStream)
+            {
+                var line = reader.ReadLine();
+                var cols = line.Split(';'); // depende del separador
+
+                rows.Add(new ProductImportRowDTO
+                {
+                    CodigoBarra = cols[0],
+                    Nombre = cols[1],
+                    Marca = cols[2],
+                    Precio = decimal.TryParse(cols[3], out var p) ? p : null,
+                    IdCategoria = int.TryParse(cols[4], out var c) ? c : null,
+                    IdUbicacion = int.TryParse(cols[5], out var u) ? u : null,
+                });
+            }
+
+            return rows;
+        }
+
+        private List<ProductImportRowDTO> ParseExcel(IFormFile file)
+        {
+            var rows = new List<ProductImportRowDTO>();
+
+            using var package = new ExcelPackage(file.OpenReadStream());
+            var ws = package.Workbook.Worksheets[0];
+
+            int rowCount = ws.Dimension.Rows;
+
+            for (int row = 2; row <= rowCount; row++)
+            {
+                rows.Add(new ProductImportRowDTO
+                {
+                    CodigoBarra = ws.Cells[row, 1].Text,
+                    Nombre = ws.Cells[row, 2].Text,
+                    Marca = ws.Cells[row, 3].Text,
+                    Precio = decimal.TryParse(ws.Cells[row, 4].Text, out var price) ? price : null,
+                    IdCategoria = int.TryParse(ws.Cells[row, 5].Text, out var cat) ? cat : null,
+                    IdUbicacion = int.TryParse(ws.Cells[row, 6].Text, out var ubi) ? ubi : null
+                });
+            }
+
+            return rows;
+        }
+
+
+
+        public async Task<BulkImportResultDTO> ImportarProductosAsync(IFormFile file)
+        {
+            var result = new BulkImportResultDTO();
+
+            var extension = Path.GetExtension(file.FileName).ToLower();
+            List<ProductImportRowDTO> rows;
+
+            if (extension == ".csv")
+                rows = ParseCsv(file);
+            else if (extension == ".xlsx")
+                rows = ParseExcel(file);
+            else
+                throw new Exception("Formato no soportado. Solo CSV o Excel.");
+
+            int lineNumber = 2; // comienza después del encabezado
+
+            foreach (var row in rows)
+            {
+                // Validación IValidatableObject
+                var context = new ValidationContext(row);
+                var validation = new List<ValidationResult>();
+
+                if (!Validator.TryValidateObject(row, context, validation, true))
+                {
+                    result.Errores.Add(new RowErrorDTO
+                    {
+                        LineNumber = lineNumber,
+                        Errors = validation.Select(v => v.ErrorMessage).ToList()
+                    });
+                    lineNumber++;
+                    continue;
+                }
+
+                // Buscar si existe
+                var existing = await _productRepository.GetByBarcode(row.CodigoBarra);
+
+                if (existing != null)
+                {
+                    // UPDATE
+                    existing.Precio = row.Precio ?? existing.Precio;
+                    existing.Nombre = string.IsNullOrWhiteSpace(row.Nombre) ? existing.Nombre : row.Nombre;
+                    existing.Marca = string.IsNullOrWhiteSpace(row.Marca) ? existing.Marca : row.Marca;
+                    existing.IdCategoria = row.IdCategoria ?? existing.IdCategoria;
+                    existing.IdUbicacion = row.IdUbicacion ?? existing.IdUbicacion;
+
+                    await _productRepository.Update(existing);
+                    result.ProductosActualizados++;
+                }
+                else
+                {
+                    // INSERT (alta masiva)
+                    var defaults = _defaultsOptions.Value;
+
+                    var nuevo = new Producto
+                    {
+                        Nombre = row.Nombre,
+                        Marca = row.Marca,
+                        Precio = row.Precio!.Value,
+                        IdCategoria = row.IdCategoria ?? defaults.DefaultCategoryId,
+                        IdUbicacion = row.IdUbicacion ?? defaults.DefaultLocationId,
+                        Activo = true,
+                        CodigoBarras = new List<CodigoBarra>
+                {
+                    new CodigoBarra { Codigo = row.CodigoBarra }
+                }
+                    };
+
+                    await _productRepository.Create(nuevo);
+                    result.ProductosCreados++;
+                }
+
+                lineNumber++;
+            }
+
+            return result;
         }
 
 
