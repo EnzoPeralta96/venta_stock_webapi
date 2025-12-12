@@ -33,9 +33,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         }
 
         [HttpGet("account-configs")]
-        public async Task<IActionResult> GetAccountConfigs()
+        public async Task<IActionResult> GetAccountConfigs([FromQuery] bool? activo = null)
         {
-            var result = await _accountConfigService.GetAccountConfigs();
+            var result = await _accountConfigService.GetAccountConfigs(activo);
 
             if (!result.IsSucces)
             {

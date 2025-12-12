@@ -4,6 +4,8 @@ using venta_stock_webapi.Client.Repository;
 using venta_stock_webapi.Client.Services;
 using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.CurrentAccount.Services.AccountConfigService;
+using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
+using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,7 +51,9 @@ builder.Services.AddScoped<IAccountConfigRepository, AccountConfigRepository>();
 
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IAccountConfigService, AccountConfigService>();
+builder.Services.AddScoped<ICurrentAccountService, CurrentAccountService>();
 
+builder.Services.AddSingleton<MovementStrategyFactory>();
 
 var app = builder.Build();
 

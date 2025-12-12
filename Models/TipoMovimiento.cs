@@ -5,6 +5,7 @@ namespace proyecto_venta_stock.Models;
 
 public partial class TipoMovimiento
 {
+    //En realidad era IdTipoMovimiento.
     public int IdMovimiento { get; set; }
 
     public string? Nombre { get; set; }

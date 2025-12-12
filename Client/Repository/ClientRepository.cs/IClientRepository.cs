@@ -12,7 +12,7 @@ namespace venta_stock_webapi.Client.Repository
         Task<bool> CuitExistsForOtherClientAsync(string cuit, int idCliente);
         Task<bool> EmailExistsForOtherClientAsync(string email, int idCliente);
         Task<bool> EnterpriseExistsForOtherClientAsync(string enterprise, int idCliente);
-
+        Task<bool> ExistsByIdAsync(int idCliente);
         Task<Cliente> GetByIdAsync(int idCliente);
         Task<Cliente> CreateAsync(Cliente cliente);
         Task UpdateAsync(Cliente cliente);

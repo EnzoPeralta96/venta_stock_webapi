@@ -7,6 +7,7 @@ using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Models;
 using venta_stock_webapi.Shared.Paged;
+using venta_stock_webapi.CurrentAccount.Repository;
 
 namespace venta_stock_webapi.Client.Services
 {
@@ -32,7 +33,8 @@ namespace venta_stock_webapi.Client.Services
             _accountMovementRepository = accountMovementRepository;
 
         }
-
+        
+        //Agregar validaciones de usuario.
         public async Task<Result<ClientResponseDTO>> CreateClienteAsync(ClientCreateDTO clienteDTO)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -94,7 +96,7 @@ namespace venta_stock_webapi.Client.Services
                         FechaAutorizacion = null
                     };
 
-                    await _accountMovementRepository.CreateAccount(movimientoCC);
+                    await _accountMovementRepository.CreateMovement(movimientoCC);
                 }
 
 
@@ -104,7 +106,7 @@ namespace venta_stock_webapi.Client.Services
                 var clienteCompleto = await _clienteRepository.GetByIdAsync(clienteCreado.IdCliente);
                 var responseDTO = _mapper.Map<ClientResponseDTO>(clienteCompleto);
 
-                return Result<ClientResponseDTO>.Succes(responseDTO);
+                return Result<ClientResponseDTO>.Success(responseDTO);
             }
             catch (Exception ex)
             {
@@ -123,7 +125,7 @@ namespace venta_stock_webapi.Client.Services
                 if (cliente == null) return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
 
                 var responseDTO = _mapper.Map<ClientResponseDTO>(cliente);
-                return Result<ClientResponseDTO>.Succes(responseDTO);
+                return Result<ClientResponseDTO>.Success(responseDTO);
             }
             catch (Exception ex)
             {
@@ -147,7 +149,7 @@ namespace venta_stock_webapi.Client.Services
 
                 var paged = await PagedList<ClientResponseDTO>.CreateAsync(projected, pageIndex, pageSize);
 
-                return Result<PagedList<ClientResponseDTO>>.Succes(paged);
+                return Result<PagedList<ClientResponseDTO>>.Success(paged);
             }
             catch (Exception ex)
             {
@@ -205,7 +207,7 @@ namespace venta_stock_webapi.Client.Services
                 var clienteActualizado = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
                 var responseDTO = _mapper.Map<ClientResponseDTO>(clienteActualizado);
 
-                return Result<ClientResponseDTO>.Succes(responseDTO);
+                return Result<ClientResponseDTO>.Success(responseDTO);
             }
             catch (Exception ex)
             {
@@ -233,7 +235,7 @@ namespace venta_stock_webapi.Client.Services
                     }
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, DateOnly.FromDateTime(DateTime.Now));
-                    return Result<string>.Succes("Cliente dado de baja exitosamente.");
+                    return Result<string>.Success("Cliente dado de baja exitosamente.");
                 }
                 else
                 {
@@ -243,7 +245,7 @@ namespace venta_stock_webapi.Client.Services
                     }
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, null);
-                    return Result<string>.Succes("Cliente reactivado exitosamente.");
+                    return Result<string>.Success("Cliente reactivado exitosamente.");
                 }
             }
             catch (Exception ex)

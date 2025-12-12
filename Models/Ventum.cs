@@ -6,6 +6,7 @@ namespace proyecto_venta_stock.Models;
 public partial class Ventum
 {
     public int IdVenta { get; set; }
+    public string CodigoVenta { get; set; }
 
     public DateTime? Fecha { get; set; }
 

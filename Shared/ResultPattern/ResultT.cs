@@ -19,8 +19,8 @@ namespace proyecto_venta_stock.Shared.ResultPattern
             ErrorCode = errorMessage;
         }
 
-        public static Result<T> Succes(T value) => new Result<T>(value, true);
-        public static Result<T> Succes() => new Result<T>(default, true);
+        public static Result<T> Success(T value) => new Result<T>(value, true);
+        public static Result<T> Success() => new Result<T>(default, true);
         public static Result<T> Failure(Enum code) => new Result<T>(default, false, code);
     }
     

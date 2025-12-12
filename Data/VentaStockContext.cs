@@ -480,6 +480,7 @@ public partial class VentaStockContext : DbContext
             entity.ToTable("venta");
 
             entity.Property(e => e.IdVenta).HasColumnName("id_venta");
+            entity.Property(e => e.CodigoVenta).HasColumnName("codigo_venta");
             entity.Property(e => e.Fecha)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")

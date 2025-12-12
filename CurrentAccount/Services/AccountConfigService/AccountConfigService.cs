@@ -33,7 +33,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
 
                 var configDTO = _mapper.Map<AccountConfigDTO>(config);
 
-                return Result<AccountConfigDTO>.Succes(configDTO);
+                return Result<AccountConfigDTO>.Success(configDTO);
             }
             catch (System.Exception ex)
             {
@@ -42,15 +42,15 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
             }
         }
 
-        public async Task<Result<List<AccountConfigDTO>>> GetAccountConfigs()
+        public async Task<Result<List<AccountConfigDTO>>> GetAccountConfigs(bool? activo = null)
         {
             try
             {
-                var configs = await _accountConfigRepository.GetAccountConfigsAsync();
+                var configs = await _accountConfigRepository.GetAccountConfigsAsync(activo);
 
                 var configsDTO = _mapper.Map<List<AccountConfigDTO>>(configs);
 
-                return Result<List<AccountConfigDTO>>.Succes(configsDTO);
+                return Result<List<AccountConfigDTO>>.Success(configsDTO);
             }
             catch (System.Exception ex)
             {
@@ -78,7 +78,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
 
                 await _accountConfigRepository.CreateAccountConfigAsync(config);
 
-                return Result<string>.Succes();
+                return Result<string>.Success();
             }
             catch (System.Exception ex)
             {
@@ -105,7 +105,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
 
                 await _accountConfigRepository.UpdateAccountConfigAsync(config);
 
-                return Result<string>.Succes();
+                return Result<string>.Success();
             }
             catch (System.Exception ex)
             {
@@ -125,7 +125,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
                 
                 await _accountConfigRepository.ToggleStateAccountConfigAsync(configId, active);
 
-                return Result<string>.Succes();
+                return Result<string>.Success();
             }
             catch (System.Exception ex)
             {

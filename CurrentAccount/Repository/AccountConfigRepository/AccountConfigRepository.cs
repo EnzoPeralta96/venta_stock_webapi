@@ -17,9 +17,16 @@ namespace venta_stock_webapi.CurrentAccount.Repository
         {
             return _context.ConfiguracionCcs.FirstOrDefaultAsync(c => c.IdConfig == configId);
         }
-        public Task<List<ConfiguracionCc>> GetAccountConfigsAsync()
+        public Task<List<ConfiguracionCc>> GetAccountConfigsAsync(bool? activo = null)
         {
-            return _context.ConfiguracionCcs.ToListAsync();
+            var query = _context.ConfiguracionCcs.AsQueryable();
+
+            if (activo.HasValue)
+            {
+                query = query.Where(c => c.Activo == activo.Value);
+            }
+
+            return query.OrderBy(c => c.MontoLimite).ToListAsync();
         }
 
         public async Task CreateAccountConfigAsync(ConfiguracionCc config)
@@ -70,5 +77,6 @@ namespace venta_stock_webapi.CurrentAccount.Repository
             return _context.ConfiguracionCcs
                 .AnyAsync(c => c.MontoLimite == limit && c.IdConfig != id);
         }
+
     }
 }

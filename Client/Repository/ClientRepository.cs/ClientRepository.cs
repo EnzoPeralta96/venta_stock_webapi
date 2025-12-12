@@ -66,7 +66,9 @@ namespace venta_stock_webapi.Client.Repository
         {
             return _context.Clientes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.IdCliente == idCliente);
+                .Where(c => c.IdCliente == idCliente)
+                .Include(c => c.MovimientoCcs)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<Cliente> CreateAsync(Cliente cliente)
@@ -119,5 +121,11 @@ namespace venta_stock_webapi.Client.Repository
                 .AnyAsync(c => c.RazonSocial == enterprise && c.IdCliente != idCliente);
         }
 
+        public Task<bool> ExistsByIdAsync(int idCliente)
+        {
+            return _context.Clientes
+                .AsNoTracking()
+                .AnyAsync(c => c.IdCliente == idCliente);
+        }
     }
 }

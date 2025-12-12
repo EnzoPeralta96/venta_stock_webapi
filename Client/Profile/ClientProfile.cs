@@ -13,7 +13,7 @@ namespace venta_stock_webapi.Client.Profile
                     opt => opt.MapFrom(src => src.MovimientoCcs.Any()))
                 .ForMember(dest => dest.EsEmpresa,
                     opt => opt.MapFrom(src => !string.IsNullOrEmpty(src.RazonSocial) && !string.IsNullOrEmpty(src.Cuit)));
-
+            
             // ClienteCreateDTO -> Cliente
             CreateMap<ClientCreateDTO, Cliente>();
 
