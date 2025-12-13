@@ -43,26 +43,6 @@ builder.Services.AddCors(options =>
 });
 
 // =======================
-// 🌐 CORS CONFIG
-// =======================
-// Nombre de la política CORS
-const string FrontendCorsPolicy = "Frontend";
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(name: FrontendCorsPolicy, policy =>
-    {
-        policy
-            // ⚠️ Es importante especificar el dominio exacto del front-end.
-            // No usar AllowAnyOrigin() si AllowCredentials() está presente.
-            .WithOrigins("http://localhost:5173")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials(); // 🔑 Habilita envío de cookies o headers de auth
-    });
-});
-
-// =======================
 // 💾 Base de datos
 // =======================
 var connectionString = builder.Configuration.GetConnectionString("PostgresSQLConnection");

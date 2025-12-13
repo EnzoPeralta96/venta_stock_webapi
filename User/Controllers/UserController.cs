@@ -21,7 +21,7 @@ public class UserController : ControllerBase
     {
         var result = await _userService.GetUsersAsync(id);
 
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             var code = (UserErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
@@ -40,7 +40,7 @@ public async Task<IActionResult> SearchUsers(
     int sizePage = 10;
     var result = await _userService.UsersPagedAsync(pageIndex, sizePage, searchTerm, estado);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (UserErrorCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
@@ -58,7 +58,7 @@ public async Task<IActionResult> SearchUsers(
 
         var result = await _userService.CreateAsync(user);
 
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             var code = (UserErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
@@ -75,7 +75,7 @@ public async Task<IActionResult> SearchUsers(
 
         var result = await _userService.UpdateAsync(user);
 
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             var code = (UserErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
@@ -90,7 +90,7 @@ public async Task<IActionResult> SearchUsers(
     {
         var result = await _userService.DeleteAsync(id);
 
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             var code = (UserErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);

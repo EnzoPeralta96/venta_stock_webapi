@@ -25,7 +25,7 @@ namespace venta_stock_webapi.User.Services
             {
                 var categories = await _permissionRepository.GetPermissionsAsync(id_category_permission);
                 var permissionsCategoryDTO = _mapper.Map<List<PermissionsCategoryDTO>>(categories);
-                return Result<List<PermissionsCategoryDTO>>.Succes(permissionsCategoryDTO);    
+                return Result<List<PermissionsCategoryDTO>>.Success(permissionsCategoryDTO);    
             }
             catch (System.Exception ex)
             {

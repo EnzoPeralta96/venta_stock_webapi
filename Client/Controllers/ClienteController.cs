@@ -1,3 +1,4 @@
+
 using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.Client.DTO;
 using venta_stock_webapi.Client.Message;
@@ -27,7 +28,7 @@ namespace venta_stock_webapi.Client.Controllers
             
             var result = await _clienteService.CreateClienteAsync(clienteDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (ClientErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(ClientErrorDictionary.Messages, code);
@@ -42,7 +43,7 @@ namespace venta_stock_webapi.Client.Controllers
         {
             var result = await _clienteService.GetClient(id);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (ClientErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(ClientErrorDictionary.Messages, code);
@@ -61,7 +62,7 @@ namespace venta_stock_webapi.Client.Controllers
             int pageSize = 10;
             var result = await _clienteService.Search(pageIndex, pageSize, searchTerm, estado);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (ClientErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(ClientErrorDictionary.Messages, code);
@@ -81,7 +82,7 @@ namespace venta_stock_webapi.Client.Controllers
 
             var result = await _clienteService.UpdateClient(clienteDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (ClientErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(ClientErrorDictionary.Messages, code);
@@ -101,7 +102,7 @@ namespace venta_stock_webapi.Client.Controllers
             
             var result = await _clienteService.ToggleStatus(dto);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (ClientErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(ClientErrorDictionary.Messages, code);

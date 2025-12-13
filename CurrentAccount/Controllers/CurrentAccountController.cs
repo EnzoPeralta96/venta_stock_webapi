@@ -22,7 +22,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _currentAccountService.GetAccountMovementsByClientId(clientId);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
@@ -38,7 +38,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _currentAccountService.CreateAccountMovement(accountMovementDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
@@ -53,7 +53,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _currentAccountService.GetMovementTypes();
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
@@ -68,7 +68,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _currentAccountService.RegisterMovement(MovementDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);

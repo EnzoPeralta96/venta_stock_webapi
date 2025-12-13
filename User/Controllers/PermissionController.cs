@@ -23,7 +23,7 @@ namespace venta_stock_webapi.User.Controllers
         {
             var result = await _permissionService.GetPermissions(id_permissionCategory);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (PermissionErrorCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(PermissionErrorDictionary.Messages, code);

@@ -22,7 +22,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _accountConfigService.GetAccountConfigById(configId);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (AccountConfigCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -37,7 +37,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _accountConfigService.GetAccountConfigs(activo);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (AccountConfigCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -57,7 +57,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 
             var result = await _accountConfigService.CreateAccountConfig(accountConfigDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (AccountConfigCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -77,7 +77,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 
             var result = await _accountConfigService.UpdateAccountConfig(accountConfigDTO);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (AccountConfigCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -92,7 +92,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         {
             var result = await _accountConfigService.ToggleStateAccountConfig(configId, active);
 
-            if (!result.IsSucces)
+            if (!result.IsSuccess)
             {
                 var code = (AccountConfigCode)result.ErrorCode;
                 var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);

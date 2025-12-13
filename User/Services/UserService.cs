@@ -58,7 +58,7 @@ namespace proyecto_venta_stock.User.Services
 
                 await transaction.CommitAsync();
 
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -119,7 +119,7 @@ namespace proyecto_venta_stock.User.Services
                 if (toRemove.Any()) await _permitRepository.RemovePermissionsAsync(user.IdUsuario, toRemove);
 
                 await transaction.CommitAsync();
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -141,7 +141,7 @@ namespace proyecto_venta_stock.User.Services
 
                 if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -159,7 +159,7 @@ namespace proyecto_venta_stock.User.Services
 
                 var userDTO = _mapper.Map<List<UserDTO>>(user);
 
-                return Result<List<UserDTO>>.Succes(userDTO);
+                return Result<List<UserDTO>>.Success(userDTO);
             }
             catch (System.Exception ex)
             {
@@ -188,7 +188,7 @@ namespace proyecto_venta_stock.User.Services
                 // 🔹 Paginación
                 var paged = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
 
-                return Result<PagedList<UserDTO>>.Succes(paged);
+                return Result<PagedList<UserDTO>>.Success(paged);
             }
             catch (Exception ex)
             {
