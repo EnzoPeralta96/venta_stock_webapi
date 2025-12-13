@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Models;
 namespace proyecto_venta_stock.Data;
+
 public partial class VentaStockContext : DbContext
 {
     public VentaStockContext()
@@ -49,7 +50,7 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Ventum> Venta { get; set; }
 
-
+    public virtual DbSet<ConfiguracionCc> ConfiguracionCcs { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Categorium>(entity =>
@@ -95,6 +96,10 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(20)
                 .HasColumnName("telefono");
+            entity.Property(e => e.FechaAlta)
+                .HasColumnName("fecha_alta");
+            entity.Property(e => e.FechaBaja)
+                .HasColumnName("fecha_baja");
         });
 
         modelBuilder.Entity<CodigoBarra>(entity =>
@@ -449,7 +454,7 @@ public partial class VentaStockContext : DbContext
                 .HasDefaultValueSql("nextval('tipomovimiento_id_movimiento_seq'::regclass)")
                 .HasColumnName("id_movimiento");
             entity.Property(e => e.Accion)
-                .HasMaxLength(20)
+                .HasMaxLength(150)
                 .HasColumnName("accion");
             entity.Property(e => e.Nombre)
                 .HasMaxLength(50)
@@ -506,6 +511,7 @@ public partial class VentaStockContext : DbContext
             entity.ToTable("venta");
 
             entity.Property(e => e.IdVenta).HasColumnName("id_venta");
+            entity.Property(e => e.CodigoVenta).HasColumnName("codigo_venta");
             entity.Property(e => e.Fecha)
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
@@ -533,6 +539,19 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Venta)
                 .HasForeignKey(d => d.IdUsuario)
                 .HasConstraintName("venta_id_usuario_fkey");
+        });
+
+        modelBuilder.Entity<ConfiguracionCc>(e =>
+        {
+            e.ToTable("configuracion_cc");
+            e.HasKey(x => x.IdConfig);
+            e.Property(x => x.IdConfig).HasColumnName("id_config");
+            e.Property(x => x.Nombre).HasColumnName("nombre").IsRequired();
+            e.Property(x => x.MontoLimite).HasColumnName("monto_limite").HasPrecision(18, 2);
+            e.Property(x => x.Activo).HasColumnName("activo").HasDefaultValue(true);
+            e.HasIndex(x => x.Nombre).IsUnique();
+            // EF Core permite check constraints:
+            e.ToTable(t => t.HasCheckConstraint("CK_configuracion_cc_monto_limite", "monto_limite > 0"));
         });
 
         OnModelCreatingPartial(modelBuilder);

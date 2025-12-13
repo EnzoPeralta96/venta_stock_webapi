@@ -17,6 +17,9 @@ public partial class Cliente
 
     public string? Mail { get; set; }
 
+    public DateOnly? FechaAlta {get; set;}
+    public DateOnly? FechaBaja { get; set; }
+
     public virtual ICollection<MovimientoCc> MovimientoCcs { get; set; } = new List<MovimientoCc>();
 
     public virtual ICollection<Ventum> Venta { get; set; } = new List<Ventum>();

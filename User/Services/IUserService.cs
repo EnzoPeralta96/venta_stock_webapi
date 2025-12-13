@@ -11,7 +11,5 @@ namespace proyecto_venta_stock.Services
         Task<Result<bool>> DeleteAsync(int id);
         Task<Result<PagedList<UserDTO>>> UsersPagedAsync(int pageIndex, int pageSize, string searchTerm, string estado);
         Task<Result<List<UserDTO>>> GetUsersAsync(int? id);
-
-
     }
 }

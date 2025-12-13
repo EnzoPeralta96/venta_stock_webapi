@@ -1,6 +1,6 @@
 namespace proyecto_venta_stock.Shared.ResultPattern
 {
-    public class Result<T>
+     public class Result<T>
     {
         public bool IsSucces { get; }
         public T Value { get; }
@@ -23,4 +23,5 @@ namespace proyecto_venta_stock.Shared.ResultPattern
         public static Result<T> Succes() => new Result<T>(default, true);
         public static Result<T> Failure(Enum code) => new Result<T>(default, false, code);
     }
+    
 }
