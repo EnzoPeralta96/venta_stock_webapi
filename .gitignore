@@ -548,3 +548,4 @@ obj/
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,csharp,dotnetcore,aspnetcore
 # Claude Code
 CLAUDE.md
+.claude/
