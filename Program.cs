@@ -22,6 +22,8 @@ using venta_stock_webapi.Login.Services;
 using Microsoft.AspNetCore.Identity;
 using proyecto_venta_stock.Models;
 using venta_stock_webapi.Shared.Auth.PassService;
+using Microsoft.AspNetCore.Authorization;
+using venta_stock_webapi.Shared.Auth.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -90,6 +92,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+
 
 // =======================
 // 🧩 AutoMapper
@@ -129,8 +134,6 @@ if (app.Environment.IsDevelopment())
 
 // ⚠️ El orden de los middlewares importa:
 app.UseHttpsRedirection();
-
-app.UseCors(FrontendCorsPolicy);
 
 // ✅ CORS debe ir antes de Authentication / Authorization
 app.UseCors(FrontendCorsPolicy);
