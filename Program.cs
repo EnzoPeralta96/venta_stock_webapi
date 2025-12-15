@@ -13,6 +13,16 @@ using proyecto_venta_stock.User.Services;
 using proyecto_venta_stock.User.UserRepository;
 using venta_stock_webapi.User.Services;
 
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using venta_stock_webapi.Shared.JwtBinding;
+using venta_stock_webapi.Login.JwtService;
+using venta_stock_webapi.Login.Services;
+using Microsoft.AspNetCore.Identity;
+using proyecto_venta_stock.Models;
+using venta_stock_webapi.Shared.Auth.PassService;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // =======================
@@ -51,6 +61,37 @@ builder.Services.AddDbContext<VentaStockContext>(options =>
 );
 
 // =======================
+// JWT AUTHENTICATION
+// =======================
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+builder.Services.AddScoped<IJwtService, JwtService>();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? throw new InvalidOperationException("La sección 'Jwt' no está configurada correctamente.");;
+
+        var keyBytes = Encoding.UTF8.GetBytes(jwtSettings.Key);
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings.Issuer,
+
+            ValidateAudience = true,
+            ValidAudience = jwtSettings.Audience,
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30) // Elimina el tiempo de tolerancia por defecto
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+// =======================
 // 🧩 AutoMapper
 // =======================
 builder.Services.AddAutoMapper(typeof(Program));
@@ -68,6 +109,9 @@ builder.Services.AddSingleton<MovementStrategyFactory>();
 // 👥 Servicios de usuario y permisos
 // =======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();

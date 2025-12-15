@@ -8,6 +8,7 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
+using venta_stock_webapi.Shared.Auth.PassService;
 using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.User.Services
@@ -19,13 +20,15 @@ namespace proyecto_venta_stock.User.Services
         private readonly IPermissionRepository _permitRepository;
         private readonly IMapper _mapper;
         private readonly VentaStockContext _dbContext;
-        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext)
+        private readonly IPasswordService _passwordService;
+        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext, IPasswordService passwordService)
         {
             _userRepository = userRepository;
             _logger = logger;
             _mapper = mapper;
             _permitRepository = permitRepository;
             _dbContext = dbContext;
+            _passwordService = passwordService;
         }
 
         public async Task<Result<bool>> CreateAsync(UserCreateDTO userDTO)
@@ -45,6 +48,8 @@ namespace proyecto_venta_stock.User.Services
                 var user = _mapper.Map<Usuario>(userDTO);
                 user.FechaAlta = DateOnly.FromDateTime(DateTime.Now);
 
+                user.Password = _passwordService.HashPassword(user, userDTO.Password);
+                
                 await _userRepository.CreateAsync(user);
 
                 List<PermisoUsuario> permissionsUser = userDTO.Permisos.Select(id => new PermisoUsuario

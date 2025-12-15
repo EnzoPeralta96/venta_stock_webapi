@@ -10,7 +10,7 @@ namespace proyecto_venta_stock.User.UserRepository
         Task<List<UserDTO>> UsersAsync(int? id);
         IQueryable<Usuario> UsersQueryable(string searchTerm);
         Task<int> DeleteAsync(int id);
-
+        Task<Usuario> GetByUserNameAsync(string userName);
         Task<bool> Exists(int id);
         Task<bool> ExistsActive(int id);
         Task<bool> UserNameInUseAsync(int id, string user);

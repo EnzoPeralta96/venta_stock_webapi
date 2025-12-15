@@ -124,5 +124,45 @@ namespace proyecto_venta_stock.User.UserRepository
         {
             return _dbContext.Usuarios.AnyAsync(u => u.IdUsuario == id);
         }
+
+        /*public Task<UserDTO> GetByUserNameAsync(string userName)
+        {
+            return _dbContext.Usuarios
+                .Where(u => u.Usuario1 == userName)
+                .Select(u => new UserDTO
+                {
+                    IdUsuario = u.IdUsuario,
+                    Usuario = u.Usuario1,
+                    Password = u.Password,
+                    Nombre = u.Nombre,
+                    Apellido = u.Apellido,
+                    Email = u.Email,
+                    Rol = u.Rol,
+                    Permisos = u.PermisoUsuarios
+                        .GroupBy(pu => pu.IdPermisoNavigation.CategoriaPermiso)
+                        .Select(g => new PermissionsCategoryDTO
+                        {
+                            IdCategoriaPermiso = g.Key.IdCategoriaPermiso,
+                            Categoria = g.Key.Categoria,
+                            Permissions = g.Select(pu => new PermissionDTO
+                            {
+                                IdPermiso = pu.IdPermisoNavigation.IdPermiso,
+                                Permiso = pu.IdPermisoNavigation.Permiso1!,
+                                Descripcion = pu.IdPermisoNavigation.Descripcion
+                            }).ToList()
+                        }).ToList()
+                }).AsNoTracking()
+            .FirstOrDefaultAsync();
+        }*/
+
+        public Task<Usuario> GetByUserNameAsync(string userName)
+        {
+            return _dbContext.Usuarios
+                .Where(u => u.Usuario1 == userName)
+                .Include(u => u.PermisoUsuarios)
+                    .ThenInclude(pu => pu.IdPermisoNavigation)
+                .FirstOrDefaultAsync();
+        }
+
     }
 }
