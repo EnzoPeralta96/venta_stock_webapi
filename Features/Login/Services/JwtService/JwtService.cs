@@ -23,7 +23,7 @@ public class JwtService : IJwtService
         var claims = new List<Claim>
           {
               new Claim(JwtRegisteredClaimNames.Sub, user.IdUsuario.ToString()),
-              new Claim(JwtRegisteredClaimNames.Email, user.Email),
+              new Claim(JwtRegisteredClaimNames.UniqueName, user.Usuario1),
               new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
           };
 

@@ -21,6 +21,11 @@ namespace venta_stock_webapi.Features.Login.Controllers
         [HttpPost]
         public async Task<IActionResult> AuthenticacionUser([FromBody] LoginRequestDTO loginRequest)
         {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            
             var result = await _loginService.AuthenticateAsync(loginRequest);
 
             if (!result.IsSuccess)

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.CurrentAccount.DTO;
 using venta_stock_webapi.CurrentAccount.Message;
@@ -8,6 +9,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class AccountConfigController : ControllerBase
     {
         private readonly IAccountConfigService _accountConfigService;
@@ -17,6 +19,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             _accountConfigService = accountConfigService;
         }
 
+        [Authorize(Policy = "PERM:CC_VIEW")]
         [HttpGet("account-configs/{configId}")]
         public async Task<IActionResult> GetAccountConfigById(int configId)
         {
@@ -32,6 +35,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Ok(result.Value);
         }
 
+        [Authorize(Policy = "PERM:CC_VIEW")]
         [HttpGet("account-configs")]
         public async Task<IActionResult> GetAccountConfigs([FromQuery] bool? activo = null)
         {
@@ -47,6 +51,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Ok(result.Value);
         }
 
+        [Authorize(Policy = "PERM:CC_MANAGE")]
         [HttpPost("create-account-configs")]
         public async Task<IActionResult> CreateAccountConfig([FromBody] CreateAccountConfigDTO accountConfigDTO)
         {
@@ -67,6 +72,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Ok(result.Value);
         }
 
+        [Authorize(Policy = "PERM:CC_MANAGE")]
         [HttpPut("update-account-configs")]
         public async Task<IActionResult> UpdateAccountConfig([FromBody] UpdateAccountConfigDTO accountConfigDTO)
         {
@@ -87,6 +93,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Ok(result.Value);
         }
 
+        [Authorize(Policy = "PERM:CC_MANAGE")]
         [HttpDelete("toggle-state/{configId}/{active}")]
         public async Task<IActionResult> ToggleAccountConfigState(int configId, bool active)
         {

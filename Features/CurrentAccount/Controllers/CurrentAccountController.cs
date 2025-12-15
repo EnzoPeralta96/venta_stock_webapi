@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Message;
@@ -8,6 +9,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CurrentAccountController : ControllerBase
     {
         private readonly ICurrentAccountService _currentAccountService;
@@ -17,6 +19,8 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             _currentAccountService = currentAccountService;
         }
 
+
+        [Authorize(Policy = "PERM:CC_VIEW")]
         [HttpGet("movements/{clientId}")]
         public async Task<IActionResult> GetAccountMovementsByClientId(int clientId)
         {
@@ -28,13 +32,13 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
                 return NotFound(errorMessage);
             }
-            
             return Ok(result.Value);
-            
+
         }
 
-        [HttpPost("create-movement")]
-        public async Task<IActionResult> AddAccountMovement([FromBody] CreateCurrentAccountDTO accountMovementDTO)
+        [Authorize(Policy = "PERM:CLI_CREATE")]
+        [HttpPost("create-account")]
+        public async Task<IActionResult> AddCurrentAccountToClient([FromBody] CreateCurrentAccountDTO accountMovementDTO)
         {
             var result = await _currentAccountService.CreateAccountMovement(accountMovementDTO);
 
@@ -48,6 +52,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Created();
         }
 
+        [Authorize(Policy = "PERM:CC_REGISTER_PAYMENT")]
         [HttpGet("movement-types")]
         public async Task<IActionResult> GetMovementTypes()
         {
@@ -63,6 +68,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             return Ok(result.Value);
         }
 
+        [Authorize(Policy = "PERM:CC_REGISTER_PAYMENT")]
         [HttpPost("register-movement")]
         public async Task<IActionResult> RegisterMovement([FromBody] AddMovementDTO MovementDTO)
         {

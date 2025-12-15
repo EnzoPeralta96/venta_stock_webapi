@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.Shared.MessageProvider;
 using venta_stock_webapi.User.Message;
@@ -7,6 +8,7 @@ namespace venta_stock_webapi.User.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Policy = "PERM:USR_READ")]
     public class PermissionController : ControllerBase
     {
         private readonly ILogger<PermissionController> _logger;

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Services;
@@ -8,6 +9,7 @@ namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -16,6 +18,7 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
+    [Authorize(Policy = "PERM:USR_READ")]
     [HttpGet("users")]
     public async Task<IActionResult> GetUsers([FromQuery] int? id)
     {
@@ -31,26 +34,27 @@ public class UserController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:USR_READ")]
     [HttpGet("search")]
-public async Task<IActionResult> SearchUsers(
+    public async Task<IActionResult> SearchUsers(
     int pageIndex = 1,
     string searchTerm = "",
-    string estado = "activos") 
-{
-    int sizePage = 10;
-    var result = await _userService.UsersPagedAsync(pageIndex, sizePage, searchTerm, estado);
-
-    if (!result.IsSuccess)
+    string estado = "activos")
     {
-        var code = (UserErrorCode)result.ErrorCode;
-        var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
-        return NotFound(errorMessage);
+        int sizePage = 10;
+        var result = await _userService.UsersPagedAsync(pageIndex, sizePage, searchTerm, estado);
+
+        if (!result.IsSuccess)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
+
+        return Ok(result.Value);
     }
 
-    return Ok(result.Value);
-}
-
-
+    [Authorize(Policy = "PERM:USR_CREATE")]
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] UserCreateDTO user)
     {
@@ -68,6 +72,7 @@ public async Task<IActionResult> SearchUsers(
         return Ok(user);
     }
 
+    [Authorize(Policy = "PERM:USR_UPDATE")]
     [HttpPut("update")]
     public async Task<IActionResult> Update([FromBody] UserUpdateDTO user)
     {
@@ -85,6 +90,7 @@ public async Task<IActionResult> SearchUsers(
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:USR_DELETE")]
     [HttpDelete("delete/{id}")]
     public async Task<IActionResult> Delete(int id)
     {

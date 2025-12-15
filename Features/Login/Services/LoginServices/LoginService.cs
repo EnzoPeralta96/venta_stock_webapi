@@ -55,7 +55,7 @@ namespace venta_stock_webapi.Login.Services
                     Token = token,
                     Expiration = expiration,
                     UserId = user.IdUsuario,
-                    Username = user.Usuario1,
+                    Username = user.Nombre + " " + user.Apellido,
                     Role = user.Rol,
                     Permissions = permissionClaims.Select(c => c.Value).ToList()
                 };
