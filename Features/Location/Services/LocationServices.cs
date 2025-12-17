@@ -26,7 +26,7 @@ namespace proyecto_venta_stock.Location.Services
                 var query = _locationRepository.LocationsQueryable(searchTerm, activos);
                 var projected = _mapper.ProjectTo<LocationDTO>(query);
                 var paged = await PagedList<LocationDTO>.CreateAsync(projected, pageIndex, pageSize);
-                return Result<PagedList<LocationDTO>>.Succes(paged);
+                return Result<PagedList<LocationDTO>>.Success(paged);
             }
             catch (Exception ex)
             {
@@ -45,7 +45,7 @@ namespace proyecto_venta_stock.Location.Services
                     return Result<LocationDTO>.Failure(LocationErrorCode.location_not_found);
 
                 var dto = _mapper.Map<LocationDTO>(ubicacion);
-                return Result<LocationDTO>.Succes(dto);
+                return Result<LocationDTO>.Success(dto);
             }
             catch (Exception ex)
             {
@@ -69,7 +69,7 @@ namespace proyecto_venta_stock.Location.Services
                 await _locationRepository.CreateAsync(ubicacion);
 
                 var created = _mapper.Map<LocationDTO>(ubicacion);
-                return Result<LocationDTO>.Succes(created);
+                return Result<LocationDTO>.Success(created);
             }
             catch (Exception ex)
             {
@@ -95,7 +95,7 @@ namespace proyecto_venta_stock.Location.Services
                 await _locationRepository.UpdateAsync(ubicacion);
 
                 var updated = _mapper.Map<LocationDTO>(ubicacion);
-                return Result<LocationDTO>.Succes(updated);
+                return Result<LocationDTO>.Success(updated);
             }
             catch (Exception ex)
             {
@@ -110,7 +110,7 @@ namespace proyecto_venta_stock.Location.Services
             try
             {
                 await _locationRepository.DeleteAsync(id);
-                return Result<bool>.Succes(true);
+                return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
@@ -125,7 +125,7 @@ namespace proyecto_venta_stock.Location.Services
             try
             {
                 await _locationRepository.ToggleActivoAsync(id);
-                return Result<bool>.Succes(true);
+                return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {

@@ -736,7 +736,7 @@ public async Task<IActionResult> GetAccountConfigById(int configId)
 {
     var result = await _accountConfigService.GetAccountConfigById(configId);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (AccountConfigCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -785,7 +785,7 @@ public async Task<IActionResult> GetAccountConfigs([FromQuery] bool? activo = nu
 {
     var result = await _accountConfigService.GetAccountConfigs(activo);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (AccountConfigCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -882,7 +882,7 @@ public async Task<IActionResult> CreateAccountConfig([FromBody] CreateAccountCon
 
     var result = await _accountConfigService.CreateAccountConfig(accountConfigDTO);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (AccountConfigCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -947,7 +947,7 @@ public async Task<IActionResult> UpdateAccountConfig([FromBody] UpdateAccountCon
 
     var result = await _accountConfigService.UpdateAccountConfig(accountConfigDTO);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (AccountConfigCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -1006,7 +1006,7 @@ public async Task<IActionResult> ToggleStateAccountConfig(int configId, bool act
 {
     var result = await _accountConfigService.ToggleStateAccountConfig(configId, active);
 
-    if (!result.IsSucces)
+    if (!result.IsSuccess)
     {
         var code = (AccountConfigCode)result.ErrorCode;
         var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);
@@ -1187,7 +1187,7 @@ public static class AccountConfigDictionary
 **Patrón de Uso**:
 
 ```csharp
-if (!result.IsSucces)
+if (!result.IsSuccess)
 {
     var code = (AccountConfigCode)result.ErrorCode;
     var errorMessage = MessageProvider.Get(AccountConfigDictionary.Messages, code);

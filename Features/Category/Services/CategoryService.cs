@@ -36,7 +36,7 @@ namespace proyecto_venta_stock.Category.Services
 
                 var category = _mapper.Map<Categorium>(categoryDTO);
                 await _categoryRepo.Create(category);
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (Exception ex)
             {
@@ -51,7 +51,7 @@ namespace proyecto_venta_stock.Category.Services
             {
                 var categorias = await _categoryRepo.GetAll();
                 var dtos = _mapper.Map<List<CategoryDetailDTO>>(categorias);
-                return Result<List<CategoryDetailDTO>>.Succes(dtos);
+                return Result<List<CategoryDetailDTO>>.Success(dtos);
             }
             catch (System.Exception ex)
             {
@@ -71,7 +71,7 @@ namespace proyecto_venta_stock.Category.Services
                     return Result<CategoryDetailDTO>.Failure(CategoryErrorCode.category_not_found);
                 }
                 var categoryDTO = _mapper.Map<CategoryDetailDTO>(category);
-                return Result<CategoryDetailDTO>.Succes(categoryDTO);
+                return Result<CategoryDetailDTO>.Success(categoryDTO);
             }
             catch (System.Exception ex)
             {
@@ -97,7 +97,7 @@ namespace proyecto_venta_stock.Category.Services
                 _mapper.Map(categoryDTO, existingCategory);
 
                 await _categoryRepo.Update(existingCategory);
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -116,7 +116,7 @@ namespace proyecto_venta_stock.Category.Services
                 if (existing == null) return Result<bool>.Failure(CategoryErrorCode.category_not_found);
 
                 await _categoryRepo.Delete(existing);
-                return Result<bool>.Succes(true); // <- importante: true
+                return Result<bool>.Success(true); // <- importante: true
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
             {

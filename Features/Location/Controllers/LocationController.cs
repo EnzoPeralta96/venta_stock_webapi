@@ -28,7 +28,7 @@ public class LocationController : ControllerBase
         bool activos = true)
     {
         var result = await _service.SearchAsync(pageIndex, pageSize, searchTerm, activos);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
             return BadRequest(result.ErrorCode);
 
         return Ok(result.Value);
@@ -39,7 +39,7 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _service.GetByIdAsync(id);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
             return NotFound(result.ErrorCode);
 
         return Ok(result.Value);
@@ -53,7 +53,7 @@ public class LocationController : ControllerBase
             return BadRequest(ModelState);
 
         var result = await _service.CreateAsync(dto);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             if (Convert.ToString(result.ErrorCode) == "duplicate_location")
                 return Conflict("Ya existe una ubicación con esa Fila, Sección y Nivel");
@@ -72,7 +72,7 @@ public class LocationController : ControllerBase
             return BadRequest(ModelState);
 
         var result = await _service.UpdateAsync(id, dto);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             if (Convert.ToString(result.ErrorCode) == "duplicate_location")
                 return Conflict("Ya existe otra ubicación con esa Fila, Sección y Nivel");
@@ -91,7 +91,7 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _service.DeleteAsync(id);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
             return BadRequest(result.ErrorCode);
 
         return Ok(new { message = "Ubicación eliminada correctamente" });
@@ -102,7 +102,7 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> ToggleActivo(int id)
     {
         var result = await _service.ToggleActivoAsync(id);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
             return BadRequest(result.ErrorCode);
 
         return Ok(new { message = "Estado de la ubicación actualizado" });

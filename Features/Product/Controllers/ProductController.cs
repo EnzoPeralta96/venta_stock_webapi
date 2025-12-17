@@ -22,7 +22,7 @@ public class ProductController : ControllerBase
     {
         var result = await _productServices.Create(product);
 
-        if (!result.IsSucces) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
 
         return Ok(product);
     }
@@ -32,7 +32,7 @@ public class ProductController : ControllerBase
     {
         var result = await _productServices.Update(product);
 
-        if (!result.IsSucces) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
 
         return Ok(product);
     }
@@ -41,14 +41,14 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _productServices.GetAll();
-        if (!result.IsSucces) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }
     [HttpGet("with-details")]
     public async Task<IActionResult> GetAllWithDetails([FromQuery] bool? activo = true)
     {
         var result = await _productServices.GetAllWithCategoryAndLocation(activo);
-        if (!result.IsSucces) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }
 
@@ -56,14 +56,14 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetById(int idProducto)
     {
         var result = await _productServices.GetById(idProducto);
-        if (!result.IsSucces) return NotFound(result.ErrorCode);
+        if (!result.IsSuccess) return NotFound(result.ErrorCode);
         return Ok(result.Value);
     }
     [HttpDelete("{idProducto:int}")]
     public async Task<IActionResult> Delete(int idProducto)
     {
         var result = await _productServices.Delete(idProducto);
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
         {
             if (Convert.ToString(result.ErrorCode) == "product_not_found") return NotFound();
             if (Convert.ToString(result.ErrorCode) == "product_in_use") return Conflict(result.ErrorCode);
@@ -76,7 +76,7 @@ public class ProductController : ControllerBase
     {
         var result = await _productServices.ToggleEstado(idProducto);
 
-        if (!result.IsSucces)
+        if (!result.IsSuccess)
             return BadRequest(result.ErrorCode);
 
         return Ok(new { idProducto, activo = result.Value });
@@ -90,7 +90,7 @@ public class ProductController : ControllerBase
     [FromQuery] string? search = null)
     {
         var result = await _productServices.GetAllWithCategoryAndLocationPaged(pageIndex, pageSize, activo, search);
-        if (!result.IsSucces) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }
 

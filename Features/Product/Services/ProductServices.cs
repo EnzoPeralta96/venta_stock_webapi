@@ -62,7 +62,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 await _productRepository.Create(product);
 
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -104,7 +104,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 await _productRepository.Update(existingProduct);
 
-                return Result<bool>.Succes();
+                return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
@@ -119,7 +119,7 @@ namespace proyecto_venta_stock.Product.Services
             {
                 var products = await _productRepository.GetAll();
                 var dtos = _mapper.Map<List<ProductDTO>>(products);
-                return Result<List<ProductDTO>>.Succes(dtos);
+                return Result<List<ProductDTO>>.Success(dtos);
             }
             catch (System.Exception ex)
             {
@@ -134,7 +134,7 @@ namespace proyecto_venta_stock.Product.Services
             {
                 var products = await _productRepository.GetAllWithCategoryAndLocation(activo);
                 var dtos = _mapper.Map<List<ProductDetailDTO>>(products);
-                return Result<List<ProductDetailDTO>>.Succes(dtos);
+                return Result<List<ProductDetailDTO>>.Success(dtos);
             }
             catch (System.Exception ex)
             {
@@ -150,7 +150,7 @@ namespace proyecto_venta_stock.Product.Services
                 var product = await _productRepository.GetById(idProducto);
                 if (product == null) return Result<ProductDTO>.Failure(ProductErrorCode.product_not_found);
                 var dto = _mapper.Map<ProductDTO>(product);
-                return Result<ProductDTO>.Succes(dto);
+                return Result<ProductDTO>.Success(dto);
             }
             catch (System.Exception ex)
             {
@@ -168,7 +168,7 @@ namespace proyecto_venta_stock.Product.Services
                     return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
                 await _productRepository.Delete(existing);
-                return Result<bool>.Succes(true);
+                return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
@@ -187,7 +187,7 @@ namespace proyecto_venta_stock.Product.Services
                 existing.Activo = !existing.Activo;  // 👈 invierte el estado
                 await _productRepository.Update(existing);
 
-                return Result<bool>.Succes(true);
+                return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
@@ -223,7 +223,7 @@ namespace proyecto_venta_stock.Product.Services
                 var dtoPaged = new PagedList<ProductDetailDTO>(
                     dtoItems, paged.TotalCount, paged.PagedIndex, paged.PageSize);
 
-                return Result<PagedList<ProductDetailDTO>>.Succes(dtoPaged);
+                return Result<PagedList<ProductDetailDTO>>.Success(dtoPaged);
             }
             catch (Exception ex)
             {
