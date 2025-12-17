@@ -11,6 +11,8 @@ TestResults/
 # Rider/VS Code
 .idea/
 .vscode/
+# Claude Code
+.claude/
 # Coverage
 coverage*/
 *.coverage
