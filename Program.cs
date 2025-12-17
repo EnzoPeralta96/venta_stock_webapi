@@ -11,6 +11,12 @@ using proyecto_venta_stock.Services;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.Services;
 using proyecto_venta_stock.User.UserRepository;
+using proyecto_venta_stock.Product.ProductRepository;
+using proyecto_venta_stock.Product.Services;
+using proyecto_venta_stock.Category.CategoryRepository;
+using proyecto_venta_stock.Category.Services;
+using proyecto_venta_stock.Location.Services;
+using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.User.Services;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -24,6 +30,7 @@ using proyecto_venta_stock.Models;
 using venta_stock_webapi.Shared.Auth.PassService;
 using Microsoft.AspNetCore.Authorization;
 using venta_stock_webapi.Shared.Auth.Authorization;
+using proyecto_venta_stock.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -101,6 +108,11 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 // =======================
 builder.Services.AddAutoMapper(typeof(Program));
 
+// Registrar opciones de importación (Defaults)
+builder.Services.Configure<ImportDefaultsOptions>(
+    builder.Configuration.GetSection("Defaults")
+);
+
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IAccountMovementRepository, AccountMovementRepository>();
 builder.Services.AddScoped<IAccountConfigRepository, AccountConfigRepository>();
@@ -120,6 +132,18 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+
+// =======================
+// 📦 Servicios de Product, Category y Location
+// =======================
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IProductServices, ProductServices>();
+
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<ICategoryServices, CategoryService>();
+
+builder.Services.AddScoped<ILocationRepository, LocationRepository>();
+builder.Services.AddScoped<ILocationService, LocationServices>();
 
 var app = builder.Build();
 

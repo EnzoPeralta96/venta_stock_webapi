@@ -59,7 +59,7 @@ public partial class VentaStockContext : DbContext
 
             entity.ToTable("categoria");
 
-            entity.Property(e => e.IdCategoria).HasColumnName("id_categoria");
+            entity.Property(e => e.IdCategoria).HasColumnName("id_categoria").ValueGeneratedOnAdd();
             entity.Property(e => e.Categoria)
                 .HasMaxLength(100)
                 .HasColumnName("categoria");
@@ -389,6 +389,10 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Stock).HasColumnName("stock");
             entity.Property(e => e.StockMinimo).HasColumnName("stock_minimo");
             entity.Property(e => e.VentaSinStock).HasColumnName("venta_sin_stock");
+            entity.Property(e => e.Activo)
+                        .HasColumnName("activo")
+                        .HasDefaultValue(true);
+
 
             entity.HasOne(d => d.IdCategoriaNavigation).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.IdCategoria)
@@ -467,10 +471,13 @@ public partial class VentaStockContext : DbContext
 
             entity.ToTable("ubicacion");
 
-            entity.Property(e => e.IdUbicacion).HasColumnName("id_ubicacion");
+            entity.Property(e => e.IdUbicacion).HasColumnName("id_ubicacion").ValueGeneratedOnAdd();
             entity.Property(e => e.Fila).HasColumnName("fila");
             entity.Property(e => e.Nivel).HasColumnName("nivel");
             entity.Property(e => e.Seccion).HasColumnName("seccion");
+            entity.Property(e=> e.Activo)
+                        .HasColumnName("activo")
+                        .HasDefaultValue(true);
         });
 
         modelBuilder.Entity<Usuario>(entity =>
