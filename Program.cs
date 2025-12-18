@@ -6,6 +6,8 @@ using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.CurrentAccount.Services.AccountConfigService;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
+using venta_stock_webapi.Sale.Repository;
+using venta_stock_webapi.Sale.Services;
 
 using proyecto_venta_stock.Services;
 using proyecto_venta_stock.User.Repository.PermitRepository;
@@ -146,6 +148,10 @@ builder.Services.AddScoped<ICategoryServices, CategoryService>();
 
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<ILocationService, LocationServices>();
+
+// Sale Services
+builder.Services.AddScoped<ISaleRepository, SaleRepository>();
+builder.Services.AddScoped<ISaleServices, SaleService>();
 
 var app = builder.Build();
 
