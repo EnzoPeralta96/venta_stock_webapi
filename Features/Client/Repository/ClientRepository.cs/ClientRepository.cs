@@ -15,7 +15,7 @@ namespace venta_stock_webapi.Client.Repository
 
         public Task<bool> DniExistsAsync(string dni)
         {
-            return  _context.Clientes
+            return _context.Clientes
                 .AsNoTracking()
                 .AnyAsync(c => c.Dni == dni && c.FechaBaja == null);
         }
@@ -27,7 +27,7 @@ namespace venta_stock_webapi.Client.Repository
                 .AnyAsync(c => c.Cuit == cuit && c.FechaBaja == null);
         }
 
-        public  Task<bool> EmailExistsAsync(string email)
+        public Task<bool> EmailExistsAsync(string email)
         {
             return _context.Clientes
                 .AsNoTracking()
@@ -41,23 +41,23 @@ namespace venta_stock_webapi.Client.Repository
                 .AnyAsync(c => c.RazonSocial == enterprise && c.FechaBaja == null);
         }
 
-        public  Task<bool> DniExistsForOtherClientAsync(string dni, int idCliente)
+        public Task<bool> DniExistsForOtherClientAsync(string dni, int idCliente)
         {
-            return  _context.Clientes
+            return _context.Clientes
                 .AsNoTracking()
                 .AnyAsync(c => c.Dni == dni && c.IdCliente != idCliente);
         }
 
-        public  Task<bool> CuitExistsForOtherClientAsync(string cuit, int idCliente)
+        public Task<bool> CuitExistsForOtherClientAsync(string cuit, int idCliente)
         {
             return _context.Clientes
                 .AsNoTracking()
                 .AnyAsync(c => c.Cuit == cuit && c.IdCliente != idCliente);
         }
 
-        public  Task<bool> EmailExistsForOtherClientAsync(string email, int idCliente)
+        public Task<bool> EmailExistsForOtherClientAsync(string email, int idCliente)
         {
-            return  _context.Clientes
+            return _context.Clientes
                 .AsNoTracking()
                 .AnyAsync(c => c.Mail == email && c.IdCliente != idCliente);
         }
@@ -116,9 +116,9 @@ namespace venta_stock_webapi.Client.Repository
 
         public Task<bool> EnterpriseExistsForOtherClientAsync(string enterprise, int idCliente)
         {
-              return _context.Clientes
-                .AsNoTracking()
-                .AnyAsync(c => c.RazonSocial == enterprise && c.IdCliente != idCliente);
+            return _context.Clientes
+              .AsNoTracking()
+              .AnyAsync(c => c.RazonSocial == enterprise && c.IdCliente != idCliente);
         }
 
         public Task<bool> ExistsByIdAsync(int idCliente)
@@ -126,6 +126,25 @@ namespace venta_stock_webapi.Client.Repository
             return _context.Clientes
                 .AsNoTracking()
                 .AnyAsync(c => c.IdCliente == idCliente);
+        }
+        public async Task<CreditInfo?> ObtenerInfoCreditoAsync(int idCliente)
+        {
+            // SOLO obtener datos del último movimiento
+            var ultimoMovimiento = await _context.MovimientoCcs
+                .Where(m => m.IdCliente == idCliente)
+                .OrderByDescending(m => m.Fecha)
+                .ThenByDescending(m => m.IdMovimiento)
+                .FirstOrDefaultAsync();
+
+            if (ultimoMovimiento == null)
+                return null;
+
+            // Retornar datos puros (sin validación)
+            return new CreditInfo
+            {
+                SaldoActual = ultimoMovimiento.SaldoActual ?? 0,
+                LimiteCuenta = ultimoMovimiento.LimiteCuenta ?? 0
+            };
         }
     }
 }
