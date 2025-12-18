@@ -31,6 +31,9 @@ using venta_stock_webapi.Shared.Auth.PassService;
 using Microsoft.AspNetCore.Authorization;
 using venta_stock_webapi.Shared.Auth.Authorization;
 using proyecto_venta_stock.Configuration;
+using venta_stock_webapi.Shared.Identity;
+using Microsoft.Extensions.Options;
+using venta_stock_webapi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,12 +65,23 @@ builder.Services.AddCors(options =>
 });
 
 // =======================
+// HttpContext
+// =======================
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IUserContext, UserContext>();
+
+
+// =======================
 // 💾 Base de datos
 // =======================
+builder.Services.AddScoped<AuditSessionInterceptor>();
+
 var connectionString = builder.Configuration.GetConnectionString("PostgresSQLConnection");
-builder.Services.AddDbContext<VentaStockContext>(options =>
-    options.UseNpgsql(connectionString)
-);
+builder.Services.AddDbContext<VentaStockContext>((sp, options) =>
+{
+    options.UseNpgsql(connectionString);
+    options.AddInterceptors(sp.GetRequiredService<AuditSessionInterceptor>());
+});
 
 // =======================
 // JWT AUTHENTICATION
@@ -78,7 +92,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? throw new InvalidOperationException("La sección 'Jwt' no está configurada correctamente.");;
+        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? throw new InvalidOperationException("La sección 'Jwt' no está configurada correctamente."); ;
 
         var keyBytes = Encoding.UTF8.GetBytes(jwtSettings.Key);
 
@@ -98,9 +112,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization(
-    
-);
+builder.Services.AddAuthorization();
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
