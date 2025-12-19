@@ -9,10 +9,10 @@ namespace venta_stock_webapi.Sale.Services
         // Crear venta
         Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO);
 
-        /* // Obtener venta por id
-        Task<Result<SaleResponseDTO>> GetSaleByIdAsync(int idVenta); */
+        // Obtener venta por id
+        Task<Result<SaleResponseDTO>> GetSaleByIdAsync(int idVenta);
 
-        /* // Listar ventas con paginacion y filtros
-        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta); */
+        // Listar ventas con paginacion y filtros
+        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta);
     }
 }

@@ -18,7 +18,9 @@ namespace venta_stock_webapi.Sale.Message
         invalid_payment_method,
         empty_cart,
         sale_not_found,
-        
+        pending_sale_not_found,
+        pending_sale_already_processed,
+
         // Errores de cuenta corriente
         credit_limit_exceeded,
         
@@ -46,7 +48,9 @@ namespace venta_stock_webapi.Sale.Message
             { SaleErrorCode.invalid_payment_method, "Medio de pago inválido." },
             { SaleErrorCode.empty_cart, "La venta debe contener al menos un producto." },
             { SaleErrorCode.sale_not_found, "La venta indicada no existe." },
-            
+            { SaleErrorCode.pending_sale_not_found, "La venta pendiente indicada no existe." },
+            { SaleErrorCode.pending_sale_already_processed, "La venta pendiente ya fue procesada anteriormente." },
+
             // Errores de cuenta corriente
             { SaleErrorCode.credit_limit_exceeded, "Límite de crédito excedido. No hay cupo disponible suficiente." },
             
