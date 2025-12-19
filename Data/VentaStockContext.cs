@@ -51,6 +51,9 @@ public partial class VentaStockContext : DbContext
     public virtual DbSet<Ventum> Venta { get; set; }
 
     public virtual DbSet<ConfiguracionCc> ConfiguracionCcs { get; set; }
+
+    public virtual DbSet<Auditoria> Auditorias { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Categorium>(entity =>
@@ -67,7 +70,7 @@ public partial class VentaStockContext : DbContext
                 .HasMaxLength(100)
                 .HasColumnName("descripcion");
         });
-        
+
         modelBuilder.Entity<Cliente>(entity =>
         {
             entity.HasKey(e => e.IdCliente).HasName("cliente_pkey");
@@ -475,7 +478,7 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Fila).HasColumnName("fila");
             entity.Property(e => e.Nivel).HasColumnName("nivel");
             entity.Property(e => e.Seccion).HasColumnName("seccion");
-            entity.Property(e=> e.Activo)
+            entity.Property(e => e.Activo)
                         .HasColumnName("activo")
                         .HasDefaultValue(true);
         });
@@ -559,6 +562,60 @@ public partial class VentaStockContext : DbContext
             e.HasIndex(x => x.Nombre).IsUnique();
             // EF Core permite check constraints:
             e.ToTable(t => t.HasCheckConstraint("CK_configuracion_cc_monto_limite", "monto_limite > 0"));
+        });
+
+        modelBuilder.Entity<Auditoria>(entity =>
+        {
+            entity.ToTable("auditoria");
+
+            entity.HasKey(e => e.IdAuditoria)
+                .HasName("auditoria_pkey"); 
+            // opcional (si tu PK se llama distinto, podés omitir)
+
+            entity.Property(e => e.IdAuditoria)
+                .HasColumnName("id_auditoria");
+
+            entity.Property(e => e.FechaHora)
+                .HasColumnName("fecha_hora")
+                .HasColumnType("timestamptz")
+                .HasDefaultValueSql("now()");
+
+            entity.Property(e => e.IdUsuario)
+                .HasColumnName("id_usuario");
+
+            entity.Property(e => e.UsuarioNombre)
+                .HasColumnName("usuario_nombre")
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Accion)
+                .HasColumnName("accion")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.EntidadTipo)
+                .HasColumnName("entidad_tipo")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.EntidadId)
+                .HasColumnName("entidad_id");
+
+            entity.Property(e => e.Detalle)
+                .HasColumnName("detalle");
+
+            entity.Property(e => e.ValoresAnteriores)
+                .HasColumnName("valores_anteriores")
+                .HasColumnType("jsonb");
+
+            entity.Property(e => e.ValoresNuevos)
+                .HasColumnName("valores_nuevos")
+                .HasColumnType("jsonb");
+
+        // FK opcional a usuarios (solo si querés que EF la conozca)
+        // entity.HasOne(d => d.IdUsuarioNavigation)
+        //       .WithMany(p => p.Auditorias)
+        //       .HasForeignKey(d => d.IdUsuario)
+        //       .HasConstraintName("fk_auditoria_usuario");
         });
 
         OnModelCreatingPartial(modelBuilder);

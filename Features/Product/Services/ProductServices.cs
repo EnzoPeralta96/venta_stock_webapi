@@ -13,6 +13,7 @@ using System.Text;
 using System.ComponentModel.DataAnnotations;
 using proyecto_venta_stock.Configuration;
 using Microsoft.Extensions.Options;
+using proyecto_venta_stock.Data;
 
 namespace proyecto_venta_stock.Product.Services
 {
@@ -24,8 +25,9 @@ namespace proyecto_venta_stock.Product.Services
         private readonly ILocationRepository _locationRepository;
         private readonly IMapper _mapper;
         private readonly IOptions<ImportDefaultsOptions> _defaultsOptions;
-    
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository, IOptions<ImportDefaultsOptions> defaultsOptions)
+        private readonly VentaStockContext _dbContext;
+
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository, IOptions<ImportDefaultsOptions> defaultsOptions, VentaStockContext dbContext)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
@@ -33,9 +35,11 @@ namespace proyecto_venta_stock.Product.Services
             _logger = logger;
             _mapper = mapper;
             _defaultsOptions = defaultsOptions;
+            _dbContext = dbContext;
         }
         public async Task<Result<bool>> Create(ProductDTO productDTO)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
@@ -62,10 +66,13 @@ namespace proyecto_venta_stock.Product.Services
 
                 await _productRepository.Create(product);
 
+                await transaction.CommitAsync();
+
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
@@ -73,6 +80,7 @@ namespace proyecto_venta_stock.Product.Services
 
         public async Task<Result<bool>> Update(ProductDTO productDTO)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 // Verificar si el producto existe
@@ -99,15 +107,50 @@ namespace proyecto_venta_stock.Product.Services
                         return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
                 }
 
-                // Mapear los cambios al producto existente
-                _mapper.Map(productDTO, existingProduct);
+                // Mapear las propiedades básicas del producto (sin CodigoBarras)
+                existingProduct.Nombre = productDTO.Nombre;
+                existingProduct.Marca = productDTO.Marca;
+                existingProduct.Descripcion = productDTO.Descripcion;
+                existingProduct.Precio = productDTO.Precio;
+                existingProduct.Stock = productDTO.Stock;
+                existingProduct.StockMinimo = productDTO.StockMinimo;
+                existingProduct.IdCategoria = productDTO.IdCategoria;
+                existingProduct.IdUbicacion = productDTO.IdUbicacion;
+                existingProduct.VentaSinStock = productDTO.VentaSinStock;
+
+                // Manejar códigos de barras manualmente
+                var codigosNuevos = productDTO.CodigoBarras
+                    .Where(dto => !existingProduct.CodigoBarras.Any(existing => existing.Codigo == dto.Codigo))
+                    .ToList();
+
+                var codigosAEliminar = existingProduct.CodigoBarras
+                    .Where(existing => !productDTO.CodigoBarras.Any(dto => dto.Codigo == existing.Codigo))
+                    .ToList();
+
+                // Eliminar códigos que ya no están
+                foreach (var codigoEliminar in codigosAEliminar)
+                {
+                    existingProduct.CodigoBarras.Remove(codigoEliminar);
+                }
+
+                // Agregar nuevos códigos
+                foreach (var codigoNuevo in codigosNuevos)
+                {
+                    existingProduct.CodigoBarras.Add(new CodigoBarra
+                    {
+                        Codigo = codigoNuevo.Codigo,
+                        IdProducto = existingProduct.IdProducto
+                    });
+                }
 
                 await _productRepository.Update(existingProduct);
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
@@ -161,6 +204,7 @@ namespace proyecto_venta_stock.Product.Services
 
         public async Task<Result<bool>> Delete(int idProducto)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _productRepository.GetById(idProducto);
@@ -168,16 +212,19 @@ namespace proyecto_venta_stock.Product.Services
                     return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
                 await _productRepository.Delete(existing);
+                await transaction.CommitAsync();
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex);
                 return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
         public async Task<Result<bool>> ToggleEstado(int idProducto)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _productRepository.GetById(idProducto);
@@ -186,21 +233,23 @@ namespace proyecto_venta_stock.Product.Services
 
                 existing.Activo = !existing.Activo;  // 👈 invierte el estado
                 await _productRepository.Update(existing);
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex);
                 return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
 
         public async Task<Result<PagedList<ProductDetailDTO>>> GetAllWithCategoryAndLocationPaged(
-     int pageIndex,
-     int pageSize,
-     bool? activo = true,
-     string? search = null)
+            int pageIndex,
+            int pageSize,
+            bool? activo = true,
+            string? search = null)
         {
             try
             {
@@ -374,83 +423,94 @@ namespace proyecto_venta_stock.Product.Services
 
 
 
-        public async Task<BulkImportResultDTO> ImportarProductosAsync(IFormFile file)
+        public async Task<Result<BulkImportResultDTO>> ImportarProductosAsync(IFormFile file)
         {
-            var result = new BulkImportResultDTO();
-
-            var extension = Path.GetExtension(file.FileName).ToLower();
-            List<ProductImportRowDTO> rows;
-
-            if (extension == ".csv")
-                rows = ParseCsv(file);
-            else if (extension == ".xlsx")
-                rows = ParseExcel(file);
-            else
-                throw new Exception("Formato no soportado. Solo CSV o Excel.");
-
-            int lineNumber = 2; // comienza después del encabezado
-
-            foreach (var row in rows)
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
             {
-                // Validación IValidatableObject
-                var context = new ValidationContext(row);
-                var validation = new List<ValidationResult>();
+                var result = new BulkImportResultDTO();
 
-                if (!Validator.TryValidateObject(row, context, validation, true))
-                {
-                    result.Errores.Add(new RowErrorDTO
-                    {
-                        LineNumber = lineNumber,
-                        Errors = validation.Select(v => v.ErrorMessage).ToList()
-                    });
-                    lineNumber++;
-                    continue;
-                }
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                List<ProductImportRowDTO> rows;
 
-                // Buscar si existe
-                var existing = await _productRepository.GetByBarcode(row.CodigoBarra);
-
-                if (existing != null)
-                {
-                    // UPDATE
-                    existing.Precio = row.Precio ?? existing.Precio;
-                    existing.Nombre = string.IsNullOrWhiteSpace(row.Nombre) ? existing.Nombre : row.Nombre;
-                    existing.Marca = string.IsNullOrWhiteSpace(row.Marca) ? existing.Marca : row.Marca;
-                    existing.IdCategoria = row.IdCategoria ?? existing.IdCategoria;
-                    existing.IdUbicacion = row.IdUbicacion ?? existing.IdUbicacion;
-
-                    await _productRepository.Update(existing);
-                    result.ProductosActualizados++;
-                }
+                if (extension == ".csv")
+                    rows = ParseCsv(file);
+                else if (extension == ".xlsx")
+                    rows = ParseExcel(file);
                 else
-                {
-                    // INSERT (alta masiva)
-                    var defaults = _defaultsOptions.Value;
+                    throw new Exception("Formato no soportado. Solo CSV o Excel.");
 
-                    var nuevo = new Producto
+                int lineNumber = 2; // comienza después del encabezado
+
+                foreach (var row in rows)
+                {
+                    // Validación IValidatableObject
+                    var context = new ValidationContext(row);
+                    var validation = new List<ValidationResult>();
+
+                    if (!Validator.TryValidateObject(row, context, validation, true))
                     {
-                        Nombre = row.Nombre,
-                        Marca = row.Marca,
-                        Precio = row.Precio!.Value,
-                        IdCategoria = row.IdCategoria ?? defaults.DefaultCategoryId,
-                        IdUbicacion = row.IdUbicacion ?? defaults.DefaultLocationId,
-                        Activo = true,
-                        CodigoBarras = new List<CodigoBarra>
-                {
-                    new CodigoBarra { Codigo = row.CodigoBarra }
-                }
-                    };
+                        result.Errores.Add(new RowErrorDTO
+                        {
+                            LineNumber = lineNumber,
+                            Errors = validation.Select(v => v.ErrorMessage).ToList()
+                        });
+                        lineNumber++;
+                        continue;
+                    }
 
-                    await _productRepository.Create(nuevo);
-                    result.ProductosCreados++;
-                }
+                    // Buscar si existe
+                    var existing = await _productRepository.GetByBarcode(row.CodigoBarra);
 
-                lineNumber++;
+                    if (existing != null)
+                    {
+                        // UPDATE
+                        existing.Precio = row.Precio ?? existing.Precio;
+                        existing.Nombre = string.IsNullOrWhiteSpace(row.Nombre) ? existing.Nombre : row.Nombre;
+                        existing.Marca = string.IsNullOrWhiteSpace(row.Marca) ? existing.Marca : row.Marca;
+                        existing.IdCategoria = row.IdCategoria ?? existing.IdCategoria;
+                        existing.IdUbicacion = row.IdUbicacion ?? existing.IdUbicacion;
+
+                        await _productRepository.Update(existing);
+                        result.ProductosActualizados++;
+                    }
+                    else
+                    {
+                        // INSERT (alta masiva)
+                        var defaults = _defaultsOptions.Value;
+
+                        var nuevo = new Producto
+                        {
+                            Nombre = row.Nombre,
+                            Marca = row.Marca,
+                            Precio = row.Precio!.Value,
+                            IdCategoria = row.IdCategoria ?? defaults.DefaultCategoryId,
+                            IdUbicacion = row.IdUbicacion ?? defaults.DefaultLocationId,
+                            Activo = true,
+                            CodigoBarras = new List<CodigoBarra>
+                            {
+                                new CodigoBarra { Codigo = row.CodigoBarra }
+                            }
+                        };
+
+                        await _productRepository.Create(nuevo);
+                        result.ProductosCreados++;
+                    }
+
+                    lineNumber++;
+                }
+                await transaction.CommitAsync();
+
+                return Result<BulkImportResultDTO>.Success(result);
+            }
+            catch (System.Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Error inesperado:" + ex);
+                  return Result<BulkImportResultDTO>.Failure(ProductErrorCode.error_inesperado);
             }
 
-            return result;
         }
-
 
     }
 }

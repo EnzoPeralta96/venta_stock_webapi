@@ -34,6 +34,8 @@ using proyecto_venta_stock.Configuration;
 using venta_stock_webapi.Shared.Identity;
 using Microsoft.Extensions.Options;
 using venta_stock_webapi.Data;
+using venta_stock_webapi.Features.Audit.Repository;
+using venta_stock_webapi.Features.Audit.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -158,6 +160,9 @@ builder.Services.AddScoped<ICategoryServices, CategoryService>();
 
 builder.Services.AddScoped<ILocationRepository, LocationRepository>();
 builder.Services.AddScoped<ILocationService, LocationServices>();
+
+builder.Services.AddScoped<IAuditRepository, AuditRepository>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 var app = builder.Build();
 

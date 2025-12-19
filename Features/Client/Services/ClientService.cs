@@ -8,6 +8,8 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Models;
 using venta_stock_webapi.Shared.Paged;
 using venta_stock_webapi.CurrentAccount.Repository;
+using venta_stock_webapi.Data.Audit;
+using venta_stock_webapi.Shared.Identity;
 
 namespace venta_stock_webapi.Client.Services
 {
@@ -18,22 +20,24 @@ namespace venta_stock_webapi.Client.Services
         private readonly VentaStockContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<ClientService> _logger;
+        private readonly IUserContext _userContext;
 
         public ClientService(
             IClientRepository clienteRepository,
             VentaStockContext context,
             IMapper mapper,
             ILogger<ClientService> logger,
-            IAccountMovementRepository accountMovementRepository)
+            IAccountMovementRepository accountMovementRepository,
+            IUserContext userContext)
         {
             _clienteRepository = clienteRepository;
             _context = context;
             _mapper = mapper;
             _logger = logger;
             _accountMovementRepository = accountMovementRepository;
-
+            _userContext = userContext;
         }
-        
+
         //Agregar validaciones de usuario.
         public async Task<Result<ClientResponseDTO>> CreateClienteAsync(ClientCreateDTO clienteDTO)
         {
@@ -160,6 +164,7 @@ namespace venta_stock_webapi.Client.Services
 
         public async Task<Result<ClientResponseDTO>> UpdateClient(ClientUpdateDTO clienteDTO)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var clienteExistente = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
@@ -204,6 +209,8 @@ namespace venta_stock_webapi.Client.Services
 
                 await _clienteRepository.UpdateAsync(clienteExistente);
 
+                await transaction.CommitAsync();
+
                 var clienteActualizado = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
                 var responseDTO = _mapper.Map<ClientResponseDTO>(clienteActualizado);
 
@@ -211,6 +218,7 @@ namespace venta_stock_webapi.Client.Services
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado al actualizar cliente: " + ex);
                 return Result<ClientResponseDTO>.Failure(ClientErrorCode.unexpected_error);
             }
@@ -218,8 +226,10 @@ namespace venta_stock_webapi.Client.Services
 
         public async Task<Result<string>> ToggleStatus(ClientToggleStatusDTO dto)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                await AuditDbSession.SetAsync(_context, _userContext);
                 var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente);
 
                 if (cliente == null)
@@ -235,6 +245,7 @@ namespace venta_stock_webapi.Client.Services
                     }
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, DateOnly.FromDateTime(DateTime.Now));
+                    await transaction.CommitAsync();
                     return Result<string>.Success("Cliente dado de baja exitosamente.");
                 }
                 else
@@ -245,11 +256,13 @@ namespace venta_stock_webapi.Client.Services
                     }
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, null);
+                    await transaction.CommitAsync();
                     return Result<string>.Success("Cliente reactivado exitosamente.");
                 }
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado al cambiar estado del cliente: " + ex);
                 return Result<string>.Failure(ClientErrorCode.unexpected_error);
             }

@@ -8,7 +8,9 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
+using venta_stock_webapi.Data.Audit;
 using venta_stock_webapi.Shared.Auth.PassService;
+using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.User.Services
@@ -21,7 +23,8 @@ namespace proyecto_venta_stock.User.Services
         private readonly IMapper _mapper;
         private readonly VentaStockContext _dbContext;
         private readonly IPasswordService _passwordService;
-        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext, IPasswordService passwordService)
+        private readonly IUserContext _userContext;
+        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext, IPasswordService passwordService, IUserContext userContext)
         {
             _userRepository = userRepository;
             _logger = logger;
@@ -29,6 +32,7 @@ namespace proyecto_venta_stock.User.Services
             _permitRepository = permitRepository;
             _dbContext = dbContext;
             _passwordService = passwordService;
+            _userContext = userContext;
         }
 
         public async Task<Result<bool>> CreateAsync(UserCreateDTO userDTO)
@@ -78,6 +82,9 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
+                //Setear las variables de sesion en la db para auditoria
+                await AuditDbSession.SetAsync(_dbContext, _userContext);
+
                 bool exists = await _userRepository.ExistsActive(userDTO.IdUsuario);
                 if (!exists) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
@@ -136,8 +143,12 @@ namespace proyecto_venta_stock.User.Services
 
         public async Task<Result<bool>> DeleteAsync(int id)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
+                //Setear las variables de sesion en la db para auditoria
+                await AuditDbSession.SetAsync(_dbContext, _userContext);
+
                 var exist = await _userRepository.ExistsActive(id);
 
                 if (!exist) return Result<bool>.Failure(UserErrorCode.user_not_found);
@@ -146,10 +157,12 @@ namespace proyecto_venta_stock.User.Services
 
                 if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
+                await transaction.CommitAsync();
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(UserErrorCode.unexpected_error);
             }

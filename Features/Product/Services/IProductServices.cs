@@ -20,16 +20,16 @@ namespace proyecto_venta_stock.Product.Services
         Task<Result<bool>> ToggleEstado(int idProducto);
 
         Task<Result<PagedList<ProductDetailDTO>>> GetAllWithCategoryAndLocationPaged(
-    int pageIndex,
-    int pageSize,
-    bool? activo = true,
-    string? search = null
-);
+        int pageIndex,
+        int pageSize,
+        bool? activo = true,
+        string? search = null
+        );
         public Task<byte[]> ExportarCsvAsync();
         public Task<byte[]> ExportarExcelAsync();
 
         public byte[] ExportarPlantillaExcel();
         public byte[] ExportarPlantillaCsv();
-        public Task<BulkImportResultDTO> ImportarProductosAsync(IFormFile file);
+        public Task<Result<BulkImportResultDTO>> ImportarProductosAsync(IFormFile file);
     }
 }

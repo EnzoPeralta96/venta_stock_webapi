@@ -15,7 +15,7 @@ namespace venta_stock_webapi.Shared.Identity
             _httpContextAccesor = httpContext;
         }
 
-        /*  
+        /*
         En caso de que haya un proceso donde no hay un usuario logueado
         Por ejemplo un scafold, el sistema podria lanzar una excepcion.
         Para evitar eso ponemos como usario al admin
@@ -25,15 +25,15 @@ namespace venta_stock_webapi.Shared.Identity
             get
             {
                 var context = _httpContextAccesor.HttpContext;
-                
 
-                if (context is null) return 1;
+                if (context is null) return 0;
 
-                var sub = context.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
-                return int.TryParse(sub, out var id) ? id : 1;
+                // ASP.NET Core mapea el claim 'sub' a ClaimTypes.NameIdentifier
+                var sub = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                       ?? context.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+                return int.TryParse(sub, out var id) ? id : 0;
             }
         }
-
         public string UserName
         {
             get
@@ -43,7 +43,6 @@ namespace venta_stock_webapi.Shared.Identity
                 return context.User.FindFirstValue(JwtRegisteredClaimNames.UniqueName) ?? context.User.Identity?.Name;
             }
         }
-
         public bool IsAuthenticated => _httpContextAccesor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
     }
 }

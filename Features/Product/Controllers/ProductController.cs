@@ -137,7 +137,10 @@ public class ProductController : ControllerBase
             return BadRequest("Debe subir un archivo CSV o Excel válido.");
 
         var result = await _productServices.ImportarProductosAsync(file);
-        return Ok(result);
+
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+
+        return Ok(result.Value);
     }
 
 
