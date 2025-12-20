@@ -8,7 +8,8 @@
       "Bash(test:*)",
       "Bash(git checkout:*)",
       "Bash(git ls-tree:*)",
-      "Bash(dotnet build:*)"
+      "Bash(dotnet build:*)",
+      "Bash(git branch:*)"
     ]
   }
 }
