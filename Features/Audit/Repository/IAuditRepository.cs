@@ -1,9 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 
 namespace venta_stock_webapi.Features.Audit.Repository

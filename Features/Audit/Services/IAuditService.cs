@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.Features.Audit.DTO;
 using venta_stock_webapi.Shared.Paged;

@@ -11,8 +11,10 @@ public class Auditoria
     public string EntidadTipo { get; set; } = null!;
     public string? EntidadId { get; set; }
     public string? Detalle { get; set; }
+    public string? ValoresAnteriores { get; set; }
+    public string? ValoresNuevos { get; set; }
 
     // JSONB (PostgreSQL): EF Core + Npgsql lo soporta bien con JsonDocument
-    public JsonDocument? ValoresAnteriores { get; set; }
-    public JsonDocument? ValoresNuevos { get; set; }
+    //public JsonDocument? ValoresAnteriores { get; set; }
+    //public JsonDocument? ValoresNuevos { get; set; }
 }

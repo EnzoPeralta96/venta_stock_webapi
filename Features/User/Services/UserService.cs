@@ -98,7 +98,9 @@ namespace proyecto_venta_stock.User.Services
 
                 if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
 
+                
                 var user = _mapper.Map<Usuario>(userDTO);
+                
 
                 var row = await _userRepository.UpdateAsync(user);
 
