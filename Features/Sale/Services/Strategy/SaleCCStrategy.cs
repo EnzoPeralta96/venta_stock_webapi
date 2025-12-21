@@ -68,15 +68,6 @@ namespace venta_stock_webapi.Sale.Strategies
                     return Result<Ventum>.Failure(SaleErrorCode.client_no_credit_account);
                 }
 
-                // Cliente sin límite de crédito configurado
-                if (creditInfo.LimiteCuenta <= 0)
-                {
-                    _logger.LogWarning(
-                        "Cliente {id} no tiene límite de crédito configurado",
-                        saleDTO.idCliente
-                    );
-                    return Result<Ventum>.Failure(SaleErrorCode.client_no_credit_limit);
-                }
 
                 // ===== 3. CALCULAR NUEVO SALDO =====
                 
@@ -149,42 +140,15 @@ namespace venta_stock_webapi.Sale.Strategies
                     creditInfo.LimiteCuenta - nuevoSaldo
                 );
 
-                // ===== 6. CREAR MOVIMIENTO EN CUENTA CORRIENTE =====
-                // Tipo de movimiento: 5 = movimiento_cc (consumo por venta)
-                
-                var movimiento = new MovimientoCc
-                {
-                    IdCliente = saleDTO.idCliente,
-                    IdVenta = venta.IdVenta,  // Se asignará después de guardar la venta
-                    IdTipoMovimiento = 5,  // movimiento_cc (según la imagen que compartiste)
-                    Importe = montoVenta,
-                    Fecha = DateTime.Now,
-                    Detalle = $"Venta {venta.CodigoVenta}",
-                    IdEstado = 2,  // Completada
-                    SaldoActual = nuevoSaldo,
-                    LimiteCuenta = creditInfo.LimiteCuenta,
-                    IdUsuarioRegistra = saleDTO.idUsuarioVendedor,
-                    FechaAutorizacion = null,  // No requiere autorización para ventas dentro del límite
-                    IdUsuarioAutoriza = null
-                };
-
-                await _context.MovimientoCcs.AddAsync(movimiento);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation(
-                    "Movimiento CC creado - Venta: {codigo}, ID Movimiento: {idMov}, " +
-                    "Saldo nuevo: ${saldo}, Límite disponible: ${disponible}",
-                    venta.CodigoVenta,
-                    movimiento.IdMovimiento,
-                    nuevoSaldo,
-                    creditInfo.LimiteCuenta - nuevoSaldo
-                );
-
-                // ===== 7. RETORNAR ÉXITO =====
+                // ===== 6. RETORNAR ÉXITO =====
                 // El SaleService se encarga de:
                 // - Guardar la venta y detalles
+                // - CREAR el movimiento CC (ahora que la venta tiene ID)
                 // - Actualizar el stock
                 // - Commitear la transacción
+                //
+                // NOTA: El movimiento CC se crea en SaleService DESPUÉS de guardar
+                // la venta para poder usar venta.IdVenta correctamente
 
                 return Result<Ventum>.Success(venta);
             }

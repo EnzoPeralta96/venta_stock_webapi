@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
@@ -139,6 +140,37 @@ namespace venta_stock_webapi.Sale.Services
 
                 await _saleRepository.AddSaleItemsAsync(detalles);
 
+                // ===== CREAR MOVIMIENTO CC SI ES VENTA A CUENTA CORRIENTE =====
+                if (createSaleDTO.idMedioPago == 2) // 2 = Cuenta Corriente
+                {
+                    var creditInfo = await _clientRepository.ObtenerInfoCreditoAsync(createSaleDTO.idCliente);
+                    var nuevoSaldo = (creditInfo?.SaldoActual ?? 0) + total;
+
+                    var movimiento = new MovimientoCc
+                    {
+                        IdCliente = createSaleDTO.idCliente,
+                        IdVenta = ventaCreada.IdVenta,  // Ahora la venta ya tiene ID
+                        IdTipoMovimiento = 5,  // movimiento_cc (consumo por venta)
+                        Importe = total,
+                        Fecha = DateTime.Now,
+                        Detalle = $"Venta {ventaCreada.CodigoVenta}",
+                        IdEstado = 2,  // Completada
+                        SaldoActual = nuevoSaldo,
+                        LimiteCuenta = creditInfo?.LimiteCuenta - total,
+                        IdUsuarioRegistra = createSaleDTO.idUsuarioVendedor,
+                        FechaAutorizacion = null,
+                        IdUsuarioAutoriza = null
+                    };
+
+                    await _context.MovimientoCcs.AddAsync(movimiento);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation(
+                        "Movimiento CC creado - Venta: {codigo}, Saldo nuevo: ${saldo}",
+                        ventaCreada.CodigoVenta, nuevoSaldo
+                    );
+                }
+
                 // ===== ACTUALIZAR STOCK =====
                 foreach (var detalle in detalles)
                     await _saleRepository.UpdateProductStockAsync(detalle.IdProducto, detalle.Cantidad ?? 0);
@@ -198,14 +230,14 @@ namespace venta_stock_webapi.Sale.Services
                     pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta
                 );
 
-                // Obtener query base
-                var query = _saleRepository.SalesQueryable();
+                // ===== 1. OBTENER VENTAS NORMALES (TABLA VENTA) =====
+                var queryVentas = _saleRepository.SalesQueryable();
 
-                // Aplicar filtros
+                // Aplicar filtros a ventas normales
                 if (!string.IsNullOrWhiteSpace(clienteFilter))
                 {
                     var lowerFilter = clienteFilter.ToLower();
-                    query = query.Where(v =>
+                    queryVentas = queryVentas.Where(v =>
                         (v.IdClienteNavigation.Nombre != null &&
                          v.IdClienteNavigation.Nombre.ToLower().Contains(lowerFilter)) ||
                         (v.IdClienteNavigation.RazonSocial != null &&
@@ -215,37 +247,86 @@ namespace venta_stock_webapi.Sale.Services
 
                 if (fechaDesde.HasValue)
                 {
-                    query = query.Where(v => v.Fecha >= fechaDesde.Value);
+                    queryVentas = queryVentas.Where(v => v.Fecha >= fechaDesde.Value);
                 }
 
                 if (fechaHasta.HasValue)
                 {
-                    // Incluir todo el día hasta las 23:59:59
                     var fechaHastaFin = fechaHasta.Value.Date.AddDays(1).AddTicks(-1);
-                    query = query.Where(v => v.Fecha <= fechaHastaFin);
+                    queryVentas = queryVentas.Where(v => v.Fecha <= fechaHastaFin);
                 }
 
-                // Ordenar por fecha descendente (más recientes primero)
-                query = query.OrderByDescending(v => v.Fecha);
-
-                // Proyectar a DTO
-                var dtoQuery = query.Select(v => new SaleListDTO
+                // Proyectar ventas normales a DTO
+                var ventasDTO = queryVentas.Select(v => new SaleListDTO
                 {
                     IdVenta = v.IdVenta,
                     CodigoVenta = v.CodigoVenta,
                     Fecha = v.Fecha ?? DateTime.MinValue,
                     Total = v.Total ?? 0,
-                    Cliente = v.IdClienteNavigation.Nombre ??
-                             v.IdClienteNavigation.RazonSocial ?? "N/A",
+                    Cliente = !string.IsNullOrEmpty(v.IdClienteNavigation.RazonSocial)
+                        ? v.IdClienteNavigation.RazonSocial
+                        : (v.IdClienteNavigation.Nombre + " " + v.IdClienteNavigation.Apellido),
                     MedioPago = v.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
                     Estado = v.IdEstadoNavigation.Estado1 ?? "N/A",
                     Vendedor = v.IdUsuarioNavigation.Nombre + " " +
                               v.IdUsuarioNavigation.Apellido
                 });
 
-                // Aplicar paginación
+                // ===== 2. OBTENER VENTAS PENDIENTES RECHAZADAS =====
+                var queryRechazadas = _context.VentaPendiente
+                    .Where(vp => vp.IdEstado == 3) // 3 = Rechazada
+                    .Include(vp => vp.IdClienteNavigation)
+                    .Include(vp => vp.IdMedioPagoNavigation)
+                    .Include(vp => vp.IdEstadoNavigation)
+                    .Include(vp => vp.IdUsuarioVendedorNavigation)
+                    .AsNoTracking();
+
+                // Aplicar filtros a ventas rechazadas
+                if (!string.IsNullOrWhiteSpace(clienteFilter))
+                {
+                    var lowerFilter = clienteFilter.ToLower();
+                    queryRechazadas = queryRechazadas.Where(vp =>
+                        (vp.IdClienteNavigation.Nombre != null &&
+                         vp.IdClienteNavigation.Nombre.ToLower().Contains(lowerFilter)) ||
+                        (vp.IdClienteNavigation.RazonSocial != null &&
+                         vp.IdClienteNavigation.RazonSocial.ToLower().Contains(lowerFilter))
+                    );
+                }
+
+                if (fechaDesde.HasValue)
+                {
+                    queryRechazadas = queryRechazadas.Where(vp => vp.FechaRegistro >= fechaDesde.Value);
+                }
+
+                if (fechaHasta.HasValue)
+                {
+                    var fechaHastaFin = fechaHasta.Value.Date.AddDays(1).AddTicks(-1);
+                    queryRechazadas = queryRechazadas.Where(vp => vp.FechaRegistro <= fechaHastaFin);
+                }
+
+                // Proyectar ventas rechazadas a DTO
+                var rechazadasDTO = queryRechazadas.Select(vp => new SaleListDTO
+                {
+                    IdVenta = vp.IdVentaPendiente, // Usar IdVentaPendiente como IdVenta
+                    CodigoVenta = vp.CodigoVenta,
+                    Fecha = vp.FechaRegistro,
+                    Total = vp.Total,
+                    Cliente = !string.IsNullOrEmpty(vp.IdClienteNavigation.RazonSocial)
+                        ? vp.IdClienteNavigation.RazonSocial
+                        : (vp.IdClienteNavigation.Nombre + " " + vp.IdClienteNavigation.Apellido),
+                    MedioPago = vp.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
+                    Estado = vp.IdEstadoNavigation.Estado1 ?? "Rechazada",
+                    Vendedor = vp.IdUsuarioVendedorNavigation.Nombre + " " +
+                              vp.IdUsuarioVendedorNavigation.Apellido
+                });
+
+                // ===== 3. COMBINAR AMBOS RESULTADOS =====
+                var combinedQuery = ventasDTO.Concat(rechazadasDTO)
+                    .OrderByDescending(s => s.Fecha);
+
+                // ===== 4. APLICAR PAGINACIÓN =====
                 var pagedList = await PagedList<SaleListDTO>.CreateAsync(
-                    dtoQuery,
+                    combinedQuery,
                     pageNumber,
                     pageSize
                 );

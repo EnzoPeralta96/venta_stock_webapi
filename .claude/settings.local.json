@@ -9,7 +9,9 @@
       "Bash(git checkout:*)",
       "Bash(git ls-tree:*)",
       "Bash(dotnet build:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(Select-String -Pattern \"error |Error |succeeded|failed\")",
+      "Bash(Select-Object -First 20)"
     ]
   }
 }

@@ -68,7 +68,9 @@ namespace venta_stock_webapi.Sale.Repository
                     FechaRegistro = vp.FechaRegistro,
                     Total = vp.Total,
                     IdCliente = vp.IdCliente,
-                    Cliente = vp.IdClienteNavigation.Nombre ?? vp.IdClienteNavigation.RazonSocial ?? "N/A",
+                    Cliente = !string.IsNullOrEmpty(vp.IdClienteNavigation.RazonSocial)
+                        ? vp.IdClienteNavigation.RazonSocial
+                        : (vp.IdClienteNavigation.Nombre + " " + vp.IdClienteNavigation.Apellido),
                     Vendedor = vp.IdUsuarioVendedorNavigation.Nombre + " " + vp.IdUsuarioVendedorNavigation.Apellido,
                     SaldoActual = vp.SaldoActual ?? 0,
                     LimiteCuenta = vp.LimiteCuenta ?? 0,

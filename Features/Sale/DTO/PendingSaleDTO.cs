@@ -9,21 +9,22 @@ namespace venta_stock_webapi.Sale.DTO
         public string CodigoVenta { get; set; } = string.Empty;
         public decimal Total { get; set; }
         public string Cliente { get; set; } = string.Empty;
+        public string Vendedor { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
         public DateTime FechaRegistro { get; set; }
-        
+
         // Información de crédito
         public decimal SaldoActual { get; set; }
         public decimal LimiteCuenta { get; set; }
         public decimal SaldoDespuesVenta { get; set; }
         public decimal Excedente { get; set; }
         public decimal PorcentajeExcedente { get; set; }
-        
+
         // Items
         public List<SaleItemDetailDTO> Items { get; set; } = new();
-        
+
         // Mensaje para el usuario
-        public string Mensaje => 
+        public string Mensaje =>
             $"Venta registrada como PENDIENTE. Excede el límite de crédito en ${Excedente:N2}. " +
             $"Requiere autorización del administrador.";
     }

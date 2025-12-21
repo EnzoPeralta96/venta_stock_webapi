@@ -45,7 +45,12 @@ var builder = WebApplication.CreateBuilder(args);
 // =======================
 // 📦 Servicios base
 // =======================
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Configurar JSON para usar camelCase (estándar JavaScript)
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

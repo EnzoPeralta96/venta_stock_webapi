@@ -116,8 +116,11 @@ namespace venta_stock_webapi.Sale.Services
                     IdVentaPendiente = ventaCompleta.IdVentaPendiente,
                     CodigoVenta = ventaCompleta.CodigoVenta,
                     Total = ventaCompleta.Total,
-                    Cliente = ventaCompleta.IdClienteNavigation.Nombre ?? 
-                             ventaCompleta.IdClienteNavigation.RazonSocial ?? "N/A",
+                    Cliente = !string.IsNullOrEmpty(ventaCompleta.IdClienteNavigation.RazonSocial)
+                        ? ventaCompleta.IdClienteNavigation.RazonSocial
+                        : (ventaCompleta.IdClienteNavigation.Nombre + " " + ventaCompleta.IdClienteNavigation.Apellido),
+                    Vendedor = ventaCompleta.IdUsuarioVendedorNavigation.Nombre + " " +
+                              ventaCompleta.IdUsuarioVendedorNavigation.Apellido,
                     Estado = ventaCompleta.IdEstadoNavigation.Estado1 ?? "N/A",
                     FechaRegistro = ventaCompleta.FechaRegistro,
                     SaldoActual = ventaCompleta.SaldoActual ?? 0,
@@ -171,8 +174,11 @@ namespace venta_stock_webapi.Sale.Services
                     IdVentaPendiente = ventaPendiente.IdVentaPendiente,
                     CodigoVenta = ventaPendiente.CodigoVenta,
                     Total = ventaPendiente.Total,
-                    Cliente = ventaPendiente.IdClienteNavigation.Nombre ?? 
-                             ventaPendiente.IdClienteNavigation.RazonSocial ?? "N/A",
+                    Cliente = !string.IsNullOrEmpty(ventaPendiente.IdClienteNavigation.RazonSocial)
+                        ? ventaPendiente.IdClienteNavigation.RazonSocial
+                        : (ventaPendiente.IdClienteNavigation.Nombre + " " + ventaPendiente.IdClienteNavigation.Apellido),
+                    Vendedor = ventaPendiente.IdUsuarioVendedorNavigation.Nombre + " " +
+                              ventaPendiente.IdUsuarioVendedorNavigation.Apellido,
                     Estado = ventaPendiente.IdEstadoNavigation.Estado1 ?? "N/A",
                     FechaRegistro = ventaPendiente.FechaRegistro,
                     SaldoActual = ventaPendiente.SaldoActual ?? 0,
@@ -312,7 +318,7 @@ namespace venta_stock_webapi.Sale.Services
                         Fecha = DateTime.Now,
                         Detalle = $"Venta {venta.CodigoVenta} (aprobada por autorización)",
                         SaldoActual = ventaPendiente.SaldoDespuesVenta,
-                        LimiteCuenta = ventaPendiente.LimiteCuenta,
+                        LimiteCuenta = ventaPendiente.LimiteCuenta - ventaPendiente.Total,
                         IdUsuarioRegistra = idUsuarioAutoriza,
                         IdEstado = 2  // 2 = Completada
                     };

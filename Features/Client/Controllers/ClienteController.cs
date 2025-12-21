@@ -63,10 +63,10 @@ namespace venta_stock_webapi.Client.Controllers
         [HttpGet("search")]
         public async Task<IActionResult> Search(
             int pageIndex = 1,
+            int pageSize = 10,
             string searchTerm = "",
             string estado = "activos")
         {
-            int pageSize = 10;
             var result = await _clienteService.Search(pageIndex, pageSize, searchTerm, estado);
 
             if (!result.IsSuccess)
