@@ -39,6 +39,8 @@ using Microsoft.Extensions.Options;
 using venta_stock_webapi.Data;
 using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.Audit.Services;
+using proyecto_venta_stock.Features.Ferreteria.Repository;
+using venta_stock_webapi.Features.Ferreteria.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -182,6 +184,12 @@ builder.Services.AddScoped<CreditSaleStrategy>();
 
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+// =======================
+// 🏪 Servicios de Ferreteria
+// =======================
+builder.Services.AddScoped<IFerreteriaRepository, FerreteriaRepository>();
+builder.Services.AddScoped<IFerreteriaService, FerreteriaService>();
 
 var app = builder.Build();
 
