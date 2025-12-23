@@ -108,13 +108,23 @@ namespace venta_stock_webapi.Sale.Services
                             createSaleDTO.idCliente, codigoVenta
                         );
 
+                        // Obtener la venta pendiente recién creada
+                        var ventaPendiente = await _context.VentaPendiente
+                            .Where(vp => vp.IdCliente == createSaleDTO.idCliente)
+                            .OrderByDescending(vp => vp.FechaRegistro)
+                            .FirstOrDefaultAsync();
+
                         return Result<SaleResponseDTO>.Success(new SaleResponseDTO
                         {
                             IdVenta = 0,
-                            CodigoVenta = "PENDING",
+                            IdVentaPendiente = ventaPendiente?.IdVentaPendiente,
+                            CodigoVenta = ventaPendiente?.CodigoVenta ?? "PENDING",
                             Fecha = DateTime.Now,
                             Total = total,
                             Cliente = client.Nombre ?? client.RazonSocial ?? "N/A",
+                            ClienteDni = client.Dni ?? client.Cuit ?? "N/A",
+                            ClienteTelefono = client.Telefono ?? "N/A",
+                            VendedorNombre = "N/A",
                             MedioPago = "Cuenta Corriente",
                             Estado = "Pendiente de Autorización",
                             Items = detalles.Select(d => new SaleItemDetailDTO

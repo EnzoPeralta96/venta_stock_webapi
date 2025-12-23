@@ -191,6 +191,9 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IFerreteriaRepository, FerreteriaRepository>();
 builder.Services.AddScoped<IFerreteriaService, FerreteriaService>();
 
+/* Servicios de PDF */
+builder.Services.AddScoped<IPdfService, PdfService>();
+
 var app = builder.Build();
 
 // =======================

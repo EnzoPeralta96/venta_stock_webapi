@@ -13,11 +13,13 @@ namespace venta_stock_webapi.Sale.Controllers
     public class SaleController : ControllerBase
     {
         private readonly ISaleServices _saleService;
+        private readonly IPdfService _pdfService;
         private readonly ILogger<SaleController> _logger;
 
-        public SaleController(ISaleServices saleService, ILogger<SaleController> logger)
+        public SaleController(ISaleServices saleService, IPdfService pdfService, ILogger<SaleController> logger)
         {
             _saleService = saleService;
+            _pdfService = pdfService;
             _logger = logger;
         }
 
@@ -116,6 +118,31 @@ namespace venta_stock_webapi.Sale.Controllers
             }
 
             return Ok(result.Value);
+        }
+
+        [HttpGet("{idVenta:int}/pdf")]
+        [Authorize(Policy = "PERM:VEN_READ")]
+        public async Task<IActionResult> DownloadSalePdf(int idVenta)
+        {
+            try
+            {
+                var pdfBytes = await _pdfService.GenerateSalePdfAsync(idVenta);
+
+                return File(
+                    pdfBytes,
+                    "application/pdf",
+                    $"Venta_{idVenta}_{DateTime.Now:yyyyMMdd}.pdf"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generando PDF de venta {id}", idVenta);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error generando el PDF"
+                });
+            }
         }
     }
 }

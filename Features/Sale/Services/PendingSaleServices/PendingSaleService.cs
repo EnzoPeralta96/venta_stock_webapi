@@ -119,8 +119,11 @@ namespace venta_stock_webapi.Sale.Services
                     Cliente = !string.IsNullOrEmpty(ventaCompleta.IdClienteNavigation.RazonSocial)
                         ? ventaCompleta.IdClienteNavigation.RazonSocial
                         : (ventaCompleta.IdClienteNavigation.Nombre + " " + ventaCompleta.IdClienteNavigation.Apellido),
+                    ClienteDni = ventaCompleta.IdClienteNavigation.Dni ?? ventaCompleta.IdClienteNavigation.Cuit ?? "N/A",
+                    ClienteTelefono = ventaCompleta.IdClienteNavigation.Telefono ?? "N/A",
                     Vendedor = ventaCompleta.IdUsuarioVendedorNavigation.Nombre + " " +
                               ventaCompleta.IdUsuarioVendedorNavigation.Apellido,
+                    MedioPago = ventaCompleta.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
                     Estado = ventaCompleta.IdEstadoNavigation.Estado1 ?? "N/A",
                     FechaRegistro = ventaCompleta.FechaRegistro,
                     SaldoActual = ventaCompleta.SaldoActual ?? 0,
@@ -177,8 +180,11 @@ namespace venta_stock_webapi.Sale.Services
                     Cliente = !string.IsNullOrEmpty(ventaPendiente.IdClienteNavigation.RazonSocial)
                         ? ventaPendiente.IdClienteNavigation.RazonSocial
                         : (ventaPendiente.IdClienteNavigation.Nombre + " " + ventaPendiente.IdClienteNavigation.Apellido),
+                    ClienteDni = ventaPendiente.IdClienteNavigation.Dni ?? ventaPendiente.IdClienteNavigation.Cuit ?? "N/A",
+                    ClienteTelefono = ventaPendiente.IdClienteNavigation.Telefono ?? "N/A",
                     Vendedor = ventaPendiente.IdUsuarioVendedorNavigation.Nombre + " " +
                               ventaPendiente.IdUsuarioVendedorNavigation.Apellido,
+                    MedioPago = ventaPendiente.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
                     Estado = ventaPendiente.IdEstadoNavigation.Estado1 ?? "N/A",
                     FechaRegistro = ventaPendiente.FechaRegistro,
                     SaldoActual = ventaPendiente.SaldoActual ?? 0,

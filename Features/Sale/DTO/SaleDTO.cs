@@ -62,12 +62,23 @@ namespace venta_stock_webapi.Sale.DTO
     public class SaleResponseDTO
     {
         public int IdVenta { get; set; }
+        public int? IdVentaPendiente { get; set; }  // ID de venta pendiente si requiere autorización
         public string CodigoVenta { get; set; }
         public DateTime Fecha { get; set; }
         public decimal Total { get; set; }
+
+        // Información del cliente
         public string Cliente { get; set; }
+        public string ClienteDni { get; set; }
+        public string ClienteTelefono { get; set; }
+
+        // Información del vendedor
+        public string VendedorNombre { get; set; }
+
+        // Medio de pago y estado
         public string MedioPago { get; set; }
         public string Estado { get; set; }
+
         public List<SaleItemDetailDTO> Items { get; set; } = new();
     }
 

@@ -8,8 +8,17 @@ namespace venta_stock_webapi.Sale.DTO
         public int IdVentaPendiente { get; set; }
         public string CodigoVenta { get; set; } = string.Empty;
         public decimal Total { get; set; }
+
+        // Información del cliente
         public string Cliente { get; set; } = string.Empty;
+        public string ClienteDni { get; set; } = string.Empty;
+        public string ClienteTelefono { get; set; } = string.Empty;
+
+        // Información del vendedor
         public string Vendedor { get; set; } = string.Empty;
+
+        // Medio de pago y estado
+        public string MedioPago { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
         public DateTime FechaRegistro { get; set; }
 

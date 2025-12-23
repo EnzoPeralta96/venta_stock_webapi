@@ -23,11 +23,17 @@ namespace venta_stock_webapi.Sale.Profile
 
             // Ventum → SaleResponseDTO
             CreateMap<Ventum, SaleResponseDTO>()
-                .ForMember(dest => dest.Cliente, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.Cliente, opt => opt.MapFrom(src =>
                     src.IdClienteNavigation.Nombre ?? src.IdClienteNavigation.RazonSocial ?? "N/A"))
-                .ForMember(dest => dest.MedioPago, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.ClienteDni, opt => opt.MapFrom(src =>
+                    src.IdClienteNavigation.Dni ?? src.IdClienteNavigation.Cuit ?? "N/A"))
+                .ForMember(dest => dest.ClienteTelefono, opt => opt.MapFrom(src =>
+                    src.IdClienteNavigation.Telefono ?? "N/A"))
+                .ForMember(dest => dest.VendedorNombre, opt => opt.MapFrom(src =>
+                    src.IdUsuarioNavigation.Nombre + " " + src.IdUsuarioNavigation.Apellido))
+                .ForMember(dest => dest.MedioPago, opt => opt.MapFrom(src =>
                     src.IdMedioPagoNavigation.MedioPago1 ?? "N/A"))
-                .ForMember(dest => dest.Estado, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.Estado, opt => opt.MapFrom(src =>
                     src.IdEstadoNavigation.Estado1 ?? "N/A"))
                 .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.DetalleVenta));
 

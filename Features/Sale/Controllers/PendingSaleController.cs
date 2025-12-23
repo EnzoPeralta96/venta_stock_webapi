@@ -18,13 +18,16 @@ namespace venta_stock_webapi.Sale.Controllers
     public class PendingSaleController : ControllerBase
     {
         private readonly IPendingSaleService _pendingSaleService;
+        private readonly IPdfService _pdfService;
         private readonly ILogger<PendingSaleController> _logger;
 
         public PendingSaleController(
             IPendingSaleService pendingSaleService,
+            IPdfService pdfService,
             ILogger<PendingSaleController> logger)
         {
             _pendingSaleService = pendingSaleService;
+            _pdfService = pdfService;
             _logger = logger;
         }
 
@@ -246,6 +249,33 @@ namespace venta_stock_webapi.Sale.Controllers
 
             return Ok(stats);
         }
+
+
+        [HttpGet("{id:int}/pdf")]
+        [Authorize(Policy = "PERM:VEN_READ")]
+        public async Task<IActionResult> DownloadPendingSalePdf(int id)
+        {
+            try
+            {
+                var pdfBytes = await _pdfService.GeneratePendingSalePdfAsync(id);
+
+                return File(
+                    pdfBytes,
+                    "application/pdf",
+                    $"VentaPendiente_{id}_{DateTime.Now:yyyyMMdd}.pdf"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generando PDF de venta pendiente {id}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error generando el PDF"
+                });
+            }
+        }
+
     }
 
     /// <summary>
