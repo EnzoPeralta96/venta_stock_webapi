@@ -82,7 +82,7 @@ namespace proyecto_venta_stock.Product.ProductRepository
             if (activo.HasValue)
                 query = query.Where(p => p.Activo == activo.Value);
 
-            return query;
+            return query.OrderBy(p => p.IdProducto);
         }
 
         public async Task<List<Producto>> GetAllWithCodigosAsync()
