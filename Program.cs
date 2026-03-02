@@ -21,6 +21,8 @@ using proyecto_venta_stock.Category.Services;
 using proyecto_venta_stock.Location.Services;
 using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.User.Services;
+using proyecto_venta_stock.Proveedor.ProveedorRepository;
+using proyecto_venta_stock.Proveedor.Services;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -41,6 +43,7 @@ using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.Audit.Services;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using venta_stock_webapi.Features.Ferreteria.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -184,6 +187,11 @@ builder.Services.AddScoped<CreditSaleStrategy>();
 
 builder.Services.AddScoped<IAuditRepository, AuditRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Servicios de Proveedores
+
+builder.Services.AddScoped<IProveedorRepository, ProveedorRepository>();
+builder.Services.AddScoped<IProveedorServices, ProveedorServices>();
 
 // =======================
 // 🏪 Servicios de Ferreteria

@@ -11,7 +11,6 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
         Task<List<Models.Proveedor>> GetAll();
 
         Task<bool> Exists(string nombre, int? excludeId = null);
-        Task<bool> IsInUse(int idProveedor);
 
         Task Delete(Models.Proveedor proveedor);
     }

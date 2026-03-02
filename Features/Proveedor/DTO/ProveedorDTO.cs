@@ -6,5 +6,6 @@ namespace proyecto_venta_stock.Proveedor.DTO
         public string Nombre { get; set; } = null!;
         public string? Direccion { get; set; }
         public string? Telefono { get; set; }
+         public bool Activo { get; set; }
     }
 }

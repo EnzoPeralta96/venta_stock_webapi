@@ -8,6 +8,7 @@ public partial class Proveedor
     public string? Direccion { get; set; }
 
     public string? Telefono { get; set; }
+     public bool Activo { get; set; } = true;
 
     public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
 

@@ -50,24 +50,10 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
             return q.AnyAsync(p => p.Proveedor1 == nombre);
         }
 
-        public async Task<bool> IsInUse(int idProveedor)
-        {
-            // Tiene listas?
-            var hasListas = await _dbContext.Set<ListaPrecio>()
-                .AnyAsync(lp => lp.IdProveedor == idProveedor);
-
-            if (hasListas) return true;
-
-            // Tiene compras?
-            var hasCompras = await _dbContext.Set<Compra>()
-                .AnyAsync(c => c.IdProveedor == idProveedor);
-
-            return hasCompras;
-        }
-
         public async Task Delete(Models.Proveedor proveedor)
         {
-            _dbContext.Set<Models.Proveedor>().Remove(proveedor);
+            proveedor.Activo = false;                 
+            _dbContext.Set<Models.Proveedor>().Update(proveedor);
             await _dbContext.SaveChangesAsync();
         }
     }

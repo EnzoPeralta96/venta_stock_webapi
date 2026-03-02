@@ -40,7 +40,7 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<ProductoListaprecioProveedor> ProductoListaprecioProveedors { get; set; }
 
-    public virtual DbSet<Proveedor> Proveedors { get; set; }
+    public virtual DbSet<Models.Proveedor> Proveedors { get; set; }
 
     public virtual DbSet<TipoMovimiento> TipoMovimientos { get; set; }
 
@@ -443,7 +443,7 @@ public partial class VentaStockContext : DbContext
                 .HasConstraintName("productolistaprecioproveedor_id_producto_fkey");
         });
 
-        modelBuilder.Entity<Proveedor>(entity =>
+        modelBuilder.Entity<Models.Proveedor>(entity =>
         {
             entity.HasKey(e => e.IdProveedor).HasName("proveedor_pkey");
 
@@ -459,6 +459,9 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(20)
                 .HasColumnName("telefono");
+            entity.Property(e=>e.Activo)
+                        .HasColumnName("activo")
+                        .HasDefaultValue(true);
         });
 
         modelBuilder.Entity<TipoMovimiento>(entity =>
