@@ -15,6 +15,12 @@ namespace proyecto_venta_stock.Location.Profile
                 .ReverseMap()
                 // Al volver al DTO, no forzamos mayúsculas; solo evitamos nulls
                 .ForMember(d => d.Seccion, o => o.MapFrom(s => s.Seccion ?? string.Empty));
+
+            CreateMap<LocationCreateUpdateDTO, Ubicacion>()
+                .ForMember(d => d.Seccion, o => o.MapFrom(s => (s.Seccion ?? string.Empty).Trim().ToUpper()))
+                .ForMember(d => d.IdUbicacion, o => o.Ignore())
+                .ForMember(d => d.Activo, o => o.Ignore())
+                .ForMember(d => d.Productos, o => o.Ignore());
         }
     }
 }

@@ -39,11 +39,12 @@ namespace venta_stock_webapi.Sale.Controllers
             [FromQuery] int pageSize = 10,
             [FromQuery] string? clienteFilter = null,
             [FromQuery] DateTime? fechaDesde = null,
-            [FromQuery] DateTime? fechaHasta = null)
+            [FromQuery] DateTime? fechaHasta = null,
+            [FromQuery] string? estado = null)
         {
             _logger.LogInformation(
-                "Listando ventas - Página: {PageNumber}, Tamaño: {PageSize}, Cliente: {ClienteFilter}, Desde: {FechaDesde}, Hasta: {FechaHasta}",
-                pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta
+                "Listando ventas - Página: {PageNumber}, Tamaño: {PageSize}, Cliente: {ClienteFilter}, Desde: {FechaDesde}, Hasta: {FechaHasta}, Estado: {Estado}",
+                pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta, estado
             );
 
             var result = await _saleService.GetSalesPagedAsync(
@@ -51,7 +52,8 @@ namespace venta_stock_webapi.Sale.Controllers
                 pageSize,
                 clienteFilter,
                 fechaDesde,
-                fechaHasta
+                fechaHasta,
+                estado
             );
 
             if (!result.IsSuccess)
@@ -117,7 +119,55 @@ namespace venta_stock_webapi.Sale.Controllers
                 return BadRequest(errorMessage);
             }
 
+            // Venta pendiente de autorización → 202 Accepted
+            if (result.Value.IdVenta == 0)
+                return Accepted(result.Value);
+
+            // Venta completada → 201 Created
+            return StatusCode(201, result.Value);
+        }
+
+        [Authorize(Policy = "PERM:CC_NOTE_CREDIT")]
+        [HttpPost("{idVenta:int}/annul")]
+        public async Task<IActionResult> AnnulSale(int idVenta, [FromBody] AnnulSaleDTO dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var result = await _saleService.AnnulSaleAsync(idVenta, dto);
+
+            if (!result.IsSuccess)
+            {
+                var code = (SaleErrorCode)result.ErrorCode;
+                var errorMessage = MessageProvider.Get(SaleErrorDictionary.Messages, code);
+                return BadRequest(errorMessage);
+            }
+
             return Ok(result.Value);
+        }
+
+        /// <summary>
+        /// Genera el PDF de Nota de Crédito para una venta anulada.
+        /// Funciona para ventas al contado y para ventas CC.
+        /// </summary>
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("{idVenta:int}/credit-note-pdf")]
+        public async Task<IActionResult> GetCreditNotePdf(int idVenta)
+        {
+            try
+            {
+                var pdfBytes = await _pdfService.GenerateAnnulReceiptAsync(idVenta);
+                return File(
+                    pdfBytes,
+                    "application/pdf",
+                    $"NotaCredito_{idVenta}_{DateTime.Now:yyyyMMdd}.pdf"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generando PDF de nota de crédito para venta {idVenta}", idVenta);
+                return StatusCode(500, new { message = "Error generando el PDF de nota de crédito." });
+            }
         }
 
         [HttpGet("{idVenta:int}/pdf")]

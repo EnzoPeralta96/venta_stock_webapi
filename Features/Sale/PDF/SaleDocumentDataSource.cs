@@ -37,6 +37,12 @@ namespace venta_stock_webapi.Sale.PDF
         public string Observaciones { get; set; }
         public bool EsVentaPendiente { get; set; }
         public decimal? Excedente { get; set; }
+
+        // Nota de crédito (anulación)
+        public bool EsNotaCredito { get; set; } = false;
+        public string? MotivoNc { get; set; }
+        public string? DetalleAdicional { get; set; }
+        public DateTime? FechaAnulacion { get; set; }
     }
 
     public class SaleItemPdf

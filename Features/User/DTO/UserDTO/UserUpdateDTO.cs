@@ -11,7 +11,7 @@ namespace proyecto_venta_stock.User.DTO
         [Required(ErrorMessage = "El nombre de usuario es requerido")]
         public string Usuario { get; set; }
 
-[Required(ErrorMessage = "El nombre es requerido")]
+        [Required(ErrorMessage = "El nombre es requerido")]
         public string Nombre { get; set; }
 
         [Required(ErrorMessage = "El nombre apellido es requerido")]

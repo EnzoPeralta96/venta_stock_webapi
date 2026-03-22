@@ -23,7 +23,8 @@ namespace proyecto_venta_stock.Product.Services
         int pageIndex,
         int pageSize,
         bool? activo = true,
-        string? search = null
+        string? search = null,
+        int? idCategoria = null
         );
         public Task<byte[]> ExportarCsvAsync();
         public Task<byte[]> ExportarExcelAsync();

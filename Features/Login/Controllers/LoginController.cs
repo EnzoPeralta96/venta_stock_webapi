@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
+using venta_stock_webapi.Data.Audit;
 using venta_stock_webapi.Login.DTO;
 using venta_stock_webapi.Login.Services;
+using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.MessageProvider;
 
 namespace venta_stock_webapi.Features.Login.Controllers
@@ -25,7 +28,7 @@ namespace venta_stock_webapi.Features.Login.Controllers
             {
                 return BadRequest(ModelState);
             }
-            
+
             var result = await _loginService.AuthenticateAsync(loginRequest);
 
             if (!result.IsSuccess)
@@ -34,7 +37,7 @@ namespace venta_stock_webapi.Features.Login.Controllers
                 var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
                 return BadRequest(errorMessage);
             }
-
+            
             return Ok(result.Value);
         }
     }

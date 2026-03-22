@@ -20,12 +20,16 @@ namespace venta_stock_webapi.Sale.Message
         sale_not_found,
         pending_sale_not_found,
         pending_sale_already_processed,
+        sale_already_annulled,
+        credit_note_reason_not_found,
+        credit_note_reason_inactive,
 
         // Errores de cuenta corriente
         credit_limit_exceeded,
         
         // Errores generales
-        unexpected_error
+        unexpected_error,
+        invalid_sale_total
     }
 
     public static class SaleErrorDictionary
@@ -50,12 +54,16 @@ namespace venta_stock_webapi.Sale.Message
             { SaleErrorCode.sale_not_found, "La venta indicada no existe." },
             { SaleErrorCode.pending_sale_not_found, "La venta pendiente indicada no existe." },
             { SaleErrorCode.pending_sale_already_processed, "La venta pendiente ya fue procesada anteriormente." },
+            { SaleErrorCode.sale_already_annulled, "La venta indicada ya fue anulada previamente." },
+            { SaleErrorCode.credit_note_reason_not_found, "El motivo de nota de crédito indicado no existe." },
+            { SaleErrorCode.credit_note_reason_inactive, "El motivo de nota de crédito indicado no está activo." },
 
             // Errores de cuenta corriente
             { SaleErrorCode.credit_limit_exceeded, "Límite de crédito excedido. No hay cupo disponible suficiente." },
             
             // Errores generales
-            { SaleErrorCode.unexpected_error, "Ocurrió un error inesperado, por favor intente nuevamente." }
+            { SaleErrorCode.unexpected_error, "Ocurrió un error inesperado, por favor intente nuevamente." },
+            { SaleErrorCode.invalid_sale_total, "El total de la venta es inválido." }
         };
     }
 }

@@ -1,9 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
 
 namespace venta_stock_webapi.Shared.Identity
 {
@@ -46,3 +42,4 @@ namespace venta_stock_webapi.Shared.Identity
         public bool IsAuthenticated => _httpContextAccesor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
     }
 }
+

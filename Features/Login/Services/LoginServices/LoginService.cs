@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
@@ -8,8 +9,6 @@ using venta_stock_webapi.Login.JwtService;
 using venta_stock_webapi.Shared.Auth;
 using venta_stock_webapi.Shared.Auth.PassService;
 
-
-
 namespace venta_stock_webapi.Login.Services
 {
     public class LoginService : ILoginService
@@ -18,13 +17,16 @@ namespace venta_stock_webapi.Login.Services
         private readonly IUserRepository _userRepository;
         private readonly IJwtService _jwtService;
         private readonly IPasswordService _passwordService;
+        
+        private readonly VentaStockContext _dbContext;
 
-        public LoginService(IUserRepository userRepository, IJwtService jwtService, ILogger<LoginService> logger, IPasswordService passwordService)
+        public LoginService(IUserRepository userRepository, IJwtService jwtService, ILogger<LoginService> logger, IPasswordService passwordService, VentaStockContext dbContext)
         {
             _userRepository = userRepository;
             _jwtService = jwtService;
             _logger = logger;
             _passwordService = passwordService;
+            _dbContext = dbContext;
         }
 
         private IEnumerable<Claim> BuildPermissionsUserClaims(Usuario user)
@@ -44,10 +46,8 @@ namespace venta_stock_webapi.Login.Services
 
                 if (user == null) return Result<LoginResponseDTO>.Failure(UserErrorCode.username_not_found);
                 
-
                 if(!_passwordService.VerifyPassword(user, loginRequest.Password)) return Result<LoginResponseDTO>.Failure(UserErrorCode.username_not_found);
 
-                
                 var permissionClaims = BuildPermissionsUserClaims(user);
                 var (token, expiration) = _jwtService.GenerateJwtToken(user, permissionClaims);
 
@@ -58,6 +58,7 @@ namespace venta_stock_webapi.Login.Services
                     UserId = user.IdUsuario,
                     Username = user.Nombre + " " + user.Apellido,
                     Role = user.Rol,
+                    Root = user.Root,
                     Permissions = permissionClaims.Select(c => c.Value).ToList()
                 };
 
@@ -69,7 +70,5 @@ namespace venta_stock_webapi.Login.Services
                 return Result<LoginResponseDTO>.Failure(UserErrorCode.unexpected_error);
             }
         }
-
-       
     }
 }

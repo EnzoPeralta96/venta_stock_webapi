@@ -7,7 +7,8 @@ public enum UserErrorCode
     permission_not_found,
     unexpected_error,
     username_not_found,
-    user_not_found
+    user_not_found,
+    user_already_active
 }
 
 public static class UserErrorDictionary
@@ -19,6 +20,7 @@ public static class UserErrorDictionary
         { UserErrorCode.permission_not_found, "El permiso indicado no existe o no está asignado." },
         { UserErrorCode.unexpected_error, "Ocurrió un error inesperado, por favor intente nuevamente." },
         { UserErrorCode.username_not_found, "El usuario y/o la contraseña son incorrectos." },
-        { UserErrorCode.user_not_found, "El usuario indicado no existe." }
+        { UserErrorCode.user_not_found, "El usuario indicado no existe." },
+        { UserErrorCode.user_already_active, "El usuario ya se encuentra activo." }
     };
 }

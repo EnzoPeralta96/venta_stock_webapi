@@ -10,9 +10,14 @@ using venta_stock_webapi.Sale.Repository;
 using venta_stock_webapi.Sale.Strategies;
 using venta_stock_webapi.Shared.Paged;
 using proyecto_venta_stock.Product.ProductRepository;
+using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
+using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
+using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
+using venta_stock_webapi.CurrentAccount.Repository;
 
 namespace venta_stock_webapi.Sale.Services
 {
+    
     public class SaleService : ISaleServices
     {
         private readonly ISaleRepository _saleRepository;
@@ -22,6 +27,10 @@ namespace venta_stock_webapi.Sale.Services
         private readonly IMapper _mapper;
         private readonly ISaleStrategyFactory _strategyFactory;
         private readonly ILogger<SaleService> _logger;
+        private readonly ICurrentAccountService _currentAccountService;
+        private readonly IAccountMovementRepository _accountMovementRepository;
+        private readonly ICreditNoteReasonRepository _creditNoteReasonRepository;
+        private readonly MovementStrategyFactory _movementStrategyFactory;
 
         public SaleService(
             ISaleRepository saleRepository,
@@ -30,7 +39,11 @@ namespace venta_stock_webapi.Sale.Services
             VentaStockContext context,
             IMapper mapper,
             ISaleStrategyFactory strategyFactory,
-            ILogger<SaleService> logger)
+            ILogger<SaleService> logger,
+            ICurrentAccountService currentAccountService,
+            IAccountMovementRepository accountMovementRepository,
+            ICreditNoteReasonRepository creditNoteReasonRepository,
+            MovementStrategyFactory movementStrategyFactory)
         {
             _saleRepository = saleRepository;
             _clientRepository = clientRepository;
@@ -39,6 +52,10 @@ namespace venta_stock_webapi.Sale.Services
             _context = context;
             _strategyFactory = strategyFactory;
             _logger = logger;
+            _currentAccountService = currentAccountService;
+            _accountMovementRepository = accountMovementRepository;
+            _creditNoteReasonRepository = creditNoteReasonRepository;
+            _movementStrategyFactory = movementStrategyFactory;
         }
 
         public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO)
@@ -153,31 +170,30 @@ namespace venta_stock_webapi.Sale.Services
                 // ===== CREAR MOVIMIENTO CC SI ES VENTA A CUENTA CORRIENTE =====
                 if (createSaleDTO.idMedioPago == 2) // 2 = Cuenta Corriente
                 {
-                    var creditInfo = await _clientRepository.ObtenerInfoCreditoAsync(createSaleDTO.idCliente);
-                    var nuevoSaldo = (creditInfo?.SaldoActual ?? 0) + total;
-
-                    var movimiento = new MovimientoCc
+                    var movementResult = await _currentAccountService.RegisterMovement(new AddMovementDTO
                     {
                         IdCliente = createSaleDTO.idCliente,
-                        IdVenta = ventaCreada.IdVenta,  // Ahora la venta ya tiene ID
-                        IdTipoMovimiento = 5,  // movimiento_cc (consumo por venta)
+                        IdTipoMovimiento = (int)TypeMovement.MOVIMIENTO_CC, // 5
                         Importe = total,
-                        Fecha = DateTime.Now,
                         Detalle = $"Venta {ventaCreada.CodigoVenta}",
-                        IdEstado = 2,  // Completada
-                        SaldoActual = nuevoSaldo,
-                        LimiteCuenta = creditInfo?.LimiteCuenta - total,
-                        IdUsuarioRegistra = createSaleDTO.idUsuarioVendedor,
-                        FechaAutorizacion = null,
-                        IdUsuarioAutoriza = null
-                    };
+                        IdVenta = ventaCreada.IdVenta,
+                        IdUsuarioRegistra = createSaleDTO.idUsuarioVendedor
+                    });
 
-                    await _context.MovimientoCcs.AddAsync(movimiento);
-                    await _context.SaveChangesAsync();
+                    if (!movementResult.IsSuccess)
+                    {
+                        // Si falla el movimiento, no debe quedar la venta creada sin impacto en CC
+                        await transaction.RollbackAsync();
+                        _logger.LogError(
+                            "No se pudo registrar el movimiento de cuenta corriente para la venta {CodigoVenta} (cliente {ClienteId})",
+                            ventaCreada.CodigoVenta, createSaleDTO.idCliente
+                        );
+                        return Result<SaleResponseDTO>.Failure(SaleErrorCode.unexpected_error);
+                    }
 
                     _logger.LogInformation(
-                        "Movimiento CC creado - Venta: {codigo}, Saldo nuevo: ${saldo}",
-                        ventaCreada.CodigoVenta, nuevoSaldo
+                        "Movimiento CC registrado por servicio - Venta: {CodigoVenta}, Cliente: {ClienteId}",
+                        ventaCreada.CodigoVenta, createSaleDTO.idCliente
                     );
                 }
 
@@ -231,14 +247,28 @@ namespace venta_stock_webapi.Sale.Services
             int pageSize,
             string? clienteFilter,
             DateTime? fechaDesde,
-            DateTime? fechaHasta)
+            DateTime? fechaHasta,
+            string? estadoFilter)
         {
             try
             {
                 _logger.LogInformation(
-                    "Obteniendo ventas paginadas - Página: {Page}, Tamaño: {Size}, Cliente: {Cliente}, Desde: {Desde}, Hasta: {Hasta}",
-                    pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta
+                    "Obteniendo ventas paginadas - Página: {Page}, Tamaño: {Size}, Cliente: {Cliente}, Desde: {Desde}, Hasta: {Hasta}, Estado: {Estado}",
+                    pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta, estadoFilter
                 );
+
+                // Normaliza el valor enviado por el frontend al string exacto guardado en la DB.
+                // DB usa: "aprobado", "rechazado", "cancelado", "pendiente", "Anulada"
+                string? dbEstado = estadoFilter?.ToLower() switch
+                {
+                    "aprobada"  => "aprobado",
+                    "rechazada"                => "rechazado",
+                    "anulada"                  => "Anulada",
+                    "cancelada"                => "cancelado",
+                    "pendiente"                => "pendiente",
+                    null or ""                 => null,
+                    var other                  => other  // fallback: usar tal cual
+                };
 
                 // ===== 1. OBTENER VENTAS NORMALES (TABLA VENTA) =====
                 var queryVentas = _saleRepository.SalesQueryable();
@@ -266,6 +296,11 @@ namespace venta_stock_webapi.Sale.Services
                     queryVentas = queryVentas.Where(v => v.Fecha <= fechaHastaFin);
                 }
 
+                if (dbEstado != null)
+                {
+                    queryVentas = queryVentas.Where(v => v.IdEstadoNavigation.Estado1 == dbEstado);
+                }
+
                 // Proyectar ventas normales a DTO
                 var ventasDTO = queryVentas.Select(v => new SaleListDTO
                 {
@@ -283,8 +318,9 @@ namespace venta_stock_webapi.Sale.Services
                 });
 
                 // ===== 2. OBTENER VENTAS PENDIENTES RECHAZADAS =====
+                // Solo se incluyen si no hay filtro de estado, o si el filtro es "rechazado"
                 var queryRechazadas = _context.VentaPendiente
-                    .Where(vp => vp.IdEstado == 3) // 3 = Rechazada
+                    .Where(vp => vp.IdEstado == 3 && (dbEstado == null || dbEstado == "rechazado")) // 3 = Rechazada
                     .Include(vp => vp.IdClienteNavigation)
                     .Include(vp => vp.IdMedioPagoNavigation)
                     .Include(vp => vp.IdEstadoNavigation)
@@ -352,6 +388,108 @@ namespace venta_stock_webapi.Sale.Services
             {
                 _logger.LogError(ex, "Error obteniendo ventas paginadas");
                 return Result<PagedList<SaleListDTO>>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Requerido por el trigger de auditoría (fn_auditoria_generica).
+                // ExecuteUpdateAsync bypasea SaveChanges, por lo que el interceptor no actúa.
+                await _context.Database.ExecuteSqlRawAsync(
+                    "SELECT set_config('app.user_id', {0}::text, true);",
+                    dto.IdUsuarioRegistra);
+
+                // 1. Obtener la venta con detalle y tracking
+                var venta = await _saleRepository.GetSaleWithDetailsAsync(idVenta);
+                if (venta is null)
+                    return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.sale_not_found);
+
+                // 2. Validar que no esté ya anulada
+                if (venta.IdEstadoNavigation?.Estado1?.ToLower().Contains("anulad") == true)
+                    return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.sale_already_annulled);
+
+                // 3. Validar que el motivo de NC existe y está activo
+                var motivo = await _creditNoteReasonRepository.GetByIdAsync(dto.IdMotivo);
+                if (motivo is null)
+                    return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.credit_note_reason_not_found);
+                if (!motivo.Activo)
+                    return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.credit_note_reason_inactive);
+
+            
+                const int idEstadoAnulada = 5; // Estado "Anulada" en tabla estado
+
+                // 5. Cambiar estado de la venta → Anulada y guardar el motivo NC y detalle
+                await _saleRepository.AnnulSaleInDbAsync(idVenta, idEstadoAnulada, dto.IdMotivo, dto.DetalleAdicional);
+
+                // 6. Restituir stock de cada producto del detalle
+                foreach (var item in venta.DetalleVenta)
+                {
+                    int cantidad = item.Cantidad ?? 0;
+                    if (cantidad > 0)
+                        await _saleRepository.RestoreProductStockAsync(item.IdProducto, cantidad);
+                }
+
+                // 7. Si la venta fue con CC → crear NC y recomputar MontoPagado
+                int? idMovimientoNc = null;
+                if (venta.IdMedioPago == 2)
+                {
+                    int clientId = venta.IdCliente ?? 0;
+
+                    var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
+                    if (lastMovement is not null)
+                    {
+                        decimal importeNc = venta.Total ?? 0;
+                        decimal balanceBase = lastMovement.SaldoActual ?? 0;
+                        decimal limitBase = lastMovement.LimiteCuenta ?? 0;
+
+                        var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_CREDITO);
+                        var calc = strategy.Calculate(balanceBase, limitBase, importeNc);
+
+                        string detalle = motivo.Nombre;
+                        if (!string.IsNullOrWhiteSpace(dto.DetalleAdicional))
+                            detalle += $" — {dto.DetalleAdicional}";
+                        detalle += $" — Venta {venta.CodigoVenta}";
+
+                        var movimientoNc = new MovimientoCc
+                        {
+                            IdCliente         = clientId,
+                            Importe           = importeNc,
+                            Detalle           = detalle,
+                            IdEstado          = 2,
+                            IdTipoMovimiento  = (int)TypeMovement.NOTA_CREDITO,
+                            IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                            IdVenta           = idVenta,
+                            SaldoActual       = calc.NewBalance,
+                            LimiteCuenta      = calc.NewLimit,
+                            Fecha             = DateTime.Now,
+                            IdMotivoNc        = dto.IdMotivo
+                        };
+
+                        await _accountMovementRepository.CreateMovement(movimientoNc);
+                        idMovimientoNc = movimientoNc.IdMovimiento;
+
+                        await _currentAccountService.RecomputeMontoPagadoPublic(clientId);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                return Result<AnnulSaleResponseDTO>.Success(new AnnulSaleResponseDTO
+                {
+                    IdVenta        = idVenta,
+                    CodigoVenta    = venta.CodigoVenta,
+                    Estado         = "Anulada",
+                    IdMovimientoNc = idMovimientoNc
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error al anular venta {IdVenta}", idVenta);
+                return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.unexpected_error);
             }
         }
     }

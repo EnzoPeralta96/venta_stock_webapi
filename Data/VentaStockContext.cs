@@ -56,6 +56,12 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Ferreteria> Ferreterias { get; set; }
 
+    public virtual DbSet<MotivoNotaDebito> MotivoNotaDebitos { get; set; }
+
+    public virtual DbSet<MotivoNotaCredito> MotivoNotaCreditos { get; set; }
+
+    public virtual DbSet<ConfiguracionInteres> ConfiguracionIntereses { get; set; }
+
     // Nuevas entidades de ventas pendientes
     public virtual DbSet<VentaPendiente> VentaPendiente { get; set; }
 
@@ -318,6 +324,19 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdVentaNavigation).WithMany(p => p.MovimientoCcs)
                 .HasForeignKey(d => d.IdVenta)
                 .HasConstraintName("movimientocc_id_venta_fkey");
+
+            entity.Property(e => e.IdMotivoNd).HasColumnName("id_motivo_nd");
+
+            entity.HasOne(d => d.IdMotivoNdNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdMotivoNd)
+                .HasConstraintName("fk_movimiento_cc_motivo_nd");
+
+            entity.Property(e => e.IdMotivoNc).HasColumnName("id_motivo_nc");
+            entity.HasOne(d => d.IdMotivoNcNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdMotivoNc)
+                .HasConstraintName("fk_movimiento_cc_motivo_nc");
         });
 
         modelBuilder.Entity<Permiso>(entity =>
@@ -502,7 +521,8 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Seccion).HasColumnName("seccion");
             entity.Property(e => e.Activo)
                         .HasColumnName("activo")
-                        .HasDefaultValue(true);
+                        .HasDefaultValue(true)
+                        .ValueGeneratedNever();
         });
 
         modelBuilder.Entity<Usuario>(entity =>
@@ -534,6 +554,9 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Usuario1)
                 .HasMaxLength(50)
                 .HasColumnName("usuario");
+            entity.Property(e => e.Root)
+                .HasColumnName("root")                
+                .HasDefaultValue(false);
         });
 
         modelBuilder.Entity<Ferreteria>(entity =>
@@ -586,6 +609,10 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Total)
                 .HasPrecision(10, 2)
                 .HasColumnName("total");
+            entity.Property(e => e.IdMotivoNc).HasColumnName("id_motivo_nc");
+            entity.Property(e => e.DetalleNc)
+                .HasColumnName("detalle_nc")
+                .HasMaxLength(500);
 
             entity.HasOne(d => d.IdClienteNavigation).WithMany(p => p.Venta)
                 .HasForeignKey(d => d.IdCliente)
@@ -602,6 +629,31 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdUsuarioNavigation).WithMany(p => p.Venta)
                 .HasForeignKey(d => d.IdUsuario)
                 .HasConstraintName("venta_id_usuario_fkey");
+
+            entity.HasOne(d => d.IdMotivoNcNavigation).WithMany()
+                .HasForeignKey(d => d.IdMotivoNc)
+                .HasConstraintName("fk_venta_motivo_nc");
+        });
+
+        modelBuilder.Entity<MotivoNotaDebito>(entity =>
+        {
+            entity.HasKey(e => e.IdMotivo);
+            entity.ToTable("motivo_nota_debito");
+            entity.Property(e => e.IdMotivo)
+                  .HasColumnName("id_motivo")
+                  .ValueGeneratedOnAdd();
+            entity.Property(e => e.Nombre)
+                  .HasColumnName("nombre")
+                  .HasMaxLength(100)
+                  .IsRequired();
+            entity.Property(e => e.Activo)
+                  .HasColumnName("activo")
+                  .HasDefaultValue(true);
+            entity.Property(e => e.Categoria)
+                  .HasColumnName("categoria")
+                  .HasMaxLength(50)
+                  .HasDefaultValue("general")
+                  .IsRequired();
         });
 
         modelBuilder.Entity<ConfiguracionCc>(e =>
@@ -836,6 +888,45 @@ public partial class VentaStockContext : DbContext
                 .WithMany()
                 .HasForeignKey(d => d.IdProducto)
                 .HasConstraintName("compra_proveedor_detalle_id_producto_fkey");
+        });
+
+        modelBuilder.Entity<MotivoNotaCredito>(entity =>
+        {
+            entity.HasKey(e => e.IdMotivo);
+            entity.ToTable("motivo_nota_credito");
+            entity.Property(e => e.IdMotivo)
+                  .HasColumnName("id_motivo")
+                  .ValueGeneratedOnAdd();
+            entity.Property(e => e.Nombre)
+                  .HasColumnName("nombre")
+                  .HasMaxLength(100)
+                  .IsRequired();
+            entity.Property(e => e.Activo)
+                  .HasColumnName("activo")
+                  .HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<ConfiguracionInteres>(entity =>
+        {
+            entity.HasKey(e => e.IdConfig);
+            entity.ToTable("configuracion_interes");
+            entity.Property(e => e.IdConfig)
+                  .HasColumnName("id_config")
+                  .ValueGeneratedOnAdd();
+            entity.Property(e => e.Nombre)
+                  .HasColumnName("nombre")
+                  .HasMaxLength(100)
+                  .IsRequired();
+            entity.Property(e => e.PorcentajeInteres)
+                  .HasColumnName("porcentaje_interes")
+                  .HasPrecision(5, 2)
+                  .IsRequired();
+            entity.Property(e => e.DiaVencimiento)
+                  .HasColumnName("dia_vencimiento")
+                  .IsRequired();
+            entity.Property(e => e.EsActual)
+                  .HasColumnName("es_actual")
+                  .HasDefaultValue(false);
         });
 
         OnModelCreatingPartial(modelBuilder);

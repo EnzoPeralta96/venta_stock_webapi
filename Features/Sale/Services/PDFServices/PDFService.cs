@@ -125,6 +125,70 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
+        public async Task<byte[]> GenerateAnnulReceiptAsync(int idVenta)
+        {
+            var venta = await _saleRepositoy.GetSaleByIdAsync(idVenta);
+            if (venta is null)
+                throw new Exception($"Venta {idVenta} no encontrada.");
+
+            var ferreteriaInfo = await _ferreteriaRepository.GetAsync();
+
+            // Motivo y detalle leídos directamente desde la venta (guardados al anular).
+            // Funciona tanto para ventas CC como al contado.
+            string? motivoNc = venta.IdMotivoNcNavigation?.Nombre;
+            string? detalleAdicional = venta.DetalleNc;
+
+            // Fecha de anulación: si fue CC buscamos el movimiento NC para tener la fecha exacta.
+            DateTime? fechaAnulacion = await _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdVenta == idVenta && m.IdTipoMovimiento == 4)
+                .OrderByDescending(m => m.Fecha)
+                .Select(m => m.Fecha)
+                .FirstOrDefaultAsync();
+
+            fechaAnulacion ??= DateTime.Now;
+
+            var cliente = venta.IdClienteNavigation;
+            var nombreCliente = !string.IsNullOrEmpty(cliente?.RazonSocial)
+                ? cliente.RazonSocial
+                : $"{cliente?.Nombre} {cliente?.Apellido}".Trim();
+
+            var dataSource = new SaleDocumentDataSource
+            {
+                DatosFerreteria   = ferreteriaInfo,
+                CodigoVenta       = venta.CodigoVenta,
+                TipoComprobante   = "NOTA DE CRÉDITO",
+                Fecha             = venta.Fecha ?? DateTime.MinValue,
+                ClienteNombre     = nombreCliente,
+                ClienteDni        = !string.IsNullOrWhiteSpace(cliente?.Dni)
+                                        ? cliente.Dni
+                                        : (cliente?.Cuit ?? "N/A"),
+                ClienteTelefono   = cliente?.Telefono ?? "-",
+                VendedorNombre    = $"{venta.IdUsuarioNavigation?.Nombre} {venta.IdUsuarioNavigation?.Apellido}".Trim(),
+                MedioPago         = venta.IdMedioPagoNavigation?.MedioPago1 ?? "N/A",
+                Items             = venta.DetalleVenta.Select((d, i) => new SaleItemPdf
+                {
+                    Numero         = i + 1,
+                    Producto       = d.IdProductoNavigation?.Nombre ?? "N/A",
+                    Marca          = d.IdProductoNavigation?.Marca ?? "-",
+                    Cantidad       = d.Cantidad ?? 0,
+                    PrecioUnitario = d.PrecioVenta ?? 0,
+                    Subtotal       = d.SubTotal ?? 0
+                }).ToList(),
+                Subtotal          = venta.Total ?? 0,
+                Total             = venta.Total ?? 0,
+                TotalEnTexto      = NumberToTextConverter.ConvertirATexto(venta.Total ?? 0),
+                EsVentaPendiente  = false,
+                EsNotaCredito     = true,
+                MotivoNc          = motivoNc,
+                DetalleAdicional  = detalleAdicional,
+                FechaAnulacion    = fechaAnulacion
+            };
+
+            var document = new SaleDocument(dataSource);
+            return document.GeneratePdf();
+        }
+
         public async Task<byte[]> GeneratePendingSalePdfAsync(int idVentaPendiente)
         {
             try
