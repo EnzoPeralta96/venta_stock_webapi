@@ -18,6 +18,7 @@ public partial class Usuario
     public DateOnly? FechaBaja { get; set; }
 
     public string Rol { get; set; }
+    public bool Root { get; set; } = false;
 
     public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
 

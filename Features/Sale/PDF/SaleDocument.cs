@@ -46,7 +46,7 @@ namespace venta_stock_webapi.Sale.PDF
                         column.Item().Text(_data.DatosFerreteria.Nombre)
                             .FontSize(20)
                             .Bold()
-                            .FontColor(Colors.Blue.Darken2);
+                            .FontColor(_data.EsNotaCredito ? Colors.Red.Darken2 : Colors.Blue.Darken2);
 
                         column.Item().Text(_data.DatosFerreteria.Direccion)
                             .FontSize(9);
@@ -72,15 +72,24 @@ namespace venta_stock_webapi.Sale.PDF
                         column.Item().AlignCenter().Text($"Nº {_data.CodigoVenta}")
                             .FontSize(14)
                             .Bold()
-                            .FontColor(Colors.Red.Darken1);
+                            .FontColor(_data.EsNotaCredito ? Colors.Red.Darken2 : Colors.Red.Darken1);
 
                         column.Item().AlignCenter().Text(_data.Fecha.ToString("dd/MM/yyyy HH:mm"))
                             .FontSize(9);
+
+                        if (_data.EsNotaCredito && _data.FechaAnulacion.HasValue)
+                        {
+                            column.Item().AlignCenter()
+                                .Text($"Fecha anulación: {_data.FechaAnulacion.Value:dd/MM/yyyy HH:mm}")
+                                .FontSize(8)
+                                .FontColor(Colors.Red.Darken2);
+                        }
                     });
                 });
 
                 // Línea separadora
-                col.Item().PaddingTop(10).BorderBottom(2).BorderColor(Colors.Blue.Darken2);
+                col.Item().PaddingTop(10).BorderBottom(2)
+                    .BorderColor(_data.EsNotaCredito ? Colors.Red.Darken2 : Colors.Blue.Darken2);
             });
         }
 
@@ -101,6 +110,12 @@ namespace venta_stock_webapi.Sale.PDF
 
                 // Totales
                 column.Item().Element(ComposeTotals);
+
+                // Motivo de anulación (solo NC)
+                if (_data.EsNotaCredito)
+                {
+                    column.Item().PaddingTop(15).Element(ComposeAnnulReason);
+                }
 
                 // Observaciones
                 if (!string.IsNullOrWhiteSpace(_data.Observaciones))
@@ -189,10 +204,10 @@ namespace venta_stock_webapi.Sale.PDF
                     header.Cell().Element(CellStyle).AlignRight().Text("Subtotal").Bold();
 
                     // Style para header
-                    static IContainer CellStyle(IContainer container)
+                    IContainer CellStyle(IContainer container)
                     {
                         return container
-                            .Background(Colors.Blue.Darken2)
+                            .Background(_data.EsNotaCredito ? Colors.Red.Darken2 : Colors.Blue.Darken2)
                             .Padding(5)
                             .DefaultTextStyle(x => x.FontColor(Colors.White));
                     }
@@ -262,13 +277,19 @@ namespace venta_stock_webapi.Sale.PDF
 
                 column.Item().PaddingTop(5).BorderTop(2).Row(row =>
                 {
-                    row.ConstantItem(150).Text("TOTAL:")
-                        .FontSize(14)
-                        .Bold();
-                    row.ConstantItem(100).AlignRight().Text($"${_data.Total:N2}")
-                        .FontSize(14)
-                        .Bold()
-                        .FontColor(Colors.Green.Darken2);
+                    if (_data.EsNotaCredito)
+                    {
+                        row.ConstantItem(150).Text("CRÉDITO:")
+                            .FontSize(14).Bold().FontColor(Colors.Red.Darken2);
+                        row.ConstantItem(100).AlignRight().Text($"${_data.Total:N2}")
+                            .FontSize(14).Bold().FontColor(Colors.Red.Darken2);
+                    }
+                    else
+                    {
+                        row.ConstantItem(150).Text("TOTAL:").FontSize(14).Bold();
+                        row.ConstantItem(100).AlignRight().Text($"${_data.Total:N2}")
+                            .FontSize(14).Bold().FontColor(Colors.Green.Darken2);
+                    }
                 });
 
                 // Total en texto
@@ -322,6 +343,33 @@ namespace venta_stock_webapi.Sale.PDF
                 });
         }
 
+        // Motivo de anulación (NC)
+        void ComposeAnnulReason(IContainer container)
+        {
+            container.Background(Colors.Red.Lighten4)
+                .Border(1)
+                .BorderColor(Colors.Red.Darken1)
+                .Padding(10)
+                .Column(col =>
+                {
+                    col.Item().Text("MOTIVO DE ANULACIÓN")
+                        .Bold()
+                        .FontSize(11)
+                        .FontColor(Colors.Red.Darken2);
+
+                    col.Item().Text(_data.MotivoNc ?? "No especificado")
+                        .FontSize(10);
+
+                    if (!string.IsNullOrWhiteSpace(_data.DetalleAdicional))
+                    {
+                        col.Item().PaddingTop(4)
+                            .Text($"Detalle: {_data.DetalleAdicional}")
+                            .FontSize(9)
+                            .Italic();
+                    }
+                });
+        }
+
         // ===== FOOTER =====
         void ComposeFooter(IContainer container)
         {
@@ -329,7 +377,9 @@ namespace venta_stock_webapi.Sale.PDF
             {
                 column.Item().BorderTop(1).BorderColor(Colors.Grey.Medium)
                     .PaddingTop(10)
-                    .Text("Gracias por su compra")
+                    .Text(_data.EsNotaCredito
+                        ? "Este documento es constancia de la anulación de la venta indicada."
+                        : "Gracias por su compra")
                     .FontSize(10)
                     .Italic();
 

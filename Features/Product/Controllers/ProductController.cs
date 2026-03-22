@@ -87,9 +87,10 @@ public class ProductController : ControllerBase
     [FromQuery] int pageIndex = 1,
     [FromQuery] int pageSize = 9,
     [FromQuery] bool? activo = true,
-    [FromQuery] string? search = null)
+    [FromQuery] string? search = null,
+    [FromQuery] int? idCategoria = null)
     {
-        var result = await _productServices.GetAllWithCategoryAndLocationPaged(pageIndex, pageSize, activo, search);
+        var result = await _productServices.GetAllWithCategoryAndLocationPaged(pageIndex, pageSize, activo, search, idCategoria);
         if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }

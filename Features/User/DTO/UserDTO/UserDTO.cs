@@ -9,6 +9,7 @@ namespace proyecto_venta_stock.User.DTO
         public string Apellido { get; set; }
         public string Email { get; set; }
         public string Rol { get; set; }
+        public bool Root { get; set; }
         public List<PermissionsCategoryDTO> Permisos { get; set; } = [];
     }
 }

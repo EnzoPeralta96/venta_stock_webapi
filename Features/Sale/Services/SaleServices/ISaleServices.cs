@@ -13,6 +13,9 @@ namespace venta_stock_webapi.Sale.Services
         Task<Result<SaleResponseDTO>> GetSaleByIdAsync(int idVenta);
 
         // Listar ventas con paginacion y filtros
-        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta);
+        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta, string? estadoFilter);
+
+        // Anular una venta generando NC en CC si corresponde
+        Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto);
     }
 }

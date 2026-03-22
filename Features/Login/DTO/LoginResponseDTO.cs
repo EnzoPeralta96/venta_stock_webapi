@@ -12,6 +12,7 @@ namespace venta_stock_webapi.Login.DTO
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;   
+        public bool Root { get; set; } 
         public List<string> Permissions { get; set; } = new List<string>(); 
     }
 }

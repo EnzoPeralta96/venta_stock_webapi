@@ -2,6 +2,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Location.Services;
 using proyecto_venta_stock.Location.DTO;
+using proyecto_venta_stock.Message;
+using venta_stock_webapi.Shared.MessageProvider;
 
 namespace proyecto_venta_stock.Controllers;
 
@@ -55,10 +57,11 @@ public class LocationController : ControllerBase
         var result = await _service.CreateAsync(dto);
         if (!result.IsSuccess)
         {
-            if (Convert.ToString(result.ErrorCode) == "duplicate_location")
-                return Conflict("Ya existe una ubicación con esa Fila, Sección y Nivel");
-
-            return BadRequest(result.ErrorCode);
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            if (code == LocationErrorCode.duplicate_location)
+                return Conflict(msg);
+            return BadRequest(msg);
         }
 
         return Ok(result.Value);
@@ -74,13 +77,15 @@ public class LocationController : ControllerBase
         var result = await _service.UpdateAsync(id, dto);
         if (!result.IsSuccess)
         {
-            if (Convert.ToString(result.ErrorCode) == "duplicate_location")
-                return Conflict("Ya existe otra ubicación con esa Fila, Sección y Nivel");
-
-            if (Convert.ToString(result.ErrorCode) == "location_not_found")
-                return NotFound("Ubicación no encontrada");
-
-            return BadRequest(result.ErrorCode);
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            if (code == LocationErrorCode.location_not_found)
+                return NotFound(msg);
+            if (code == LocationErrorCode.duplicate_location)
+                return Conflict(msg);
+            if (code == LocationErrorCode.location_in_use)
+                return Conflict(msg);
+            return BadRequest(msg);
         }
 
         return Ok(result.Value);
@@ -92,7 +97,15 @@ public class LocationController : ControllerBase
     {
         var result = await _service.DeleteAsync(id);
         if (!result.IsSuccess)
-            return BadRequest(result.ErrorCode);
+        {
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            if (code == LocationErrorCode.location_not_found)
+                return NotFound(msg);
+            if (code == LocationErrorCode.location_in_use)
+                return Conflict(msg);
+            return BadRequest(msg);
+        }
 
         return Ok(new { message = "Ubicación eliminada correctamente" });
     }
@@ -103,7 +116,11 @@ public class LocationController : ControllerBase
     {
         var result = await _service.ToggleActivoAsync(id);
         if (!result.IsSuccess)
-            return BadRequest(result.ErrorCode);
+        {
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            return BadRequest(msg);
+        }
 
         return Ok(new { message = "Estado de la ubicación actualizado" });
     }

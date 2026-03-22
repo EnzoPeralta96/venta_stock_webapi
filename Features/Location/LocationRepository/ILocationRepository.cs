@@ -22,5 +22,6 @@ namespace proyecto_venta_stock.Location.LocationRepository
         /* Validar Duplicados */
         Task<bool> ExistsAsync(int fila, string seccion, int nivel);
         Task<bool> ExistsExceptIdAsync(int id, int fila, string seccion, int nivel);
+        Task<bool> IsInUseAsync(int id);
     }
 }

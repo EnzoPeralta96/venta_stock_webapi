@@ -125,6 +125,11 @@ namespace proyecto_venta_stock.Location.LocationRepository
                 u.Activo);
         }
 
+        public async Task<bool> IsInUseAsync(int id)
+        {
+            return await _dbContext.Productos.AnyAsync(p => p.IdUbicacion == id);
+        }
+
 
     }
 }

@@ -249,11 +249,15 @@ namespace proyecto_venta_stock.Product.Services
             int pageIndex,
             int pageSize,
             bool? activo = true,
-            string? search = null)
+            string? search = null,
+            int? idCategoria = null)
         {
             try
             {
                 var query = _productRepository.QueryAllWithCategoryAndLocation(activo);
+
+                if (idCategoria.HasValue)
+                    query = query.Where(p => p.IdCategoria == idCategoria.Value);
 
                 // aplicar búsqueda si hay
                 if (!string.IsNullOrWhiteSpace(search))
@@ -262,7 +266,8 @@ namespace proyecto_venta_stock.Product.Services
                     query = query.Where(p =>
                         p.Nombre.ToLower().Contains(lower) ||
                         p.Marca.ToLower().Contains(lower) ||
-                        (p.Descripcion != null && p.Descripcion.ToLower().Contains(lower))
+                        (p.Descripcion != null && p.Descripcion.ToLower().Contains(lower)) ||
+                        p.CodigoBarras.Any(cb => cb.Codigo.ToLower().Contains(lower))
                     );
                 }
 

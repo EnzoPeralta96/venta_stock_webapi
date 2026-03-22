@@ -34,6 +34,7 @@ namespace venta_stock_webapi.Sale.Repository
                 .Include(v => v.IdMedioPagoNavigation)
                 .Include(v => v.IdEstadoNavigation)
                 .Include(v => v.IdUsuarioNavigation)
+                .Include(v => v.IdMotivoNcNavigation)
                 .Include(v => v.DetalleVenta)
                     .ThenInclude(d => d.IdProductoNavigation)
                 .FirstOrDefaultAsync(v => v.IdVenta == idVenta);
@@ -55,25 +56,32 @@ namespace venta_stock_webapi.Sale.Repository
             // Formato: VENTA-YYYYMMDD-XXXX
             var today = DateTime.Now.ToString("yyyyMMdd");
             var prefix = $"VENTA-{today}-";
-            
-            // Obtener el último código del día
-            var lastCode = await _context.Venta
+
+            // Buscar el último código del día en ambas tablas
+            var lastCodeVenta = await _context.Venta
                 .Where(v => v.CodigoVenta.StartsWith(prefix))
                 .OrderByDescending(v => v.CodigoVenta)
                 .Select(v => v.CodigoVenta)
                 .FirstOrDefaultAsync();
 
-            int nextNumber = 1;
-            if (!string.IsNullOrEmpty(lastCode))
-            {
-                var numberPart = lastCode.Substring(prefix.Length);
-                if (int.TryParse(numberPart, out var currentNumber))
-                {
-                    nextNumber = currentNumber + 1;
-                }
-            }
+            var lastCodePendiente = await _context.VentaPendiente
+                .Where(vp => vp.CodigoVenta.StartsWith(prefix))
+                .OrderByDescending(vp => vp.CodigoVenta)
+                .Select(vp => vp.CodigoVenta)
+                .FirstOrDefaultAsync();
+
+            int nextFromVenta = ParseSaleNumber(lastCodeVenta, prefix);
+            int nextFromPendiente = ParseSaleNumber(lastCodePendiente, prefix);
+            int nextNumber = Math.Max(nextFromVenta, nextFromPendiente);
 
             return $"{prefix}{nextNumber:D4}";
+        }
+
+        private static int ParseSaleNumber(string? lastCode, string prefix)
+        {
+            if (string.IsNullOrEmpty(lastCode)) return 1;
+            var numberPart = lastCode.Substring(prefix.Length);
+            return int.TryParse(numberPart, out var n) ? n + 1 : 1;
         }
 
         public async Task UpdateProductStockAsync(int idProducto, int quantitySold)
@@ -83,6 +91,39 @@ namespace venta_stock_webapi.Sale.Repository
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(p => p.Stock, p => p.Stock - quantitySold)
                 );
+        }
+
+        public Task<Ventum?> GetSaleWithDetailsAsync(int idVenta)
+        {
+            return _context.Venta
+                .Include(v => v.DetalleVenta)
+                    .ThenInclude(d => d.IdProductoNavigation)
+                .Include(v => v.IdEstadoNavigation)
+                .FirstOrDefaultAsync(v => v.IdVenta == idVenta);
+        }
+
+        public Task RestoreProductStockAsync(int idProducto, int quantity)
+        {
+            return _context.Productos
+                .Where(p => p.IdProducto == idProducto)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => (p.Stock ?? 0) + quantity));
+        }
+
+        public Task UpdateSaleStateAsync(int idVenta, int idEstado)
+        {
+            return _context.Venta
+                .Where(v => v.IdVenta == idVenta)
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.IdEstado, idEstado));
+        }
+
+        public Task AnnulSaleInDbAsync(int idVenta, int idEstado, int idMotivoNc, string? detalleNc)
+        {
+            return _context.Venta
+                .Where(v => v.IdVenta == idVenta)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(v => v.IdEstado, idEstado)
+                    .SetProperty(v => v.IdMotivoNc, idMotivoNc)
+                    .SetProperty(v => v.DetalleNc, detalleNc));
         }
     }
 }

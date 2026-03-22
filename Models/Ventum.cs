@@ -16,6 +16,13 @@ public partial class Ventum
 
     public int? IdEstado { get; set; }
 
+    /// <summary>Motivo de la nota de crédito cuando la venta es anulada. Null si no está anulada.</summary>
+    public int? IdMotivoNc { get; set; }
+    public virtual MotivoNotaCredito? IdMotivoNcNavigation { get; set; }
+
+    /// <summary>Detalle adicional opcional ingresado al anular la venta.</summary>
+    public string? DetalleNc { get; set; }
+
     public virtual ICollection<DetalleVentum> DetalleVenta { get; set; } = new List<DetalleVentum>();
 
     public virtual Cliente? IdClienteNavigation { get; set; }

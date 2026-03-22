@@ -87,6 +87,10 @@ namespace proyecto_venta_stock.Location.Services
                 if (ubicacion == null)
                     return Result<LocationDTO>.Failure(LocationErrorCode.location_not_found);
 
+                var inUse = await _locationRepository.IsInUseAsync(id);
+                if (inUse)
+                    return Result<LocationDTO>.Failure(LocationErrorCode.location_in_use);
+
                 var exists = await _locationRepository.ExistsExceptIdAsync(id, dto.Fila, dto.Seccion, dto.Nivel);
                 if (exists)
                     return Result<LocationDTO>.Failure(LocationErrorCode.duplicate_location);
@@ -109,6 +113,14 @@ namespace proyecto_venta_stock.Location.Services
         {
             try
             {
+                var ubicacion = await _locationRepository.GetByIdAsync(id);
+                if (ubicacion == null)
+                    return Result<bool>.Failure(LocationErrorCode.location_not_found);
+
+                var inUse = await _locationRepository.IsInUseAsync(id);
+                if (inUse)
+                    return Result<bool>.Failure(LocationErrorCode.location_in_use);
+
                 await _locationRepository.DeleteAsync(id);
                 return Result<bool>.Success(true);
             }

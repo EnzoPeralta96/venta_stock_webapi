@@ -5,9 +5,12 @@ using venta_stock_webapi.Client.Services;
 using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.CurrentAccount.Services.AccountConfigService;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
+using venta_stock_webapi.CurrentAccount.Services.DebitNoteReasonService;
+using venta_stock_webapi.CurrentAccount.Services.InterestConfigService;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 using venta_stock_webapi.Sale.Repository;
 using venta_stock_webapi.Sale.Services;
+using venta_stock_webapi.Sale.Services.CreditNoteReasonService;
 using venta_stock_webapi.Sale.Strategies;
 
 using proyecto_venta_stock.Services;
@@ -142,10 +145,14 @@ builder.Services.Configure<ImportDefaultsOptions>(
 builder.Services.AddScoped<IClientRepository, ClientRepository>();
 builder.Services.AddScoped<IAccountMovementRepository, AccountMovementRepository>();
 builder.Services.AddScoped<IAccountConfigRepository, AccountConfigRepository>();
+builder.Services.AddScoped<IDebitNoteReasonRepository, DebitNoteReasonRepository>();
+builder.Services.AddScoped<IInterestConfigRepository, InterestConfigRepository>();
 
 builder.Services.AddScoped<IClientService, ClientService>();
 builder.Services.AddScoped<IAccountConfigService, AccountConfigService>();
 builder.Services.AddScoped<ICurrentAccountService, CurrentAccountService>();
+builder.Services.AddScoped<IDebitNoteReasonService, DebitNoteReasonService>();
+builder.Services.AddScoped<IInterestConfigService, InterestConfigService>();
 
 builder.Services.AddSingleton<MovementStrategyFactory>();
 // =======================
@@ -176,6 +183,8 @@ builder.Services.AddScoped<ISaleRepository, SaleRepository>();
 builder.Services.AddScoped<ISaleServices, SaleService>();
 builder.Services.AddScoped<IPendingSaleRepository, PendingSaleRepository>();
 builder.Services.AddScoped<IPendingSaleService, PendingSaleService>();
+builder.Services.AddScoped<ICreditNoteReasonRepository, CreditNoteReasonRepository>();
+builder.Services.AddScoped<ICreditNoteReasonService, CreditNoteReasonService>();
 
 // Sale Strategies
 builder.Services.AddScoped<ISaleStrategyFactory, SaleStrategyFactory>();
@@ -207,13 +216,9 @@ if (app.Environment.IsDevelopment())
 
 // ⚠️ El orden de los middlewares importa:
 app.UseHttpsRedirection();
-
 // ✅ CORS debe ir antes de Authentication / Authorization
 app.UseCors(FrontendCorsPolicy);
-
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
-
 app.Run();

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Services;
 using proyecto_venta_stock.User.DTO;
+using venta_stock_webapi.Features.User.DTO.UserDTO;
 using venta_stock_webapi.Shared.MessageProvider;
 
 namespace proyecto_venta_stock.Controllers;
@@ -90,6 +91,24 @@ public class UserController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:USR_PASSWORD_UPDATE")]
+    [HttpPut("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] UserChangePasswordDTO dto)
+    {
+        if (!ModelState.IsValid) return BadRequest();
+
+        var result = await _userService.ChangePasswordAsync(dto);
+
+        if (!result.IsSuccess)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
+        }
+
+        return NoContent();
+    }
+
     [Authorize(Policy = "PERM:USR_DELETE")]
     [HttpDelete("delete/{id}")]
     public async Task<IActionResult> Delete(int id)
@@ -101,6 +120,30 @@ public class UserController : ControllerBase
             var code = (UserErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
             return NotFound(errorMessage);
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Activa un usuario previamente desactivado. Si el usuario ya se encuentra activo, 
+    /// se devuelve un error indicando que el usuario ya está activo.
+    /// Se utiliza el mismo permiso que para eliminar usuarios, 
+    /// ya que conceptualmente se considera una "reversión" de la eliminación, 
+    /// más que una acción completamente distinta.
+    /// </summary>
+
+    [Authorize(Policy = "PERM:USR_DELETE")]
+    [HttpPut("activate/{id}")]
+    public async Task<IActionResult> Activate(int id)
+    {
+        var result = await _userService.ActivateAsync(id);
+
+        if (!result.IsSuccess)
+        {
+            var code = (UserErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(UserErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
 
         return NoContent();

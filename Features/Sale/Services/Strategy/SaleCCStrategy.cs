@@ -1,4 +1,3 @@
-using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.Client.Repository;
@@ -9,32 +8,38 @@ using venta_stock_webapi.Sale.Services;
 namespace venta_stock_webapi.Sale.Strategies
 {
     /// <summary>
-    /// Estrategia para procesar ventas en CUENTA CORRIENTE
+    /// Estrategia de venta para el medio de pago "Cuenta Corriente".
     /// </summary>
     /// <remarks>
-    /// Flujo:
-    /// 1. Obtiene información de crédito del cliente (ClientRepository)
-    /// 2. Valida si tiene cuenta corriente y límite configurado
-    /// 3. Calcula nuevo saldo después de la venta
-    /// 4. Si EXCEDE límite → Crea venta PENDIENTE (requiere autorización)
-    /// 5. Si NO excede límite → Procesa venta normal (crear movimiento CC)
-    /// 
-    /// La lógica común (guardar venta, detalles, stock) está en SaleService
+    /// Responsabilidad:
+    /// - Validar que el cliente tenga cuenta corriente inicializada.
+    /// - Validar que el monto de la venta no exceda el crédito disponible actual.
+    /// - Si excede el disponible, generar una venta pendiente de autorización (Pending Sale) y cortar el flujo.
+    /// - Si NO excede, permitir que la venta continúe su flujo normal.
+    ///
+    /// Importante:
+    /// - Esta estrategia NO persiste la venta ni crea movimientos de cuenta corriente.
+    ///   La persistencia de la venta, actualización de stock y la creación del movimiento de CC
+    ///   se realizan en el servicio/orquestador (SaleService) una vez que la venta tiene IdVenta.
+    /// - La validación de "disponible" asume que el repositorio de cliente devuelve:
+    ///   - LimiteCuenta = crédito disponible actual,
+    ///   - SaldoActual = saldo/deuda actual.
     /// </remarks>
+    /// <example>
+    /// Si disponibleActual = 10.000 y montoVenta = 12.000:
+    /// - Se crea Pending Sale y se retorna error de límite excedido.
+    /// </example>
     public class CreditSaleStrategy : ISaleStrategy
     {
-        private readonly VentaStockContext _context;
         private readonly IClientRepository _clientRepository;
         private readonly IPendingSaleService _pendingSaleService;
         private readonly ILogger<CreditSaleStrategy> _logger;
 
         public CreditSaleStrategy(
-            VentaStockContext context,
             IClientRepository clientRepository,
             IPendingSaleService pendingSaleService,
             ILogger<CreditSaleStrategy> logger)
         {
-            _context = context;
             _clientRepository = clientRepository;
             _pendingSaleService = pendingSaleService;
             _logger = logger;
@@ -49,54 +54,41 @@ namespace venta_stock_webapi.Sale.Strategies
             {
                 _logger.LogInformation("Procesando venta en CUENTA CORRIENTE: {codigo}", venta.CodigoVenta);
 
-                var montoVenta = venta.Total ?? 0;
+                var montoVenta = venta.Total ?? 0m;
 
-                // ===== 1. OBTENER INFORMACIÓN DE CRÉDITO =====
-                // Repository solo provee DATOS (no valida)
-                
+                if (montoVenta <= 0m)
+                    return Result<Ventum>.Failure(SaleErrorCode.invalid_sale_total);
+
                 var creditInfo = await _clientRepository.ObtenerInfoCreditoAsync(saleDTO.idCliente);
 
-                // ===== 2. VALIDAR DATOS OBTENIDOS =====
-                
-                // Cliente sin cuenta corriente inicializada
-                if (creditInfo == null)
+                if (creditInfo is null)
                 {
-                    _logger.LogWarning(
-                        "Cliente {id} no tiene cuenta corriente inicializada",
-                        saleDTO.idCliente
-                    );
+                    _logger.LogWarning("Cliente {id} no tiene cuenta corriente inicializada", saleDTO.idCliente);
                     return Result<Ventum>.Failure(SaleErrorCode.client_no_credit_account);
                 }
 
-
-                // ===== 3. CALCULAR NUEVO SALDO =====
-                
-                var nuevoSaldo = creditInfo.SaldoActual + montoVenta;
+                // Interpretación: LimiteCuenta = crédito disponible actual
+                var disponibleActual = creditInfo.LimiteCuenta;
 
                 _logger.LogDebug(
-                    "Cálculo de crédito - Cliente: {id}, Saldo actual: {saldo}, " +
-                    "Monto venta: {monto}, Nuevo saldo: {nuevo}, Límite: {limite}",
-                    saleDTO.idCliente, creditInfo.SaldoActual, montoVenta, 
-                    nuevoSaldo, creditInfo.LimiteCuenta
+                    "Crédito disponible - Cliente: {id}, Disponible: {disp}, Monto venta: {monto}",
+                    saleDTO.idCliente, disponibleActual, montoVenta
                 );
 
-                // ===== 4. VERIFICAR SI EXCEDE LÍMITE =====
-                
-                if (nuevoSaldo > creditInfo.LimiteCuenta)
+                // Si no hay disponible, también excede
+                if (disponibleActual <= 0m || montoVenta > disponibleActual)
                 {
-                    // ===== EXCEDE LÍMITE → CREAR VENTA PENDIENTE =====
-                    
-                    var excedente = nuevoSaldo - creditInfo.LimiteCuenta;
-                    var porcentajeExcedente = (excedente / creditInfo.LimiteCuenta) * 100;
+                    var excedente = montoVenta - Math.Max(disponibleActual, 0m);
+                    var porcentajeExcedente = disponibleActual > 0m
+                        ? (excedente / disponibleActual) * 100m
+                        : 100m;
 
                     _logger.LogWarning(
-                        "Venta EXCEDE límite de crédito - Cliente: {id}, " +
-                        "Excedente: ${excedente} ({porcentaje}%). " +
+                        "Venta EXCEDE crédito disponible - Cliente: {id}, Excedente: ${excedente} ({porcentaje}%). " +
                         "Creando venta PENDIENTE de autorización",
                         saleDTO.idCliente, excedente, Math.Round(porcentajeExcedente, 2)
                     );
 
-                    // Crear venta pendiente (NO venta definitiva)
                     var pendingResult = await _pendingSaleService.CreatePendingSaleAsync(
                         saleDTO,
                         creditInfo.SaldoActual,
@@ -104,52 +96,12 @@ namespace venta_stock_webapi.Sale.Strategies
                     );
 
                     if (!pendingResult.IsSuccess)
-                    {
-                        _logger.LogError(
-                            "Error creando venta pendiente para cliente {id}",
-                            saleDTO.idCliente
-                        );
                         return Result<Ventum>.Failure(pendingResult.ErrorCode);
-                    }
 
-                    _logger.LogInformation(
-                        "Venta pendiente creada exitosamente: {codigo}, " +
-                        "ID pendiente: {id}, Excedente: ${excedente}",
-                        pendingResult.Value.CodigoVenta,
-                        pendingResult.Value.IdVentaPendiente,
-                        excedente
-                    );
-
-                    // Retornar error especial indicando que quedó pendiente
-                    // El SaleService debe manejar este caso y retornar la info de venta pendiente
-                    return Result<Ventum>.Failure(
-                        SaleErrorCode.credit_limit_exceeded // Pasar la venta pendiente como data adicional
-                    );
+                    return Result<Ventum>.Failure(SaleErrorCode.credit_limit_exceeded);
                 }
 
-                // ===== 5. NO EXCEDE LÍMITE → PROCESAR VENTA NORMAL =====
-
-                _logger.LogInformation(
-                    "Límite verificado OK - Cliente: {id}, " +
-                    "Nuevo saldo: {nuevo}/{limite} ({porcentaje}%), " +
-                    "Disponible restante: ${disponible}",
-                    saleDTO.idCliente,
-                    nuevoSaldo,
-                    creditInfo.LimiteCuenta,
-                    Math.Round((nuevoSaldo / creditInfo.LimiteCuenta) * 100, 2),
-                    creditInfo.LimiteCuenta - nuevoSaldo
-                );
-
-                // ===== 6. RETORNAR ÉXITO =====
-                // El SaleService se encarga de:
-                // - Guardar la venta y detalles
-                // - CREAR el movimiento CC (ahora que la venta tiene ID)
-                // - Actualizar el stock
-                // - Commitear la transacción
-                //
-                // NOTA: El movimiento CC se crea en SaleService DESPUÉS de guardar
-                // la venta para poder usar venta.IdVenta correctamente
-
+                // No excede: SaleService continúa, guarda venta y luego registra movimiento CC.
                 return Result<Ventum>.Success(venta);
             }
             catch (Exception ex)

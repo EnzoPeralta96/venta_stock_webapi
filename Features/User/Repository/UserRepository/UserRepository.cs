@@ -53,6 +53,7 @@ namespace proyecto_venta_stock.User.UserRepository
                 Apellido = u.Apellido,
                 Email = u.Email,
                 Rol = u.Rol,
+                Root = u.Root,
                 Permisos = u.PermisoUsuarios
                         .GroupBy(pu => pu.IdPermisoNavigation.CategoriaPermiso)
                         .Select(g => new PermissionsCategoryDTO
@@ -84,7 +85,6 @@ namespace proyecto_venta_stock.User.UserRepository
             .Where(u => u.IdUsuario == user.IdUsuario)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(u => u.Usuario1, user.Usuario1)
-                .SetProperty(u => u.Password, user.Password)
                 .SetProperty(u => u.Nombre, user.Nombre)
                 .SetProperty(u => u.Apellido, user.Apellido)
                 .SetProperty(u => u.Email, user.Email)
@@ -136,5 +136,29 @@ namespace proyecto_venta_stock.User.UserRepository
                 .FirstOrDefaultAsync();
         }
 
+        public Task<Usuario> GetActiveByIdAsync(int id)
+        {
+            return _dbContext.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.IdUsuario == id && u.FechaBaja == null);
+        }
+
+        public Task<int> UpdatePasswordAsync(int id, string newPassword)
+        {
+            return _dbContext.Usuarios
+            .Where(u => u.IdUsuario == id && u.FechaBaja == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(u => u.Password, newPassword)
+            );
+        }
+        
+        public Task<int> ActivateAsync(int id)
+        {
+            return _dbContext.Usuarios
+                .Where(u => u.IdUsuario == id)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(u => u.FechaBaja, (DateOnly?)null)
+                );
+        }
     }
 }
