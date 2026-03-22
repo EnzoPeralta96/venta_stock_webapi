@@ -1,5 +1,6 @@
 using proyecto_venta_stock.Proveedor.DTO;
 using proyecto_venta_stock.Shared.ResultPattern;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.Proveedor.Services
 {
@@ -11,5 +12,6 @@ namespace proyecto_venta_stock.Proveedor.Services
         Task<Result<ProveedorDTO>> GetById(int idProveedor);
         Task<Result<bool>> Delete(int idProveedor);
         Task<Result<bool>> ToggleEstado(int idProveedor);
+        Task<Result<PagedList<ProveedorDTO>>> ProveedoresPagedAsync(int pageIndex, int pageSize, string searchTerm, string estado = "activos");
     }
 }

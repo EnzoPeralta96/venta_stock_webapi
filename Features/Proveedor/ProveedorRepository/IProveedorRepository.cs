@@ -9,6 +9,7 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 
         Task<Models.Proveedor?> GetById(int idProveedor);
         Task<List<Models.Proveedor>> GetAll();
+        IQueryable<Models.Proveedor> ProveedoresQueryable(string searchTerm);
 
         Task<bool> Exists(string nombre, int? excludeId = null);
 

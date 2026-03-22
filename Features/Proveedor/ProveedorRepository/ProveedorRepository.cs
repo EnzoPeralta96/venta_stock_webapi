@@ -36,13 +36,36 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
         {
             return _dbContext.Set<Models.Proveedor>()
                 .Include(p => p.ListaPrecios)
+                .Where(p => p.FechaBaja == null)
                 .OrderBy(p => p.Proveedor1)
                 .ToListAsync();
         }
 
+        public IQueryable<Models.Proveedor> ProveedoresQueryable(string searchTerm)
+        {
+            var query = _dbContext.Set<Models.Proveedor>()
+                .AsNoTracking()
+                .OrderBy(p => p.FechaBaja != null)
+                    .ThenBy(p => p.Proveedor1)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                query = query.Where(p =>
+                    p.Proveedor1.ToLower().Contains(searchTerm.ToLower()) ||
+                    (p.Telefono != null && p.Telefono.Contains(searchTerm)) ||
+                    (p.Direccion != null && p.Direccion.ToLower().Contains(searchTerm.ToLower()))
+                );
+            }
+
+            return query;
+        }
+
         public Task<bool> Exists(string nombre, int? excludeId = null)
         {
-            var q = _dbContext.Set<Models.Proveedor>().AsQueryable();
+            var q = _dbContext.Set<Models.Proveedor>()
+                .Where(p => p.FechaBaja == null)
+                .AsQueryable();
 
             if (excludeId.HasValue)
                 q = q.Where(p => p.IdProveedor != excludeId.Value);
@@ -52,7 +75,8 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 
         public async Task Delete(Models.Proveedor proveedor)
         {
-            proveedor.Activo = false;                 
+            proveedor.FechaBaja = DateTime.Now;
+            proveedor.Activo = false;
             _dbContext.Set<Models.Proveedor>().Update(proveedor);
             await _dbContext.SaveChangesAsync();
         }

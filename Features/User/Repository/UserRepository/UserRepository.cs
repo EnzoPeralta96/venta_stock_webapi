@@ -84,7 +84,6 @@ namespace proyecto_venta_stock.User.UserRepository
             .Where(u => u.IdUsuario == user.IdUsuario)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(u => u.Usuario1, user.Usuario1)
-                .SetProperty(u => u.Password, user.Password)
                 .SetProperty(u => u.Nombre, user.Nombre)
                 .SetProperty(u => u.Apellido, user.Apellido)
                 .SetProperty(u => u.Email, user.Email)

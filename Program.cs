@@ -23,6 +23,12 @@ using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.User.Services;
 using proyecto_venta_stock.Proveedor.ProveedorRepository;
 using proyecto_venta_stock.Proveedor.Services;
+using proyecto_venta_stock.ListaPrecio.ListaPrecioRepository;
+using proyecto_venta_stock.ListaPrecio.Services;
+using proyecto_venta_stock.CompraProveedor.Repository;
+using proyecto_venta_stock.CompraProveedor.Services;
+using proyecto_venta_stock.Report.Repository;
+using proyecto_venta_stock.Report.Services;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -193,6 +199,12 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IProveedorRepository, ProveedorRepository>();
 builder.Services.AddScoped<IProveedorServices, ProveedorServices>();
 
+// Servicios de Lista de Precios
+builder.Services.AddScoped<IListaPrecioRepository, ListaPrecioRepository>();
+builder.Services.AddScoped<IListaPrecioServices, ListaPrecioServices>();
+builder.Services.AddScoped<IListaPrecioItemRepository, ListaPrecioItemRepository>();
+builder.Services.AddScoped<IListaPrecioItemServices, ListaPrecioItemServices>();
+
 // =======================
 // 🏪 Servicios de Ferreteria
 // =======================
@@ -201,6 +213,14 @@ builder.Services.AddScoped<IFerreteriaService, FerreteriaService>();
 
 /* Servicios de PDF */
 builder.Services.AddScoped<IPdfService, PdfService>();
+
+// Servicios de Compras a Proveedores
+builder.Services.AddScoped<ICompraProveedorRepository, CompraProveedorRepository>();
+builder.Services.AddScoped<ICompraProveedorServices, CompraProveedorServices>();
+
+// Servicios de Reportes
+builder.Services.AddScoped<IReportRepository, ReportRepository>();
+builder.Services.AddScoped<IReportService, ReportService>();
 
 var app = builder.Build();
 

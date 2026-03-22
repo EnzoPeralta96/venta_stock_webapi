@@ -13,6 +13,8 @@ public partial class ListaPrecio
 
     public int? IdUsuarioRegistra { get; set; }
 
+    public bool Activo { get; set; }
+
     public virtual Proveedor? IdProveedorNavigation { get; set; }
 
     public virtual Usuario? IdUsuarioRegistraNavigation { get; set; }

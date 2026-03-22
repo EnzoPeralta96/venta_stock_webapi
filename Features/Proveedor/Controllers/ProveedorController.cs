@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Proveedor.DTO;
 using proyecto_venta_stock.Proveedor.Services;
+using venta_stock_webapi.Shared.MessageProvider;
 
 namespace proyecto_venta_stock.Controllers;
 
@@ -19,7 +21,12 @@ public class ProveedorController : ControllerBase
     public async Task<IActionResult> Create([FromBody] ProveedorDTO proveedor)
     {
         var result = await _proveedorServices.Create(proveedor);
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess)
+        {
+            var code = (ProveedorErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProveedorErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
         return Ok(proveedor);
     }
 
@@ -27,7 +34,12 @@ public class ProveedorController : ControllerBase
     public async Task<IActionResult> Update([FromBody] ProveedorDTO proveedor)
     {
         var result = await _proveedorServices.Update(proveedor);
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess)
+        {
+            var code = (ProveedorErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProveedorErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
         return Ok(proveedor);
     }
 
@@ -35,6 +47,18 @@ public class ProveedorController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _proveedorServices.GetAll();
+        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        return Ok(result.Value);
+    }
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(
+        int pageIndex = 1,
+        string searchTerm = "",
+        string estado = "activos")
+    {
+        int pageSize = 10;
+        var result = await _proveedorServices.ProveedoresPagedAsync(pageIndex, pageSize, searchTerm, estado);
         if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok(result.Value);
     }

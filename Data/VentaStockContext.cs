@@ -25,7 +25,7 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Estado> Estados { get; set; }
 
-    public virtual DbSet<ListaPrecio> ListaPrecios { get; set; }
+    public virtual DbSet<Models.ListaPrecio> ListaPrecios { get; set; }
 
     public virtual DbSet<MedioPago> MedioPagos { get; set; }
 
@@ -60,6 +60,11 @@ public partial class VentaStockContext : DbContext
     public virtual DbSet<VentaPendiente> VentaPendiente { get; set; }
 
     public virtual DbSet<DetalleVentaPendiente> DetalleVentaPendiente { get; set; }
+
+    // Compras a proveedores
+    public virtual DbSet<Models.CompraProveedor> ComprasProveedor { get; set; }
+
+    public virtual DbSet<Models.CompraProveedorDetalle> ComprasProveedorDetalle { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -211,7 +216,7 @@ public partial class VentaStockContext : DbContext
                 .HasColumnName("estado");
         });
 
-        modelBuilder.Entity<ListaPrecio>(entity =>
+        modelBuilder.Entity<Models.ListaPrecio>(entity =>
         {
             entity.HasKey(e => e.IdLista).HasName("listaprecio_pkey");
 
@@ -232,6 +237,9 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Observaciones)
                 .HasMaxLength(250)
                 .HasColumnName("observaciones");
+            entity.Property(e => e.Activo)
+                .HasDefaultValue(true)
+                .HasColumnName("activo");
 
             entity.HasOne(d => d.IdProveedorNavigation).WithMany(p => p.ListaPrecios)
                 .HasForeignKey(d => d.IdProveedor)
@@ -426,7 +434,6 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.IdProducto).HasColumnName("id_producto");
             entity.Property(e => e.Margen)
                 .HasPrecision(5, 2)
-                .HasDefaultValueSql("30.00")
                 .HasColumnName("margen");
             entity.Property(e => e.Precio)
                 .HasPrecision(10, 2)
@@ -459,9 +466,11 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Telefono)
                 .HasMaxLength(20)
                 .HasColumnName("telefono");
-            entity.Property(e=>e.Activo)
+            entity.Property(e => e.Activo)
                         .HasColumnName("activo")
                         .HasDefaultValue(true);
+            entity.Property(e => e.FechaBaja)
+                        .HasColumnName("fecha_baja");
         });
 
         modelBuilder.Entity<TipoMovimiento>(entity =>
@@ -768,6 +777,65 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdProductoNavigation).WithMany()
                 .HasForeignKey(d => d.IdProducto)
                 .HasConstraintName("detalle_venta_pendiente_id_producto_fkey");
+        });
+
+        // Configuración de CompraProveedor y CompraProveedorDetalle
+        modelBuilder.Entity<Models.CompraProveedor>(entity =>
+        {
+            entity.HasKey(e => e.IdCompraProveedor).HasName("compra_proveedor_pkey");
+
+            entity.ToTable("compra_proveedor");
+
+            entity.Property(e => e.IdCompraProveedor).HasColumnName("id_compra_proveedor").ValueGeneratedOnAdd();
+            entity.Property(e => e.IdProveedor).HasColumnName("id_proveedor");
+            entity.Property(e => e.Fecha).HasColumnName("fecha");
+            entity.Property(e => e.FechaVencimiento).HasColumnName("fecha_vencimiento");
+            entity.Property(e => e.TipoComprobante).HasMaxLength(50).HasColumnName("tipo_comprobante");
+            entity.Property(e => e.NumeroComprobante).HasMaxLength(50).HasColumnName("numero_comprobante");
+            entity.Property(e => e.Observacion).HasMaxLength(500).HasColumnName("observacion");
+            entity.Property(e => e.Subtotal).HasPrecision(10, 2).HasColumnName("subtotal");
+            entity.Property(e => e.DescuentoTotal).HasPrecision(10, 2).HasColumnName("descuento_total");
+            entity.Property(e => e.IvaTotal).HasPrecision(10, 2).HasColumnName("iva_total");
+            entity.Property(e => e.Total).HasPrecision(10, 2).HasColumnName("total");
+            entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
+            entity.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+
+            entity.HasOne(d => d.IdProveedorNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdProveedor)
+                .HasConstraintName("compra_proveedor_id_proveedor_fkey");
+
+            entity.HasOne(d => d.IdUsuarioNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdUsuario)
+                .HasConstraintName("compra_proveedor_id_usuario_fkey");
+        });
+
+        modelBuilder.Entity<Models.CompraProveedorDetalle>(entity =>
+        {
+            entity.HasKey(e => e.IdCompraProveedorDetalle).HasName("compra_proveedor_detalle_pkey");
+
+            entity.ToTable("compra_proveedor_detalle");
+
+            entity.Property(e => e.IdCompraProveedorDetalle).HasColumnName("id_compra_proveedor_detalle").ValueGeneratedOnAdd();
+            entity.Property(e => e.IdCompraProveedor).HasColumnName("id_compra_proveedor");
+            entity.Property(e => e.IdProducto).HasColumnName("id_producto");
+            entity.Property(e => e.Cantidad).HasColumnName("cantidad");
+            entity.Property(e => e.PrecioUnitario).HasPrecision(10, 2).HasColumnName("precio_unitario");
+            entity.Property(e => e.DescuentoPorcentaje).HasPrecision(5, 2).HasColumnName("descuento_porcentaje");
+            entity.Property(e => e.IvaPorcentaje).HasPrecision(5, 2).HasColumnName("iva_porcentaje");
+            entity.Property(e => e.Subtotal).HasPrecision(10, 2).HasColumnName("subtotal");
+            entity.Property(e => e.Total).HasPrecision(10, 2).HasColumnName("total");
+
+            entity.HasOne(d => d.IdCompraProveedorNavigation)
+                .WithMany(p => p.CompraProveedorDetalles)
+                .HasForeignKey(d => d.IdCompraProveedor)
+                .HasConstraintName("compra_proveedor_detalle_id_compra_proveedor_fkey");
+
+            entity.HasOne(d => d.IdProductoNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdProducto)
+                .HasConstraintName("compra_proveedor_detalle_id_producto_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

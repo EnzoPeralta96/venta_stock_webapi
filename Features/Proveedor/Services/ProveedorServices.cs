@@ -4,6 +4,7 @@ using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Proveedor.DTO;
 using proyecto_venta_stock.Proveedor.ProveedorRepository;
 using proyecto_venta_stock.Shared.ResultPattern;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.Proveedor.Services
 {
@@ -123,14 +124,39 @@ namespace proyecto_venta_stock.Proveedor.Services
             }
         }
 
+        public async Task<Result<PagedList<ProveedorDTO>>> ProveedoresPagedAsync(int pageIndex, int pageSize, string searchTerm, string estado = "activos")
+        {
+            try
+            {
+                var query = _proveedorRepository.ProveedoresQueryable(searchTerm);
+
+                if (estado.ToLower() == "activos")
+                    query = query.Where(p => p.Activo);
+                else if (estado.ToLower() == "eliminados")
+                    query = query.Where(p => !p.Activo);
+
+                var projected = _mapper.ProjectTo<ProveedorDTO>(query);
+                var paged = await PagedList<ProveedorDTO>.CreateAsync(projected, pageIndex, pageSize);
+
+                return Result<PagedList<ProveedorDTO>>.Success(paged);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado: " + ex);
+                return Result<PagedList<ProveedorDTO>>.Failure(ProveedorErrorCode.error_inesperado);
+            }
+        }
+
         public async Task<Result<bool>> ToggleEstado(int idProveedor)
         {
             try
             {
                 var existing = await _proveedorRepository.GetById(idProveedor);
-                if (existing == null) return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
+                if (existing == null)
+                    return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
                 existing.Activo = !existing.Activo;
+                if (existing.Activo) existing.FechaBaja = null; // al reactivar, limpiar fecha de baja
                 await _proveedorRepository.Update(existing);
 
                 return Result<bool>.Success();

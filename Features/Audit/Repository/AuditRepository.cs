@@ -65,5 +65,11 @@ namespace venta_stock_webapi.Features.Audit.Repository
 
             return query.OrderByDescending(a => a.FechaHora);
         }
+
+        public async Task LogAsync(Auditoria entrada)
+        {
+            _dbContext.Auditorias.Add(entrada);
+            await _dbContext.SaveChangesAsync();
+        }
     }
 }
