@@ -1,4 +1,4 @@
-﻿namespace proyecto_venta_stock.Models;
+namespace proyecto_venta_stock.Models;
 public partial class Producto
 {
     public int IdProducto { get; set; }
@@ -11,15 +11,18 @@ public partial class Producto
 
     public decimal? Precio { get; set; }
 
-    public int? Stock { get; set; }
+    public decimal? Stock { get; set; }
 
-    public int? StockMinimo { get; set; }
+    public decimal? StockMinimo { get; set; }
 
     public bool? VentaSinStock { get; set; }
 
     public int? IdUbicacion { get; set; }
 
     public int? IdCategoria { get; set; }
+
+    public int? IdUnidadMedida { get; set; }
+
     public bool Activo { get; set; } = true;
 
 
@@ -32,6 +35,8 @@ public partial class Producto
     public virtual Categorium IdCategoriaNavigation { get; set; }
 
     public virtual Ubicacion IdUbicacionNavigation { get; set; }
+
+    public virtual UnidadMedida IdUnidadMedidaNavigation { get; set; }
 
     public virtual ICollection<ProductoListaprecioProveedor> ProductoListaprecioProveedors { get; set; } = new List<ProductoListaprecioProveedor>();
 }

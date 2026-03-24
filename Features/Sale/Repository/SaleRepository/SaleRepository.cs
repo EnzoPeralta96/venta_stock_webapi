@@ -84,15 +84,6 @@ namespace venta_stock_webapi.Sale.Repository
             return int.TryParse(numberPart, out var n) ? n + 1 : 1;
         }
 
-        public async Task UpdateProductStockAsync(int idProducto, int quantitySold)
-        {
-            await _context.Productos
-                .Where(p => p.IdProducto == idProducto)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(p => p.Stock, p => p.Stock - quantitySold)
-                );
-        }
-
         public Task<Ventum?> GetSaleWithDetailsAsync(int idVenta)
         {
             return _context.Venta
@@ -100,13 +91,6 @@ namespace venta_stock_webapi.Sale.Repository
                     .ThenInclude(d => d.IdProductoNavigation)
                 .Include(v => v.IdEstadoNavigation)
                 .FirstOrDefaultAsync(v => v.IdVenta == idVenta);
-        }
-
-        public Task RestoreProductStockAsync(int idProducto, int quantity)
-        {
-            return _context.Productos
-                .Where(p => p.IdProducto == idProducto)
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => (p.Stock ?? 0) + quantity));
         }
 
         public Task UpdateSaleStateAsync(int idVenta, int idEstado)

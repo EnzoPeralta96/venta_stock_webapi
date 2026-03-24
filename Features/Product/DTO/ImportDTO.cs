@@ -12,9 +12,10 @@ namespace proyecto_venta_stock.Product.DTO
         public string Nombre { get; set; }       // Obligatorio si es nuevo
         public string Marca { get; set; }        // Obligatorio si es nuevo
         public decimal? Precio { get; set; }     // Siempre obligatorio
-
+        public decimal? Stock { get; set; }      // Solo para INSERTs nuevos; se ignora en UPDATEs
         public int? IdCategoria { get; set; }
         public int? IdUbicacion { get; set; }
+        public int? IdUnidadMedida { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext context)
         {
@@ -33,8 +34,17 @@ namespace proyecto_venta_stock.Product.DTO
                     new[] { nameof(Precio) }
                 );
             }
+
+            if (Stock.HasValue && Stock < 0)
+            {
+                yield return new ValidationResult(
+                    "El Stock inicial no puede ser negativo.",
+                    new[] { nameof(Stock) }
+                );
+            }
         }
     }
+
     /* DTO para manejar errores por filas */
     public class RowErrorDTO
     {
@@ -49,6 +59,4 @@ namespace proyecto_venta_stock.Product.DTO
         public int ProductosActualizados { get; set; }
         public List<RowErrorDTO> Errores { get; set; } = new();
     }
-
-
 }

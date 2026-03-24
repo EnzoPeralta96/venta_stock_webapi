@@ -51,8 +51,8 @@ namespace venta_stock_webapi.Sale.DTO
         public int IdProducto { get; set; }
 
         [Required(ErrorMessage = "La cantidad es obligatoria.")]
-        [Range(1, int.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
-        public int Cantidad { get; set; }
+        [Range(0.001, double.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
+        public decimal Cantidad { get; set; }
 
         // El precio se toma del producto al momento de la venta
         // No lo enviamos desde el front para evitar manipulación
@@ -88,7 +88,7 @@ namespace venta_stock_webapi.Sale.DTO
         public int IdProducto { get; set; }
         public string NombreProducto { get; set; }
         public string MarcaProducto { get; set; }
-        public int Cantidad { get; set; }
+        public decimal Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }
         public decimal Subtotal { get; set; }
     }

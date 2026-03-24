@@ -72,6 +72,14 @@ public partial class VentaStockContext : DbContext
 
     public virtual DbSet<Models.CompraProveedorDetalle> ComprasProveedorDetalle { get; set; }
 
+    // Ledger de Stock
+    public virtual DbSet<TipoMovimientoStock> TipoMovimientoStocks { get; set; }
+
+    public virtual DbSet<MovimientoStock> MovimientoStocks { get; set; }
+
+    // Unidades de Medida
+    public virtual DbSet<UnidadMedida> UnidadMedidas { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("pgcrypto");
@@ -191,7 +199,7 @@ public partial class VentaStockContext : DbContext
 
             entity.Property(e => e.IdVenta).HasColumnName("id_venta");
             entity.Property(e => e.IdProducto).HasColumnName("id_producto");
-            entity.Property(e => e.Cantidad).HasColumnName("cantidad");
+            entity.Property(e => e.Cantidad).HasPrecision(18, 3).HasColumnName("cantidad");
             entity.Property(e => e.PrecioVenta)
                 .HasPrecision(10, 2)
                 .HasColumnName("precio_venta");
@@ -426,13 +434,14 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.Precio)
                 .HasPrecision(10, 2)
                 .HasColumnName("precio");
-            entity.Property(e => e.Stock).HasColumnName("stock");
-            entity.Property(e => e.StockMinimo).HasColumnName("stock_minimo");
+            entity.Property(e => e.Stock).HasPrecision(18, 3).HasColumnName("stock");
+            entity.Property(e => e.StockMinimo).HasPrecision(18, 3).HasColumnName("stock_minimo");
             entity.Property(e => e.VentaSinStock).HasColumnName("venta_sin_stock");
+            entity.Property(e => e.IdUnidadMedida).HasColumnName("id_unidad_medida");
             entity.Property(e => e.Activo)
                         .HasColumnName("activo")
-                        .HasDefaultValue(true);
-
+                        .HasDefaultValue(true)
+                        .ValueGeneratedNever();
 
             entity.HasOne(d => d.IdCategoriaNavigation).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.IdCategoria)
@@ -441,6 +450,11 @@ public partial class VentaStockContext : DbContext
             entity.HasOne(d => d.IdUbicacionNavigation).WithMany(p => p.Productos)
                 .HasForeignKey(d => d.IdUbicacion)
                 .HasConstraintName("producto_id_ubicacion_fkey");
+
+            entity.HasOne(d => d.IdUnidadMedidaNavigation).WithMany(p => p.Productos)
+                .HasForeignKey(d => d.IdUnidadMedida)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("producto_id_unidad_medida_fkey");
         });
 
         modelBuilder.Entity<ProductoListaprecioProveedor>(entity =>
@@ -812,7 +826,9 @@ public partial class VentaStockContext : DbContext
             entity.HasIndex(e => e.IdVentaPendiente, "idx_detalle_venta_pendiente");
 
             entity.Property(e => e.IdDetalle).HasColumnName("id_detalle");
-            entity.Property(e => e.Cantidad).HasColumnName("cantidad");
+            entity.Property(e => e.Cantidad)
+                .HasPrecision(18, 3)
+                .HasColumnName("cantidad");
             entity.Property(e => e.IdProducto).HasColumnName("id_producto");
             entity.Property(e => e.IdVentaPendiente).HasColumnName("id_venta_pendiente");
             entity.Property(e => e.PrecioVenta)
@@ -872,7 +888,7 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.IdCompraProveedorDetalle).HasColumnName("id_compra_proveedor_detalle").ValueGeneratedOnAdd();
             entity.Property(e => e.IdCompraProveedor).HasColumnName("id_compra_proveedor");
             entity.Property(e => e.IdProducto).HasColumnName("id_producto");
-            entity.Property(e => e.Cantidad).HasColumnName("cantidad");
+            entity.Property(e => e.Cantidad).HasPrecision(18, 3).HasColumnName("cantidad");
             entity.Property(e => e.PrecioUnitario).HasPrecision(10, 2).HasColumnName("precio_unitario");
             entity.Property(e => e.DescuentoPorcentaje).HasPrecision(5, 2).HasColumnName("descuento_porcentaje");
             entity.Property(e => e.IvaPorcentaje).HasPrecision(5, 2).HasColumnName("iva_porcentaje");
@@ -927,6 +943,81 @@ public partial class VentaStockContext : DbContext
             entity.Property(e => e.EsActual)
                   .HasColumnName("es_actual")
                   .HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<TipoMovimientoStock>(entity =>
+        {
+            entity.HasKey(e => e.IdTipoMovimientoStock);
+            entity.ToTable("tipo_movimiento_stock");
+            entity.Property(e => e.IdTipoMovimientoStock)
+                  .ValueGeneratedNever()
+                  .HasColumnName("id_tipo_movimiento_stock");
+            entity.Property(e => e.Nombre).HasMaxLength(50).HasColumnName("nombre");
+            entity.Property(e => e.Descripcion).HasMaxLength(255).HasColumnName("descripcion");
+
+            entity.HasData(
+                new TipoMovimientoStock { IdTipoMovimientoStock = 1, Nombre = "Ingreso por Compra", Descripcion = "Incremento de stock por recepción de mercadería de proveedor." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 2, Nombre = "Egreso por Venta", Descripcion = "Reducción de stock por venta a cliente." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 3, Nombre = "Reingreso por Anulación de Venta", Descripcion = "Restitución de stock al anular una venta." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 4, Nombre = "Egreso por Anulación de Compra", Descripcion = "Reducción de stock al anular o revertir una compra a proveedor." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 5, Nombre = "Ajuste Positivo Manual", Descripcion = "Incremento manual de stock (ej: sobrante en inventario físico)." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 6, Nombre = "Ajuste Negativo Manual", Descripcion = "Reducción manual de stock (ej: faltante en inventario físico)." },
+                new TipoMovimientoStock { IdTipoMovimientoStock = 7, Nombre = "Consumo Interno Dueño", Descripcion = "Retiro de mercadería para uso interno o personal del dueño." }
+            );
+        });
+
+        modelBuilder.Entity<MovimientoStock>(entity =>
+        {
+            entity.HasKey(e => e.IdMovimientoStock);
+            entity.ToTable("movimiento_stock");
+            entity.Property(e => e.IdMovimientoStock).HasColumnName("id_movimiento_stock");
+            entity.Property(e => e.IdProducto).HasColumnName("id_producto");
+            entity.Property(e => e.IdTipoMovimientoStock).HasColumnName("id_tipo_movimiento_stock");
+            entity.Property(e => e.Cantidad).HasPrecision(18, 3).HasColumnName("cantidad");
+            entity.Property(e => e.StockResultante).HasPrecision(18, 3).HasColumnName("stock_resultante");
+            entity.Property(e => e.Fecha).HasColumnType("timestamp with time zone").HasColumnName("fecha");
+            entity.Property(e => e.IdUsuario).HasColumnName("id_usuario");
+            entity.Property(e => e.Referencia).HasMaxLength(150).HasColumnName("referencia");
+
+            entity.HasOne(d => d.IdProductoNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdProducto)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_movimientostock_producto");
+
+            entity.HasOne(d => d.IdTipoMovimientoStockNavigation)
+                .WithMany(p => p.MovimientosStock)
+                .HasForeignKey(d => d.IdTipoMovimientoStock)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("fk_movimientostock_tipo");
+
+            entity.HasOne(d => d.IdUsuarioNavigation)
+                .WithMany()
+                .HasForeignKey(d => d.IdUsuario)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("fk_movimientostock_usuario");
+        });
+
+        modelBuilder.Entity<UnidadMedida>(entity =>
+        {
+            entity.HasKey(e => e.IdUnidadMedida);
+            entity.ToTable("unidad_medida");
+            entity.Property(e => e.IdUnidadMedida)
+                  .ValueGeneratedNever()
+                  .HasColumnName("id_unidad_medida");
+            entity.Property(e => e.Nombre)
+                  .HasMaxLength(50)
+                  .HasColumnName("nombre");
+            entity.Property(e => e.Abreviatura)
+                  .HasMaxLength(10)
+                  .HasColumnName("abreviatura");
+
+            entity.HasData(
+                new UnidadMedida { IdUnidadMedida = 1, Nombre = "Unidad", Abreviatura = "u" },
+                new UnidadMedida { IdUnidadMedida = 2, Nombre = "Kilogramo", Abreviatura = "kg" },
+                new UnidadMedida { IdUnidadMedida = 3, Nombre = "Metro", Abreviatura = "m" },
+                new UnidadMedida { IdUnidadMedida = 4, Nombre = "Litro", Abreviatura = "l" }
+            );
         });
 
         OnModelCreatingPartial(modelBuilder);

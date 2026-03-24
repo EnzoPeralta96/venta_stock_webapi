@@ -11,7 +11,7 @@ public partial class DetalleVentaPendiente
 
     public int IdProducto { get; set; }
 
-    public int Cantidad { get; set; }
+    public decimal Cantidad { get; set; }
 
     public decimal PrecioVenta { get; set; }
 

@@ -50,7 +50,7 @@ namespace venta_stock_webapi.Sale.PDF
         public int Numero { get; set; }
         public string Producto { get; set; }
         public string Marca { get; set; }
-        public int Cantidad { get; set; }
+        public decimal Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }
         public decimal Subtotal { get; set; }
     }

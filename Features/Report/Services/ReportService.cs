@@ -10,15 +10,14 @@ namespace proyecto_venta_stock.Report.Services
 {
     public class ReportService : IReportService
     {
-        private readonly IReportRepository   _reportRepository;
-        private readonly IAuditRepository    _auditRepository;
-        private readonly IUserContext        _userContext;
+        private readonly IReportRepository      _reportRepository;
+        private readonly IAuditRepository       _auditRepository;
+        private readonly IUserContext           _userContext;
         private readonly ILogger<ReportService> _logger;
 
         private static readonly HashSet<string> AgrupacionesValidas =
             new(StringComparer.OrdinalIgnoreCase) { "dia", "semana", "mes" };
 
-        // Normaliza fechaHasta al último instante del día para incluir todas las ventas de esa fecha
         private static DateTime FinDelDia(DateTime fecha) => fecha.Date.AddDays(1).AddTicks(-1);
 
         public ReportService(
@@ -125,10 +124,10 @@ namespace proyecto_venta_stock.Report.Services
         }
 
         // ──────────────────────────────────────────────
-        // 4. Productos más vendidos (top N)
+        // 4. Productos más vendidos (top N, categoría opcional)
         // ──────────────────────────────────────────────
         public async Task<Result<List<ProductoVendidoDTO>>> GetProductosMasVendidosAsync(
-            DateTime fechaDesde, DateTime fechaHasta, int topN)
+            DateTime fechaDesde, DateTime fechaHasta, int topN, int? idCategoria = null)
         {
             if (fechaDesde.Date > fechaHasta.Date)
                 return Result<List<ProductoVendidoDTO>>.Failure(ReportErrorCode.fecha_invalida);
@@ -138,11 +137,11 @@ namespace proyecto_venta_stock.Report.Services
 
             try
             {
-                var items = await _reportRepository.GetProductosMasVendidosAsync(fechaDesde, fechaHasta, topN);
+                var items = await _reportRepository.GetProductosMasVendidosAsync(fechaDesde, fechaHasta, topN, idCategoria);
 
                 await LogAsync("CONSULTA_REPORTE", "Reporte",
                     $"Productos más vendidos (top {topN}): desde {fechaDesde:yyyy-MM-dd} hasta {fechaHasta:yyyy-MM-dd}. " +
-                    $"{items.Count} productos devueltos.");
+                    $"{(idCategoria.HasValue ? $"Categoría: {idCategoria}. " : "")}{items.Count} productos devueltos.");
 
                 return Result<List<ProductoVendidoDTO>>.Success(items);
             }
@@ -154,7 +153,7 @@ namespace proyecto_venta_stock.Report.Services
         }
 
         // ──────────────────────────────────────────────
-        // 5. Ventas por categoría (para donut chart)
+        // 5. Ventas por categoría
         // ──────────────────────────────────────────────
         public async Task<Result<List<CategoriaVendidaDTO>>> GetCategoriasMasVendidasAsync(
             DateTime fechaDesde, DateTime fechaHasta)
@@ -182,6 +181,133 @@ namespace proyecto_venta_stock.Report.Services
         }
 
         // ──────────────────────────────────────────────
+        // 6. Margen de utilidad bruta
+        // ──────────────────────────────────────────────
+        public async Task<Result<MargenUtilidadDTO>> GetMargenUtilidadAsync(
+            DateTime fechaDesde, DateTime fechaHasta)
+        {
+            if (fechaDesde.Date > fechaHasta.Date)
+                return Result<MargenUtilidadDTO>.Failure(ReportErrorCode.fecha_invalida);
+
+            fechaHasta = FinDelDia(fechaHasta);
+
+            try
+            {
+                var dto = await _reportRepository.GetMargenUtilidadAsync(fechaDesde, fechaHasta);
+
+                await LogAsync("CONSULTA_REPORTE", "Reporte",
+                    $"Margen de utilidad: desde {fechaDesde:yyyy-MM-dd} hasta {fechaHasta:yyyy-MM-dd}. " +
+                    $"Ventas: ${dto.TotalVentas:N2}, Utilidad: ${dto.UtilidadBruta:N2}, Margen: {dto.MargenPorcentaje:N2}%.");
+
+                return Result<MargenUtilidadDTO>.Success(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de margen de utilidad.");
+                return Result<MargenUtilidadDTO>.Failure(ReportErrorCode.unexpected_error);
+            }
+        }
+
+        // ──────────────────────────────────────────────
+        // 7. Clientes más frecuentes
+        // ──────────────────────────────────────────────
+        public async Task<Result<List<ClienteFrecuenteDTO>>> GetClientesMasFrecuentesAsync(
+            DateTime fechaDesde, DateTime fechaHasta, int topN)
+        {
+            if (fechaDesde.Date > fechaHasta.Date)
+                return Result<List<ClienteFrecuenteDTO>>.Failure(ReportErrorCode.fecha_invalida);
+
+            fechaHasta = FinDelDia(fechaHasta);
+            if (topN <= 0) topN = 10;
+
+            try
+            {
+                var items = await _reportRepository.GetClientesMasFrecuentesAsync(fechaDesde, fechaHasta, topN);
+
+                await LogAsync("CONSULTA_REPORTE", "Reporte",
+                    $"Clientes más frecuentes (top {topN}): desde {fechaDesde:yyyy-MM-dd} hasta {fechaHasta:yyyy-MM-dd}. " +
+                    $"{items.Count} clientes devueltos.");
+
+                return Result<List<ClienteFrecuenteDTO>>.Success(items);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de clientes más frecuentes.");
+                return Result<List<ClienteFrecuenteDTO>>.Failure(ReportErrorCode.unexpected_error);
+            }
+        }
+
+        // ──────────────────────────────────────────────
+        // 8. Tiempo promedio de cobro de CC
+        // ──────────────────────────────────────────────
+        public async Task<Result<TiempoCobroDTO>> GetTiempoPromedioCobroAsync(
+            DateTime fechaDesde, DateTime fechaHasta)
+        {
+            if (fechaDesde.Date > fechaHasta.Date)
+                return Result<TiempoCobroDTO>.Failure(ReportErrorCode.fecha_invalida);
+
+            fechaHasta = FinDelDia(fechaHasta);
+
+            try
+            {
+                var dto = await _reportRepository.GetTiempoPromedioCobroAsync(fechaDesde, fechaHasta);
+
+                await LogAsync("CONSULTA_REPORTE", "Reporte",
+                    $"Tiempo promedio de cobro CC: desde {fechaDesde:yyyy-MM-dd} hasta {fechaHasta:yyyy-MM-dd}. " +
+                    $"Promedio: {dto.PromedioDiasCobro} días sobre {dto.CantidadFacturasPagas} facturas.");
+
+                return Result<TiempoCobroDTO>.Success(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de tiempo promedio de cobro.");
+                return Result<TiempoCobroDTO>.Failure(ReportErrorCode.unexpected_error);
+            }
+        }
+
+        // ──────────────────────────────────────────────
+        // 9. Monto total adeudado (KPI global)
+        // ──────────────────────────────────────────────
+        public async Task<Result<decimal>> GetMontoTotalAdeudadoAsync()
+        {
+            try
+            {
+                var total = await _reportRepository.GetMontoTotalAdeudadoAsync();
+
+                await LogAsync("CONSULTA_REPORTE", "Reporte",
+                    $"Monto total adeudado consultado. Total: ${total:N2}.");
+
+                return Result<decimal>.Success(total);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de monto total adeudado.");
+                return Result<decimal>.Failure(ReportErrorCode.unexpected_error);
+            }
+        }
+
+        // ──────────────────────────────────────────────
+        // 10. Clientes con saldo deudor (lista detallada)
+        // ──────────────────────────────────────────────
+        public async Task<Result<List<ClienteSaldoDeudorDTO>>> GetClientesSaldoDeudorAsync()
+        {
+            try
+            {
+                var items = await _reportRepository.GetClientesSaldoDeudorAsync();
+
+                await LogAsync("CONSULTA_REPORTE", "Reporte",
+                    $"Clientes con saldo deudor consultados. {items.Count} clientes con deuda activa.");
+
+                return Result<List<ClienteSaldoDeudorDTO>>.Success(items);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error al generar reporte de clientes con saldo deudor.");
+                return Result<List<ClienteSaldoDeudorDTO>>.Failure(ReportErrorCode.unexpected_error);
+            }
+        }
+
+        // ──────────────────────────────────────────────
         // Helper: escribe entrada de auditoría
         // ──────────────────────────────────────────────
         private async Task LogAsync(string accion, string entidadTipo, string detalle)
@@ -190,17 +316,16 @@ namespace proyecto_venta_stock.Report.Services
             {
                 await _auditRepository.LogAsync(new Auditoria
                 {
-                    FechaHora    = DateTimeOffset.UtcNow,
-                    IdUsuario    = _userContext.UserId,
+                    FechaHora     = DateTimeOffset.UtcNow,
+                    IdUsuario     = _userContext.UserId,
                     UsuarioNombre = _userContext.UserName,
-                    Accion       = accion,
-                    EntidadTipo  = entidadTipo,
-                    Detalle      = detalle
+                    Accion        = accion,
+                    EntidadTipo   = entidadTipo,
+                    Detalle       = detalle
                 });
             }
             catch (Exception ex)
             {
-                // La auditoría no debe romper el flujo principal
                 _logger.LogWarning(ex, "No se pudo registrar la auditoría del reporte.");
             }
         }

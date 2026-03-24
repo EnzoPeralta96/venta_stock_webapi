@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Product.DTO;
@@ -8,7 +10,7 @@ namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-
+[Authorize]
 public class ProductController : ControllerBase
 {
     private readonly IProductServices _productServices;
@@ -121,9 +123,9 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet("export/plantilla-excel")]
-    public IActionResult ExportarPlantillaExcel()
+    public async Task<IActionResult> ExportarPlantillaExcel()
     {
-        var file = _productServices.ExportarPlantillaExcel();
+        var file = await _productServices.ExportarPlantillaExcel();
         return File(
             file,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -132,12 +134,17 @@ public class ProductController : ControllerBase
     }
 
     [HttpPost("importar")]
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
     public async Task<IActionResult> ImportarProductos(IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest("Debe subir un archivo CSV o Excel válido.");
 
-        var result = await _productServices.ImportarProductosAsync(file);
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuario))
+            return Unauthorized();
+
+        var result = await _productServices.ImportarProductosAsync(file, idUsuario);
 
         if (!result.IsSuccess) return BadRequest(result.ErrorCode);
 

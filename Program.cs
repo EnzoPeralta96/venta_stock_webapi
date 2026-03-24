@@ -52,6 +52,8 @@ using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.Audit.Services;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using venta_stock_webapi.Features.Ferreteria.Services;
+using venta_stock_webapi.Features.StockMovement.Services;
+using venta_stock_webapi.Features.StockMovement.Repository;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -230,6 +232,10 @@ builder.Services.AddScoped<ICompraProveedorServices, CompraProveedorServices>();
 // Servicios de Reportes
 builder.Services.AddScoped<IReportRepository, ReportRepository>();
 builder.Services.AddScoped<IReportService, ReportService>();
+
+// Ledger de Stock
+builder.Services.AddScoped<IMovimientoStockRepository, MovimientoStockRepository>();
+builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 
 var app = builder.Build();
 

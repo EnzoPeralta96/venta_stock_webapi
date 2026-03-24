@@ -16,14 +16,8 @@ namespace venta_stock_webapi.Sale.Repository
         //Generar codigo de venta unico
         Task<string> GenerateSaleCodeAsync();
 
-        // Actualizar stock de producto
-        Task UpdateProductStockAsync(int idProducto, int quantitySold);
-
         // Obtiene la venta con detalle y tracking para poder modificarla.
         Task<Ventum?> GetSaleWithDetailsAsync(int idVenta);
-
-        // Restituye el stock de un producto sumando la cantidad indicada.
-        Task RestoreProductStockAsync(int idProducto, int quantity);
 
         // Actualiza el estado de una venta.
         Task UpdateSaleStateAsync(int idVenta, int idEstado);

@@ -9,6 +9,7 @@ public interface IListaPrecioItemRepository
     Task<bool> ItemExistsAsync(int idLista, int idProducto);
     Task<List<ProductoListaprecioProveedor>> GetItemsByListaAsync(int idLista);
     Task<ProductoListaprecioProveedor?> GetItemAsync(int idLista, int idProducto);
+    Task<int?> GetProductoIdByCodigoBarraAsync(string codigoBarra);
     Task CreateAsync(ProductoListaprecioProveedor entity);
     Task UpdateAsync(ProductoListaprecioProveedor entity);
     Task DeleteAsync(ProductoListaprecioProveedor entity);

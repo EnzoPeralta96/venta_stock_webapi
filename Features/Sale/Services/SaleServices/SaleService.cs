@@ -14,6 +14,7 @@ using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
 using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 using venta_stock_webapi.CurrentAccount.Repository;
+using venta_stock_webapi.Features.StockMovement.Services;
 
 namespace venta_stock_webapi.Sale.Services
 {
@@ -31,6 +32,7 @@ namespace venta_stock_webapi.Sale.Services
         private readonly IAccountMovementRepository _accountMovementRepository;
         private readonly ICreditNoteReasonRepository _creditNoteReasonRepository;
         private readonly MovementStrategyFactory _movementStrategyFactory;
+        private readonly IStockMovementService _stockMovementService;
 
         public SaleService(
             ISaleRepository saleRepository,
@@ -43,7 +45,8 @@ namespace venta_stock_webapi.Sale.Services
             ICurrentAccountService currentAccountService,
             IAccountMovementRepository accountMovementRepository,
             ICreditNoteReasonRepository creditNoteReasonRepository,
-            MovementStrategyFactory movementStrategyFactory)
+            MovementStrategyFactory movementStrategyFactory,
+            IStockMovementService stockMovementService)
         {
             _saleRepository = saleRepository;
             _clientRepository = clientRepository;
@@ -56,6 +59,7 @@ namespace venta_stock_webapi.Sale.Services
             _accountMovementRepository = accountMovementRepository;
             _creditNoteReasonRepository = creditNoteReasonRepository;
             _movementStrategyFactory = movementStrategyFactory;
+            _stockMovementService = stockMovementService;
         }
 
         public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO)
@@ -71,7 +75,7 @@ namespace venta_stock_webapi.Sale.Services
                 if (createSaleDTO.items == null || !createSaleDTO.items.Any())
                     return Result<SaleResponseDTO>.Failure(SaleErrorCode.empty_cart);
 
-                var productosValidados = new List<(Producto producto, int cantidad)>();
+                var productosValidados = new List<(Producto producto, decimal cantidad)>();
                 foreach (var item in createSaleDTO.items)
                 {
                     var producto = await _productRepository.GetById(item.IdProducto);
@@ -197,9 +201,14 @@ namespace venta_stock_webapi.Sale.Services
                     );
                 }
 
-                // ===== ACTUALIZAR STOCK =====
+                // ===== ACTUALIZAR STOCK (Ledger) =====
                 foreach (var detalle in detalles)
-                    await _saleRepository.UpdateProductStockAsync(detalle.IdProducto, detalle.Cantidad ?? 0);
+                    await _stockMovementService.RegistrarMovimientoAsync(
+                        detalle.IdProducto,
+                        TipoMovimientoStockEnum.EgresoVenta,
+                        -(detalle.Cantidad ?? 0),
+                        $"VENTA:{ventaCreada.CodigoVenta}",
+                        createSaleDTO.idUsuarioVendedor);
 
                 await transaction.CommitAsync();
 
@@ -404,6 +413,7 @@ namespace venta_stock_webapi.Sale.Services
 
                 // 1. Obtener la venta con detalle y tracking
                 var venta = await _saleRepository.GetSaleWithDetailsAsync(idVenta);
+                
                 if (venta is null)
                     return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.sale_not_found);
 
@@ -424,12 +434,17 @@ namespace venta_stock_webapi.Sale.Services
                 // 5. Cambiar estado de la venta → Anulada y guardar el motivo NC y detalle
                 await _saleRepository.AnnulSaleInDbAsync(idVenta, idEstadoAnulada, dto.IdMotivo, dto.DetalleAdicional);
 
-                // 6. Restituir stock de cada producto del detalle
+                // 6. Restituir stock de cada producto del detalle (Ledger)
                 foreach (var item in venta.DetalleVenta)
                 {
-                    int cantidad = item.Cantidad ?? 0;
+                    decimal cantidad = item.Cantidad ?? 0;
                     if (cantidad > 0)
-                        await _saleRepository.RestoreProductStockAsync(item.IdProducto, cantidad);
+                        await _stockMovementService.RegistrarMovimientoAsync(
+                            item.IdProducto,
+                            TipoMovimientoStockEnum.ReingresoAnulacionVenta,
+                            cantidad,
+                            $"ANULACION-VENTA:{venta.CodigoVenta}",
+                            dto.IdUsuarioRegistra);
                 }
 
                 // 7. Si la venta fue con CC → crear NC y recomputar MontoPagado

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Proveedor.DTO;
@@ -8,6 +9,7 @@ namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class ProveedorController : ControllerBase
 {
     private readonly IProveedorServices _proveedorServices;
@@ -77,8 +79,10 @@ public class ProveedorController : ControllerBase
         var result = await _proveedorServices.Delete(idProveedor);
         if (!result.IsSuccess)
         {
-            if (Convert.ToString(result.ErrorCode) == "proveedor_not_found") return NotFound();
-            return BadRequest(result.ErrorCode);
+            var code = (ProveedorErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProveedorErrorDictionary.Messages, code);
+            if (code == ProveedorErrorCode.proveedor_not_found) return NotFound(message);
+            return BadRequest(message);
         }
         return NoContent();
     }
@@ -89,5 +93,19 @@ public class ProveedorController : ControllerBase
         var result = await _proveedorServices.ToggleEstado(idProveedor);
         if (!result.IsSuccess) return BadRequest(result.ErrorCode);
         return Ok();
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportarExcel()
+    {
+        var result = await _proveedorServices.ExportarExcelAsync();
+        if (!result.IsSuccess)
+        {
+            var code = (ProveedorErrorCode)result.ErrorCode;
+            return BadRequest(MessageProvider.Get(ProveedorErrorDictionary.Messages, code));
+        }
+        return File(result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"proveedores_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 }

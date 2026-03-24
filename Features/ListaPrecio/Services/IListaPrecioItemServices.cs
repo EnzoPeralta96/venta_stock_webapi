@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using proyecto_venta_stock.ListaPrecio.DTO;
 using proyecto_venta_stock.Shared.ResultPattern;
 
@@ -9,4 +10,5 @@ public interface IListaPrecioItemServices
     Task<Result<bool>> AddItemAsync(int idLista, ListaPrecioItemUpsertDTO dto);
     Task<Result<bool>> UpdateItemAsync(int idLista, int idProducto, ListaPrecioItemUpsertDTO dto);
     Task<Result<bool>> DeleteItemAsync(int idLista, int idProducto);
+    Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file);
 }

@@ -72,4 +72,21 @@ public class ListaPrecioItemsController : ControllerBase
         }
         return NoContent();
     }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(int idLista, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Debe adjuntar un archivo.");
+
+        var result = await _services.ImportarAsync(idLista, file);
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            if (code == ListaPrecioItemErrorCode.lista_not_found)
+                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+        }
+        return Ok(result.Value);
+    }
 }

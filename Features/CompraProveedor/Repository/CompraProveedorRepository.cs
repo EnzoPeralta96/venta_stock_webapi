@@ -20,12 +20,6 @@ public class CompraProveedorRepository : ICompraProveedorRepository
         return compra;
     }
 
-    public Task UpdateAsync(Models.CompraProveedor compra)
-    {
-        _dbContext.ComprasProveedor.Update(compra);
-        return _dbContext.SaveChangesAsync();
-    }
-
     public async Task<List<Models.CompraProveedor>> GetAllAsync()
     {
         return await _dbContext.ComprasProveedor
@@ -45,6 +39,7 @@ public class CompraProveedorRepository : ICompraProveedorRepository
             .Include(c => c.IdUsuarioNavigation)
             .Include(c => c.CompraProveedorDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
+            .Where(c => c.Activo)
             .OrderByDescending(c => c.Fecha)
             .ToListAsync();
     }
@@ -92,11 +87,4 @@ public class CompraProveedorRepository : ICompraProveedorRepository
                 (excludeId == null || c.IdCompraProveedor != excludeId.Value));
     }
 
-    public Task ToggleEstadoAsync(int idCompraProveedor, bool activo)
-    {
-        return _dbContext.ComprasProveedor
-            .Where(c => c.IdCompraProveedor == idCompraProveedor)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(c => c.Activo, activo));
-    }
 }

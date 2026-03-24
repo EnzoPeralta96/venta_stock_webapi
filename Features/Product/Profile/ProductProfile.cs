@@ -26,7 +26,9 @@ namespace proyecto_venta_stock.Product.Profile
                 .ForMember(dest => dest.Ubicacion,
                     opt => opt.MapFrom(src => src.IdUbicacionNavigation != null ? (src.IdUbicacionNavigation.Fila + " " + src.IdUbicacionNavigation.Seccion + " " + src.IdUbicacionNavigation.Nivel) : "Sin Ubicación"))
                 .ForMember(dest => dest.CodigoBarras,
-                 opt => opt.MapFrom(src => src.CodigoBarras.Select(cb => new CodigoBarra { Codigo = cb.Codigo }).ToList()));
+                 opt => opt.MapFrom(src => src.CodigoBarras.Select(cb => new CodigoBarra { Codigo = cb.Codigo }).ToList()))
+                .ForMember(dest => dest.UnidadMedida,
+                    opt => opt.MapFrom(src => src.IdUnidadMedidaNavigation != null ? src.IdUnidadMedidaNavigation.Nombre : null));
         }
 
 

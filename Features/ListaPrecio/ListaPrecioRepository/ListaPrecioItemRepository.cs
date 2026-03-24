@@ -36,6 +36,12 @@ public class ListaPrecioItemRepository : IListaPrecioItemRepository
             .Include(x => x.IdProductoNavigation)
             .FirstOrDefaultAsync(x => x.IdLista == idLista && x.IdProducto == idProducto);
 
+    public Task<int?> GetProductoIdByCodigoBarraAsync(string codigoBarra)
+        => _db.CodigoBarras
+            .Where(cb => cb.Codigo == codigoBarra && cb.Activo == true && cb.IdProducto != null)
+            .Select(cb => cb.IdProducto)
+            .FirstOrDefaultAsync();
+
     public async Task CreateAsync(ProductoListaprecioProveedor entity)
     {
         await _db.ProductoListaprecioProveedors.AddAsync(entity);

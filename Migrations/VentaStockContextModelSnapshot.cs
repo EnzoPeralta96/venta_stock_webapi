@@ -262,6 +262,139 @@ namespace proyecto_venta_stock.Migrations
                     b.ToTable("compra", (string)null);
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.CompraProveedor", b =>
+                {
+                    b.Property<int>("IdCompraProveedor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_compra_proveedor");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdCompraProveedor"));
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
+
+                    b.Property<decimal>("DescuentoTotal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("descuento_total");
+
+                    b.Property<DateOnly>("Fecha")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha");
+
+                    b.Property<DateOnly?>("FechaVencimiento")
+                        .HasColumnType("date")
+                        .HasColumnName("fecha_vencimiento");
+
+                    b.Property<int>("IdProveedor")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_proveedor");
+
+                    b.Property<int?>("IdUsuario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_usuario");
+
+                    b.Property<decimal>("IvaTotal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("iva_total");
+
+                    b.Property<string>("NumeroComprobante")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("numero_comprobante");
+
+                    b.Property<string>("Observacion")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("observacion");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<string>("TipoComprobante")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("tipo_comprobante");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total");
+
+                    b.HasKey("IdCompraProveedor")
+                        .HasName("compra_proveedor_pkey");
+
+                    b.HasIndex("IdProveedor");
+
+                    b.HasIndex("IdUsuario");
+
+                    b.ToTable("compra_proveedor", (string)null);
+                });
+
+            modelBuilder.Entity("proyecto_venta_stock.Models.CompraProveedorDetalle", b =>
+                {
+                    b.Property<int>("IdCompraProveedorDetalle")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_compra_proveedor_detalle");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdCompraProveedorDetalle"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<decimal>("DescuentoPorcentaje")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("descuento_porcentaje");
+
+                    b.Property<int>("IdCompraProveedor")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_compra_proveedor");
+
+                    b.Property<int>("IdProducto")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_producto");
+
+                    b.Property<decimal>("IvaPorcentaje")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("iva_porcentaje");
+
+                    b.Property<decimal>("PrecioUnitario")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("precio_unitario");
+
+                    b.Property<decimal>("Subtotal")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("subtotal");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total");
+
+                    b.HasKey("IdCompraProveedorDetalle")
+                        .HasName("compra_proveedor_detalle_pkey");
+
+                    b.HasIndex("IdCompraProveedor");
+
+                    b.HasIndex("IdProducto");
+
+                    b.ToTable("compra_proveedor_detalle", (string)null);
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.ConfiguracionCc", b =>
                 {
                     b.Property<int>("IdConfig")
@@ -342,8 +475,9 @@ namespace proyecto_venta_stock.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdDetalle"));
 
-                    b.Property<int>("Cantidad")
-                        .HasColumnType("integer")
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("cantidad");
 
                     b.Property<int>("IdProducto")
@@ -384,8 +518,9 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_producto");
 
-                    b.Property<int?>("Cantidad")
-                        .HasColumnType("integer")
+                    b.Property<decimal?>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("cantidad");
 
                     b.Property<decimal?>("PrecioVenta")
@@ -484,6 +619,12 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_lista")
                         .HasDefaultValueSql("nextval('listaprecio_id_lista_seq'::regclass)");
+
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
 
                     b.Property<DateTime?>("FechaCreacion")
                         .ValueGeneratedOnAdd()
@@ -696,6 +837,57 @@ namespace proyecto_venta_stock.Migrations
                     b.ToTable("movimiento_cc", (string)null);
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.MovimientoStock", b =>
+                {
+                    b.Property<int>("IdMovimientoStock")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id_movimiento_stock");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdMovimientoStock"));
+
+                    b.Property<decimal>("Cantidad")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("cantidad");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha");
+
+                    b.Property<int>("IdProducto")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_producto");
+
+                    b.Property<int>("IdTipoMovimientoStock")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_tipo_movimiento_stock");
+
+                    b.Property<int?>("IdUsuario")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_usuario");
+
+                    b.Property<string>("Referencia")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("referencia");
+
+                    b.Property<decimal>("StockResultante")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("stock_resultante");
+
+                    b.HasKey("IdMovimientoStock");
+
+                    b.HasIndex("IdProducto");
+
+                    b.HasIndex("IdTipoMovimientoStock");
+
+                    b.HasIndex("IdUsuario");
+
+                    b.ToTable("movimiento_stock", (string)null);
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.Permiso", b =>
                 {
                     b.Property<int>("IdPermiso")
@@ -759,7 +951,6 @@ namespace proyecto_venta_stock.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdProducto"));
 
                     b.Property<bool>("Activo")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("activo");
@@ -777,6 +968,10 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_ubicacion");
 
+                    b.Property<int?>("IdUnidadMedida")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_unidad_medida");
+
                     b.Property<string>("Marca")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -792,12 +987,14 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnType("numeric(10,2)")
                         .HasColumnName("precio");
 
-                    b.Property<int?>("Stock")
-                        .HasColumnType("integer")
+                    b.Property<decimal?>("Stock")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("stock");
 
-                    b.Property<int?>("StockMinimo")
-                        .HasColumnType("integer")
+                    b.Property<decimal?>("StockMinimo")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
                         .HasColumnName("stock_minimo");
 
                     b.Property<bool?>("VentaSinStock")
@@ -810,6 +1007,8 @@ namespace proyecto_venta_stock.Migrations
                     b.HasIndex("IdCategoria");
 
                     b.HasIndex("IdUbicacion");
+
+                    b.HasIndex("IdUnidadMedida");
 
                     b.ToTable("producto", (string)null);
                 });
@@ -825,11 +1024,9 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnName("id_producto");
 
                     b.Property<decimal?>("Margen")
-                        .ValueGeneratedOnAdd()
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
-                        .HasColumnName("margen")
-                        .HasDefaultValueSql("30.00");
+                        .HasColumnName("margen");
 
                     b.Property<decimal>("Precio")
                         .HasPrecision(10, 2)
@@ -853,10 +1050,20 @@ namespace proyecto_venta_stock.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdProveedor"));
 
+                    b.Property<bool>("Activo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
+
                     b.Property<string>("Direccion")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("direccion");
+
+                    b.Property<DateTime?>("FechaBaja")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fecha_baja");
 
                     b.Property<string>("Proveedor1")
                         .HasMaxLength(100)
@@ -898,6 +1105,71 @@ namespace proyecto_venta_stock.Migrations
                     b.ToTable("tipo_movimiento", (string)null);
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.TipoMovimientoStock", b =>
+                {
+                    b.Property<int>("IdTipoMovimientoStock")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_tipo_movimiento_stock");
+
+                    b.Property<string>("Descripcion")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<string>("Nombre")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("IdTipoMovimientoStock");
+
+                    b.ToTable("tipo_movimiento_stock", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            IdTipoMovimientoStock = 1,
+                            Descripcion = "Incremento de stock por recepción de mercadería de proveedor.",
+                            Nombre = "Ingreso por Compra"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 2,
+                            Descripcion = "Reducción de stock por venta a cliente.",
+                            Nombre = "Egreso por Venta"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 3,
+                            Descripcion = "Restitución de stock al anular una venta.",
+                            Nombre = "Reingreso por Anulación de Venta"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 4,
+                            Descripcion = "Reducción de stock al anular o revertir una compra a proveedor.",
+                            Nombre = "Egreso por Anulación de Compra"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 5,
+                            Descripcion = "Incremento manual de stock (ej: sobrante en inventario físico).",
+                            Nombre = "Ajuste Positivo Manual"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 6,
+                            Descripcion = "Reducción manual de stock (ej: faltante en inventario físico).",
+                            Nombre = "Ajuste Negativo Manual"
+                        },
+                        new
+                        {
+                            IdTipoMovimientoStock = 7,
+                            Descripcion = "Retiro de mercadería para uso interno o personal del dueño.",
+                            Nombre = "Consumo Interno Dueño"
+                        });
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.Ubicacion", b =>
                 {
                     b.Property<int>("IdUbicacion")
@@ -908,7 +1180,6 @@ namespace proyecto_venta_stock.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdUbicacion"));
 
                     b.Property<bool>("Activo")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("activo");
@@ -929,6 +1200,53 @@ namespace proyecto_venta_stock.Migrations
                         .HasName("ubicacion_pkey");
 
                     b.ToTable("ubicacion", (string)null);
+                });
+
+            modelBuilder.Entity("proyecto_venta_stock.Models.UnidadMedida", b =>
+                {
+                    b.Property<int>("IdUnidadMedida")
+                        .HasColumnType("integer")
+                        .HasColumnName("id_unidad_medida");
+
+                    b.Property<string>("Abreviatura")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("abreviatura");
+
+                    b.Property<string>("Nombre")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("nombre");
+
+                    b.HasKey("IdUnidadMedida");
+
+                    b.ToTable("unidad_medida", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            IdUnidadMedida = 1,
+                            Abreviatura = "u",
+                            Nombre = "Unidad"
+                        },
+                        new
+                        {
+                            IdUnidadMedida = 2,
+                            Abreviatura = "kg",
+                            Nombre = "Kilogramo"
+                        },
+                        new
+                        {
+                            IdUnidadMedida = 3,
+                            Abreviatura = "m",
+                            Nombre = "Metro"
+                        },
+                        new
+                        {
+                            IdUnidadMedida = 4,
+                            Abreviatura = "l",
+                            Nombre = "Litro"
+                        });
                 });
 
             modelBuilder.Entity("proyecto_venta_stock.Models.Usuario", b =>
@@ -1201,6 +1519,46 @@ namespace proyecto_venta_stock.Migrations
                     b.Navigation("IdUsuarioNavigation");
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.CompraProveedor", b =>
+                {
+                    b.HasOne("proyecto_venta_stock.Models.Proveedor", "IdProveedorNavigation")
+                        .WithMany()
+                        .HasForeignKey("IdProveedor")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("compra_proveedor_id_proveedor_fkey");
+
+                    b.HasOne("proyecto_venta_stock.Models.Usuario", "IdUsuarioNavigation")
+                        .WithMany()
+                        .HasForeignKey("IdUsuario")
+                        .HasConstraintName("compra_proveedor_id_usuario_fkey");
+
+                    b.Navigation("IdProveedorNavigation");
+
+                    b.Navigation("IdUsuarioNavigation");
+                });
+
+            modelBuilder.Entity("proyecto_venta_stock.Models.CompraProveedorDetalle", b =>
+                {
+                    b.HasOne("proyecto_venta_stock.Models.CompraProveedor", "IdCompraProveedorNavigation")
+                        .WithMany("CompraProveedorDetalles")
+                        .HasForeignKey("IdCompraProveedor")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("compra_proveedor_detalle_id_compra_proveedor_fkey");
+
+                    b.HasOne("proyecto_venta_stock.Models.Producto", "IdProductoNavigation")
+                        .WithMany()
+                        .HasForeignKey("IdProducto")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("compra_proveedor_detalle_id_producto_fkey");
+
+                    b.Navigation("IdCompraProveedorNavigation");
+
+                    b.Navigation("IdProductoNavigation");
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.DetalleVentaPendiente", b =>
                 {
                     b.HasOne("proyecto_venta_stock.Models.Producto", "IdProductoNavigation")
@@ -1317,6 +1675,35 @@ namespace proyecto_venta_stock.Migrations
                     b.Navigation("IdVentaNavigation");
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.MovimientoStock", b =>
+                {
+                    b.HasOne("proyecto_venta_stock.Models.Producto", "IdProductoNavigation")
+                        .WithMany()
+                        .HasForeignKey("IdProducto")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimientostock_producto");
+
+                    b.HasOne("proyecto_venta_stock.Models.TipoMovimientoStock", "IdTipoMovimientoStockNavigation")
+                        .WithMany("MovimientosStock")
+                        .HasForeignKey("IdTipoMovimientoStock")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_movimientostock_tipo");
+
+                    b.HasOne("proyecto_venta_stock.Models.Usuario", "IdUsuarioNavigation")
+                        .WithMany()
+                        .HasForeignKey("IdUsuario")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_movimientostock_usuario");
+
+                    b.Navigation("IdProductoNavigation");
+
+                    b.Navigation("IdTipoMovimientoStockNavigation");
+
+                    b.Navigation("IdUsuarioNavigation");
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.Permiso", b =>
                 {
                     b.HasOne("proyecto_venta_stock.Models.CategoriaPermiso", "CategoriaPermiso")
@@ -1360,9 +1747,17 @@ namespace proyecto_venta_stock.Migrations
                         .HasForeignKey("IdUbicacion")
                         .HasConstraintName("producto_id_ubicacion_fkey");
 
+                    b.HasOne("proyecto_venta_stock.Models.UnidadMedida", "IdUnidadMedidaNavigation")
+                        .WithMany("Productos")
+                        .HasForeignKey("IdUnidadMedida")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("producto_id_unidad_medida_fkey");
+
                     b.Navigation("IdCategoriaNavigation");
 
                     b.Navigation("IdUbicacionNavigation");
+
+                    b.Navigation("IdUnidadMedidaNavigation");
                 });
 
             modelBuilder.Entity("proyecto_venta_stock.Models.ProductoListaprecioProveedor", b =>
@@ -1492,6 +1887,11 @@ namespace proyecto_venta_stock.Migrations
                     b.Navigation("Venta");
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.CompraProveedor", b =>
+                {
+                    b.Navigation("CompraProveedorDetalles");
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.Estado", b =>
                 {
                     b.Navigation("MovimientoCcs");
@@ -1537,7 +1937,17 @@ namespace proyecto_venta_stock.Migrations
                     b.Navigation("MovimientoCcs");
                 });
 
+            modelBuilder.Entity("proyecto_venta_stock.Models.TipoMovimientoStock", b =>
+                {
+                    b.Navigation("MovimientosStock");
+                });
+
             modelBuilder.Entity("proyecto_venta_stock.Models.Ubicacion", b =>
+                {
+                    b.Navigation("Productos");
+                });
+
+            modelBuilder.Entity("proyecto_venta_stock.Models.UnidadMedida", b =>
                 {
                     b.Navigation("Productos");
                 });

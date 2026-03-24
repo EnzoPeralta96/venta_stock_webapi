@@ -14,7 +14,7 @@ public class CompraProveedorResponseDTO
     public decimal DescuentoTotal { get; set; }
     public decimal IvaTotal { get; set; }
     public decimal Total { get; set; }
-    public int? IdUsuario { get; set; }
+    public int IdUsuario { get; set; }
     public string? NombreUsuario { get; set; }
     public bool Activo { get; set; }
 }
@@ -29,7 +29,7 @@ public class CompraProveedorDetalleResponseDTO
     public int IdCompraProveedorDetalle { get; set; }
     public int IdProducto { get; set; }
     public string NombreProducto { get; set; } = string.Empty;
-    public int Cantidad { get; set; }
+    public decimal Cantidad { get; set; }
     public decimal PrecioUnitario { get; set; }
     public decimal DescuentoPorcentaje { get; set; }
     public decimal IvaPorcentaje { get; set; }

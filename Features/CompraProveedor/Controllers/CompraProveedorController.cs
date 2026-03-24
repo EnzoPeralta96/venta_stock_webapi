@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.CompraProveedor.DTO;
 using proyecto_venta_stock.CompraProveedor.Message;
@@ -8,6 +9,7 @@ namespace proyecto_venta_stock.CompraProveedor.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class CompraProveedorController : ControllerBase
 {
     private readonly ICompraProveedorServices _compraProveedorServices;
@@ -26,22 +28,6 @@ public class CompraProveedorController : ControllerBase
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
-            return BadRequest(mensaje);
-        }
-
-        return Ok(result.Value);
-    }
-
-    [HttpPut("update")]
-    public async Task<IActionResult> Update([FromBody] CompraProveedorUpdateDTO dto)
-    {
-        var result = await _compraProveedorServices.Update(dto);
-
-        if (!result.IsSuccess)
-        {
-            var code = (CompraProveedorErrorCode)result.ErrorCode;
-            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
-            if (Convert.ToString(result.ErrorCode) == "compra_not_found") return NotFound(mensaje);
             return BadRequest(mensaje);
         }
 
@@ -108,36 +94,37 @@ public class CompraProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
-    [HttpDelete("{idCompraProveedor:int}")]
-    public async Task<IActionResult> Delete(int idCompraProveedor)
+    [HttpPost("{idCompraProveedor:int}/anular")]
+    public async Task<IActionResult> Anular(int idCompraProveedor, [FromBody] AnulacionCompraDTO dto)
     {
-        var result = await _compraProveedorServices.Delete(idCompraProveedor);
+        var result = await _compraProveedorServices.Anular(idCompraProveedor, dto);
 
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
-            if (Convert.ToString(result.ErrorCode) == "compra_not_found") return NotFound(mensaje);
-            if (Convert.ToString(result.ErrorCode) == "compra_ya_inactiva") return Conflict(mensaje);
+            if (code == CompraProveedorErrorCode.compra_not_found) return NotFound(mensaje);
+            if (code == CompraProveedorErrorCode.compra_ya_inactiva) return Conflict(mensaje);
             return BadRequest(mensaje);
         }
 
         return NoContent();
     }
 
-    [HttpPatch("{idCompraProveedor:int}/toggle-estado")]
-    public async Task<IActionResult> ToggleEstado(int idCompraProveedor)
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportarExcel()
     {
-        var result = await _compraProveedorServices.ToggleEstado(idCompraProveedor);
+        var result = await _compraProveedorServices.ExportarExcelAsync();
 
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
-            if (Convert.ToString(result.ErrorCode) == "compra_not_found") return NotFound(mensaje);
             return BadRequest(mensaje);
         }
 
-        return Ok();
+        return File(result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"compras_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 }

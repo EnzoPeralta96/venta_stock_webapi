@@ -36,7 +36,7 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
         {
             return _dbContext.Set<Models.Proveedor>()
                 .Include(p => p.ListaPrecios)
-                .Where(p => p.FechaBaja == null)
+                .Where(p => p.Activo)
                 .OrderBy(p => p.Proveedor1)
                 .ToListAsync();
         }

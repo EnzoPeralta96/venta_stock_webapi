@@ -13,5 +13,6 @@ namespace proyecto_venta_stock.Proveedor.Services
         Task<Result<bool>> Delete(int idProveedor);
         Task<Result<bool>> ToggleEstado(int idProveedor);
         Task<Result<PagedList<ProveedorDTO>>> ProveedoresPagedAsync(int pageIndex, int pageSize, string searchTerm, string estado = "activos");
+        Task<Result<byte[]>> ExportarExcelAsync();
     }
 }

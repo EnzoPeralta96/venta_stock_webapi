@@ -1,4 +1,6 @@
 using AutoMapper;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Proveedor.DTO;
@@ -156,7 +158,7 @@ namespace proyecto_venta_stock.Proveedor.Services
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
                 existing.Activo = !existing.Activo;
-                if (existing.Activo) existing.FechaBaja = null; // al reactivar, limpiar fecha de baja
+                if (existing.Activo) existing.FechaBaja = null;
                 await _proveedorRepository.Update(existing);
 
                 return Result<bool>.Success();
@@ -165,6 +167,48 @@ namespace proyecto_venta_stock.Proveedor.Services
             {
                 _logger.LogError("Error inesperado: " + ex);
                 return Result<bool>.Failure(ProveedorErrorCode.error_inesperado);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportarExcelAsync()
+        {
+            try
+            {
+                var lista = await _proveedorRepository.GetAll();
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Proveedores");
+
+                // Header
+                var headers = new[] { "ID", "Nombre", "Dirección", "Teléfono", "Activo" };
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    ws.Cells[1, i + 1].Value = headers[i];
+                    ws.Cells[1, i + 1].Style.Font.Bold = true;
+                    ws.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(68, 114, 196));
+                    ws.Cells[1, i + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                // Data
+                for (int i = 0; i < lista.Count; i++)
+                {
+                    var p = lista[i];
+                    ws.Cells[i + 2, 1].Value = p.IdProveedor;
+                    ws.Cells[i + 2, 2].Value = p.Proveedor1;
+                    ws.Cells[i + 2, 3].Value = p.Direccion;
+                    ws.Cells[i + 2, 4].Value = p.Telefono;
+                    ws.Cells[i + 2, 5].Value = p.Activo ? "Sí" : "No";
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                return Result<byte[]>.Success(package.GetAsByteArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado al exportar proveedores: {Ex}", ex);
+                return Result<byte[]>.Failure(ProveedorErrorCode.error_inesperado);
             }
         }
     }
