@@ -1,3 +1,5 @@
+using proyecto_venta_stock.Message;
+
 namespace venta_stock_webapi.Shared.MessageProvider
 {
     public static class MessageProvider
@@ -8,6 +10,11 @@ namespace venta_stock_webapi.Shared.MessageProvider
                 return message;
 
             return "Error desconocido";
+        }
+
+        internal static object Get(object categoryErrorMessages, CategoryErrorCode errorCode)
+        {
+            throw new NotImplementedException();
         }
     }
 }

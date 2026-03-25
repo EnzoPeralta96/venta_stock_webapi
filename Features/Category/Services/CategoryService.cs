@@ -1,11 +1,10 @@
 using AutoMapper;
 using proyecto_venta_stock.Models;
-using proyecto_venta_stock.Services;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Category.DTO;
 using proyecto_venta_stock.Category.CategoryRepository;
-using venta_stock_webapi.Shared.Paged;
 using proyecto_venta_stock.Message;
+using venta_stock_webapi.Features.Category.DTO;
 
 namespace proyecto_venta_stock.Category.Services
 {
@@ -22,25 +21,27 @@ namespace proyecto_venta_stock.Category.Services
             _categoryRepo = categoryRepo;
         }
 
-        public async Task<Result<bool>> Create(CategoryDetailDTO categoryDTO)
+        public async Task<Result<bool>> Create(CreateCategoryDTO categoryDTO)
         {
             try
             {
                 bool categoryExists = await _categoryRepo.ExistsByName(categoryDTO.Categoria);
+
                 if (categoryExists)
                 {
                     _logger.LogWarning("Category already exists");
                     return Result<bool>.Failure(CategoryErrorCode.category_already_exists);
                 }
 
-
                 var category = _mapper.Map<Categorium>(categoryDTO);
+
                 await _categoryRepo.Create(category);
+
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
-                _logger.LogError("Error inespetado:" + ex.ToString());
+                _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(CategoryErrorCode.error_inesperado);
             }
         }
@@ -50,10 +51,12 @@ namespace proyecto_venta_stock.Category.Services
             try
             {
                 var categorias = await _categoryRepo.GetAll();
+
                 var dtos = _mapper.Map<List<CategoryDetailDTO>>(categorias);
+
                 return Result<List<CategoryDetailDTO>>.Success(dtos);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
 
                 _logger.LogError("Error inesperado:" + ex.ToString());
@@ -73,33 +76,34 @@ namespace proyecto_venta_stock.Category.Services
                 var categoryDTO = _mapper.Map<CategoryDetailDTO>(category);
                 return Result<CategoryDetailDTO>.Success(categoryDTO);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<CategoryDetailDTO>.Failure(CategoryErrorCode.error_inesperado);
             }
         }
 
-        public async Task<Result<bool>> Update(CategoryDetailDTO categoryDTO)
+        public async Task<Result<bool>> Update(UpdateCategoryDTO categoryDTO)
         {
             try
             {
                 var existingCategory = await _categoryRepo.GetById(categoryDTO.IdCategoria);
-                if (existingCategory == null)
-                {
+
+                if (existingCategory is null)
                     return Result<bool>.Failure(CategoryErrorCode.category_not_found);
-                }
+                
                 bool nameInUse = await _categoryRepo.ExistsByName(categoryDTO.Categoria, categoryDTO.IdCategoria);
+
                 if (nameInUse)
-                {
                     return Result<bool>.Failure(CategoryErrorCode.category_name_in_use);
-                }
+
                 _mapper.Map(categoryDTO, existingCategory);
 
                 await _categoryRepo.Update(existingCategory);
+
                 return Result<bool>.Success();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
 
                 _logger.LogError("Error inesperado:" + ex.ToString());
@@ -113,9 +117,12 @@ namespace proyecto_venta_stock.Category.Services
             try
             {
                 var existing = await _categoryRepo.GetById(idCategoria);
-                if (existing == null) return Result<bool>.Failure(CategoryErrorCode.category_not_found);
+
+                if (existing is null) 
+                    return Result<bool>.Failure(CategoryErrorCode.category_not_found);
 
                 await _categoryRepo.Delete(existing);
+
                 return Result<bool>.Success(true); // <- importante: true
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
@@ -128,11 +135,6 @@ namespace proyecto_venta_stock.Category.Services
                 _logger.LogError(ex, "Unexpected");
                 return Result<bool>.Failure(CategoryErrorCode.error_inesperado);
             }
-        }
-
-        public Task<Result<PagedList<CategoryDetailDTO>>> GetAllWithCategoryAndLocationPaged(int pageIndex, int pageSize, bool? activo = true, string search = null)
-        {
-            throw new NotImplementedException();
         }
     }
 }

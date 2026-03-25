@@ -1111,10 +1111,25 @@ namespace proyecto_venta_stock.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id_tipo_movimiento_stock");
 
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
+
                     b.Property<string>("Descripcion")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("descripcion");
+
+                    b.Property<bool>("EsPositivo")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_positivo");
+
+                    b.Property<bool>("EsSistema")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("es_sistema");
 
                     b.Property<string>("Nombre")
                         .HasMaxLength(50)
@@ -1129,43 +1144,64 @@ namespace proyecto_venta_stock.Migrations
                         new
                         {
                             IdTipoMovimientoStock = 1,
+                            Activo = true,
                             Descripcion = "Incremento de stock por recepción de mercadería de proveedor.",
+                            EsPositivo = true,
+                            EsSistema = true,
                             Nombre = "Ingreso por Compra"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 2,
+                            Activo = true,
                             Descripcion = "Reducción de stock por venta a cliente.",
+                            EsPositivo = false,
+                            EsSistema = true,
                             Nombre = "Egreso por Venta"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 3,
+                            Activo = true,
                             Descripcion = "Restitución de stock al anular una venta.",
+                            EsPositivo = true,
+                            EsSistema = true,
                             Nombre = "Reingreso por Anulación de Venta"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 4,
+                            Activo = true,
                             Descripcion = "Reducción de stock al anular o revertir una compra a proveedor.",
+                            EsPositivo = false,
+                            EsSistema = true,
                             Nombre = "Egreso por Anulación de Compra"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 5,
+                            Activo = true,
                             Descripcion = "Incremento manual de stock (ej: sobrante en inventario físico).",
+                            EsPositivo = true,
+                            EsSistema = false,
                             Nombre = "Ajuste Positivo Manual"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 6,
+                            Activo = true,
                             Descripcion = "Reducción manual de stock (ej: faltante en inventario físico).",
+                            EsPositivo = false,
+                            EsSistema = false,
                             Nombre = "Ajuste Negativo Manual"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 7,
+                            Activo = true,
                             Descripcion = "Retiro de mercadería para uso interno o personal del dueño.",
+                            EsPositivo = false,
+                            EsSistema = false,
                             Nombre = "Consumo Interno Dueño"
                         });
                 });
@@ -1205,13 +1241,22 @@ namespace proyecto_venta_stock.Migrations
             modelBuilder.Entity("proyecto_venta_stock.Models.UnidadMedida", b =>
                 {
                     b.Property<int>("IdUnidadMedida")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id_unidad_medida");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdUnidadMedida"));
+                    NpgsqlPropertyBuilderExtensions.HasIdentityOptions(b.Property<int>("IdUnidadMedida"), 5L, null, null, null, null, null);
 
                     b.Property<string>("Abreviatura")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("abreviatura");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("activo");
 
                     b.Property<string>("Nombre")
                         .HasMaxLength(50)
@@ -1227,24 +1272,28 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdUnidadMedida = 1,
                             Abreviatura = "u",
+                            Activo = true,
                             Nombre = "Unidad"
                         },
                         new
                         {
                             IdUnidadMedida = 2,
                             Abreviatura = "kg",
+                            Activo = true,
                             Nombre = "Kilogramo"
                         },
                         new
                         {
                             IdUnidadMedida = 3,
                             Abreviatura = "m",
+                            Activo = true,
                             Nombre = "Metro"
                         },
                         new
                         {
                             IdUnidadMedida = 4,
                             Abreviatura = "l",
+                            Activo = true,
                             Nombre = "Litro"
                         });
                 });

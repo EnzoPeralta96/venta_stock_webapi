@@ -91,6 +91,7 @@ namespace proyecto_venta_stock.Product.Services
                 var existingProduct = await _productRepository.GetById(productDTO.IdProducto);
                 if (existingProduct == null) return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
+
                 // Verificar si el nuevo nombre y marca ya están en uso por otro producto
                 bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
                 if (productExists && (existingProduct.Nombre != productDTO.Nombre || existingProduct.Marca != productDTO.Marca))
@@ -120,6 +121,7 @@ namespace proyecto_venta_stock.Product.Services
                 existingProduct.IdCategoria = productDTO.IdCategoria;
                 existingProduct.IdUbicacion = productDTO.IdUbicacion;
                 existingProduct.VentaSinStock = productDTO.VentaSinStock;
+                existingProduct.IdUnidadMedida = productDTO.IdUnidadMedida;
 
                 // Manejar códigos de barras manualmente
                 var codigosNuevos = productDTO.CodigoBarras

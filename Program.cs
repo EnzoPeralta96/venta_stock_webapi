@@ -54,6 +54,8 @@ using proyecto_venta_stock.Features.Ferreteria.Repository;
 using venta_stock_webapi.Features.Ferreteria.Services;
 using venta_stock_webapi.Features.StockMovement.Services;
 using venta_stock_webapi.Features.StockMovement.Repository;
+using venta_stock_webapi.Features.UnidadMedida.Repository;
+using venta_stock_webapi.Features.UnidadMedida.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -236,6 +238,10 @@ builder.Services.AddScoped<IReportService, ReportService>();
 // Ledger de Stock
 builder.Services.AddScoped<IMovimientoStockRepository, MovimientoStockRepository>();
 builder.Services.AddScoped<IStockMovementService, StockMovementService>();
+
+// Unidades de Medida
+builder.Services.AddScoped<IUnidadMedidaRepository, UnidadMedidaRepository>();
+builder.Services.AddScoped<IUnidadMedidaService, UnidadMedidaService>();
 
 var app = builder.Build();
 

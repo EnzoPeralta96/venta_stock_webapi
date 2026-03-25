@@ -115,13 +115,105 @@ public class StockMovementService : IStockMovementService
         try
         {
             var tipos = await _movimientoStockRepository.GetTiposAsync();
-            var result = _mapper.Map<List<TipoMovimientoStockDTO>>(tipos);
-            return Result<List<TipoMovimientoStockDTO>>.Success(result);
+            return Result<List<TipoMovimientoStockDTO>>.Success(_mapper.Map<List<TipoMovimientoStockDTO>>(tipos));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al obtener tipos de movimiento de stock");
             return Result<List<TipoMovimientoStockDTO>>.Failure(StockMovementErrorCode.unexpected_error);
+        }
+    }
+
+    public async Task<Result<List<TipoMovimientoStockDTO>>> GetTiposAdminAsync()
+    {
+        try
+        {
+            var tipos = await _movimientoStockRepository.GetTiposAdminAsync();
+            return Result<List<TipoMovimientoStockDTO>>.Success(_mapper.Map<List<TipoMovimientoStockDTO>>(tipos));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al obtener tipos de movimiento (admin)");
+            return Result<List<TipoMovimientoStockDTO>>.Failure(StockMovementErrorCode.unexpected_error);
+        }
+    }
+
+    public async Task<Result<TipoMovimientoStockDTO>> CreateTipoMovimientoAsync(CreateTipoMovimientoDTO dto)
+    {
+        try
+        {
+            if (await _movimientoStockRepository.NombreEnUsoAsync(dto.Nombre))
+                return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.nombre_en_uso);
+
+            var tipo = new TipoMovimientoStock
+            {
+                Nombre = dto.Nombre,
+                Descripcion = dto.Descripcion ?? string.Empty,
+                EsPositivo = dto.EsPositivo,
+                Activo = true,
+                EsSistema = false
+            };
+
+            _movimientoStockRepository.AddTipo(tipo);
+            await _movimientoStockRepository.SaveChangesAsync();
+
+            return Result<TipoMovimientoStockDTO>.Success(_mapper.Map<TipoMovimientoStockDTO>(tipo));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al crear tipo de movimiento de stock");
+            return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.unexpected_error);
+        }
+    }
+
+    public async Task<Result<TipoMovimientoStockDTO>> UpdateTipoMovimientoAsync(int id, UpdateTipoMovimientoDTO dto)
+    {
+        try
+        {
+            var tipo = await _movimientoStockRepository.GetTipoByIdAsync(id);
+            if (tipo is null)
+                return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.tipo_not_found);
+
+            if (tipo.EsSistema)
+                return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.tipo_sistema_protegido);
+
+            if (await _movimientoStockRepository.NombreEnUsoAsync(dto.Nombre, excludeId: id))
+                return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.nombre_en_uso);
+
+            tipo.Nombre = dto.Nombre;
+            tipo.Descripcion = dto.Descripcion ?? string.Empty;
+
+            await _movimientoStockRepository.SaveChangesAsync();
+
+            return Result<TipoMovimientoStockDTO>.Success(_mapper.Map<TipoMovimientoStockDTO>(tipo));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al actualizar tipo de movimiento {Id}", id);
+            return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.unexpected_error);
+        }
+    }
+
+    public async Task<Result<bool>> ToggleTipoMovimientoAsync(int id)
+    {
+        try
+        {
+            var tipo = await _movimientoStockRepository.GetTipoByIdAsync(id);
+            if (tipo is null)
+                return Result<bool>.Failure(StockMovementErrorCode.tipo_not_found);
+
+            if (tipo.EsSistema)
+                return Result<bool>.Failure(StockMovementErrorCode.tipo_sistema_protegido);
+
+            tipo.Activo = !tipo.Activo;
+            await _movimientoStockRepository.SaveChangesAsync();
+
+            return Result<bool>.Success(tipo.Activo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar estado del tipo de movimiento {Id}", id);
+            return Result<bool>.Failure(StockMovementErrorCode.unexpected_error);
         }
     }
 
@@ -149,4 +241,7 @@ public class StockMovementService : IStockMovementService
             return Result<PagedList<MovimientoStockDTO>>.Failure(StockMovementErrorCode.unexpected_error);
         }
     }
+
+    public Task<TipoMovimientoStock?> GetTipoByIdAsync(int id)
+        => _movimientoStockRepository.GetTipoByIdAsync(id);
 }

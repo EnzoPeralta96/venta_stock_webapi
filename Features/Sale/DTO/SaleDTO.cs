@@ -88,6 +88,7 @@ namespace venta_stock_webapi.Sale.DTO
         public int IdProducto { get; set; }
         public string NombreProducto { get; set; }
         public string MarcaProducto { get; set; }
+        public int? IdUnidadMedida { get; set; }
         public decimal Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }
         public decimal Subtotal { get; set; }

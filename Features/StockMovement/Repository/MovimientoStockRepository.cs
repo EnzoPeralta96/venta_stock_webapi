@@ -27,8 +27,34 @@ public class MovimientoStockRepository : IMovimientoStockRepository
     {
         return _context.TipoMovimientoStocks
             .AsNoTracking()
+            .Where(t => t.Activo)
             .OrderBy(t => t.IdTipoMovimientoStock)
             .ToListAsync();
+    }
+
+    public Task<List<TipoMovimientoStock>> GetTiposAdminAsync()
+    {
+        return _context.TipoMovimientoStocks
+            .AsNoTracking()
+            .OrderBy(t => t.IdTipoMovimientoStock)
+            .ToListAsync();
+    }
+
+    public Task<TipoMovimientoStock?> GetTipoByIdAsync(int id)
+    {
+        return _context.TipoMovimientoStocks
+            .FirstOrDefaultAsync(t => t.IdTipoMovimientoStock == id);
+    }
+
+    public Task<bool> NombreEnUsoAsync(string nombre, int? excludeId = null)
+    {
+        return _context.TipoMovimientoStocks
+            .AnyAsync(t => t.Nombre == nombre && (excludeId == null || t.IdTipoMovimientoStock != excludeId));
+    }
+
+    public void AddTipo(TipoMovimientoStock tipo)
+    {
+        _context.TipoMovimientoStocks.Add(tipo);
     }
 
     public IQueryable<MovimientoStock> MovementsQueryable(int idProducto, int? idTipoMovimiento)

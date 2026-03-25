@@ -1,5 +1,4 @@
 using AutoMapper;
-using Microsoft.Extensions.Logging;
 using venta_stock_webapi.Client.DTO;
 using venta_stock_webapi.Client.Message;
 using venta_stock_webapi.Client.Repository;
@@ -77,6 +76,7 @@ namespace venta_stock_webapi.Client.Services
 
                 // Crear el cliente
                 var cliente = _mapper.Map<Cliente>(clienteDTO);
+
                 cliente.FechaAlta = DateOnly.FromDateTime(DateTime.Now);
 
                 var clienteCreado = await _clienteRepository.CreateAsync(cliente);
@@ -126,7 +126,8 @@ namespace venta_stock_webapi.Client.Services
             {
                 var cliente = await _clienteRepository.GetByIdAsync(id);
 
-                if (cliente == null) return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
+                if (cliente is null) 
+                    return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
 
                 var responseDTO = _mapper.Map<ClientResponseDTO>(cliente);
                 return Result<ClientResponseDTO>.Success(responseDTO);
@@ -169,34 +170,27 @@ namespace venta_stock_webapi.Client.Services
             {
                 var clienteExistente = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
 
-                if (clienteExistente == null)
-                {
+                if (clienteExistente is null)
                     return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
-                }
 
                 // Validar unicidad de Email (global para todos los clientes, excepto el actual)
                 if (await _clienteRepository.EmailExistsForOtherClientAsync(clienteDTO.Mail, clienteDTO.IdCliente))
-                {
                     return Result<ClientResponseDTO>.Failure(ClientErrorCode.email_in_use);
-                }
+            
 
                 // Validaciones específicas según tipo de cliente
                 if (clienteDTO.EsEmpresa)
                 {
                     // EMPRESA: Validar RazonSocial única (excepto el cliente actual)
                     if (await _clienteRepository.EnterpriseExistsForOtherClientAsync(clienteDTO.RazonSocial, clienteDTO.IdCliente))
-                    {
                         return Result<ClientResponseDTO>.Failure(ClientErrorCode.empresa_in_use);
-                    }
                     // CUIT NO se valida (puede repetirse)
                 }
                 else
                 {
                     // PERSONA FÍSICA: Validar DNI único (excepto el cliente actual)
                     if (await _clienteRepository.DniExistsForOtherClientAsync(clienteDTO.Dni, clienteDTO.IdCliente))
-                    {
                         return Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use);
-                    }
                 }
 
                 clienteExistente.Nombre = clienteDTO.Nombre;
@@ -212,6 +206,7 @@ namespace venta_stock_webapi.Client.Services
                 await transaction.CommitAsync();
 
                 var clienteActualizado = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
+
                 var responseDTO = _mapper.Map<ClientResponseDTO>(clienteActualizado);
 
                 return Result<ClientResponseDTO>.Success(responseDTO);
@@ -230,6 +225,7 @@ namespace venta_stock_webapi.Client.Services
             try
             {
                 await AuditDbSession.SetAsync(_context, _userContext);
+                
                 var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente);
 
                 if (cliente == null)

@@ -16,6 +16,17 @@ public class TipoMovimientoStock
     public int IdTipoMovimientoStock { get; set; }
     public string Nombre { get; set; } = null!;
     public string Descripcion { get; set; } = null!;
+    public bool Activo { get; set; } = true;
+
+    /// <summary>
+    /// Indica que este tipo está vinculado al sistema (IDs 1-4) y no puede ser editado ni desactivado por el usuario.
+    /// </summary>
+    public bool EsSistema { get; set; } = false;
+
+    /// <summary>
+    /// Define la dirección del movimiento: true = suma stock, false = resta stock.
+    /// </summary>
+    public bool EsPositivo { get; set; } = false;
 
     public virtual ICollection<MovimientoStock> MovimientosStock { get; set; } = new List<MovimientoStock>();
 }

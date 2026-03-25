@@ -8,11 +8,11 @@ public class AjusteStockDTO
     public int IdProducto { get; set; }
 
     [Required(ErrorMessage = "La cantidad es obligatoria.")]
-    public decimal Cantidad { get; set; } // positivo suma, negativo resta
+    [Range(0.001, double.MaxValue, ErrorMessage = "La cantidad debe ser mayor a 0.")]
+    public decimal Cantidad { get; set; }  // siempre positiva — el backend aplica el signo según EsPositivo del tipo
 
     [Required(ErrorMessage = "El IdTipoMovimiento es obligatorio.")]
-    [Range(5, 7, ErrorMessage = "El IdTipoMovimiento debe ser 5, 6 o 7.")]
-    public int IdTipoMovimiento { get; set; } // 5, 6 o 7
+    public int IdTipoMovimiento { get; set; }  // cualquier tipo activo no-sistema
 
     [Required(ErrorMessage = "El motivo es obligatorio.")]
     public string Motivo { get; set; } = string.Empty;

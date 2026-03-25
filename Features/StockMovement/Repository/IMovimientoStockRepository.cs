@@ -7,6 +7,13 @@ public interface IMovimientoStockRepository
     void Add(MovimientoStock movimientoStock);
     Task SaveChangesAsync();
 
-    Task<List<TipoMovimientoStock>> GetTiposAsync();
+    // Movimientos
     IQueryable<MovimientoStock> MovementsQueryable(int idProducto, int? idTipoMovimiento);
+
+    // Tipos de movimiento
+    Task<List<TipoMovimientoStock>> GetTiposAsync();
+    Task<List<TipoMovimientoStock>> GetTiposAdminAsync();
+    Task<TipoMovimientoStock?> GetTipoByIdAsync(int id);
+    Task<bool> NombreEnUsoAsync(string nombre, int? excludeId = null);
+    void AddTipo(TipoMovimientoStock tipo);
 }

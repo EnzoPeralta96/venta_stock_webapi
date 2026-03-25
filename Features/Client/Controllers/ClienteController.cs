@@ -24,11 +24,6 @@ namespace venta_stock_webapi.Client.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateCliente([FromBody] ClientCreateDTO clienteDTO)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            
             var result = await _clienteService.CreateClienteAsync(clienteDTO);
 
             if (!result.IsSuccess)
@@ -83,11 +78,6 @@ namespace venta_stock_webapi.Client.Controllers
         [HttpPut("update")]
         public async Task<IActionResult> UpdateClient([FromBody] ClientUpdateDTO clienteDTO)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await _clienteService.UpdateClient(clienteDTO);
 
             if (!result.IsSuccess)
@@ -105,11 +95,6 @@ namespace venta_stock_webapi.Client.Controllers
         [HttpPut("toggle-status")]
         public async Task<IActionResult> ToggleStatus([FromBody] ClientToggleStatusDTO dto)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            
             var result = await _clienteService.ToggleStatus(dto);
 
             if (!result.IsSuccess)

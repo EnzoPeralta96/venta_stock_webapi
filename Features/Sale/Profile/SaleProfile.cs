@@ -62,10 +62,12 @@ namespace venta_stock_webapi.Sale.Profile
 
             // DetalleVentum → SaleItemDetailDTO
             CreateMap<DetalleVentum, SaleItemDetailDTO>()
-                .ForMember(dest => dest.NombreProducto, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.NombreProducto, opt => opt.MapFrom(src =>
                     src.IdProductoNavigation.Nombre ?? "N/A"))
-                .ForMember(dest => dest.MarcaProducto, opt => opt.MapFrom(src => 
+                .ForMember(dest => dest.MarcaProducto, opt => opt.MapFrom(src =>
                     src.IdProductoNavigation.Marca ?? "N/A"))
+                .ForMember(dest => dest.IdUnidadMedida, opt => opt.MapFrom(src =>
+                    src.IdProductoNavigation.IdUnidadMedida))
                 .ForMember(dest => dest.PrecioUnitario, opt => opt.MapFrom(src => src.PrecioVenta ?? 0))
                 .ForMember(dest => dest.Subtotal, opt => opt.MapFrom(src => src.SubTotal ?? 0));
         }

@@ -15,10 +15,16 @@ public interface IStockMovementService
         int idUsuario);
 
     Task<Result<List<TipoMovimientoStockDTO>>> GetTiposMovimientoAsync();
+    Task<Result<List<TipoMovimientoStockDTO>>> GetTiposAdminAsync();
+    Task<Result<TipoMovimientoStockDTO>> CreateTipoMovimientoAsync(CreateTipoMovimientoDTO dto);
+    Task<Result<TipoMovimientoStockDTO>> UpdateTipoMovimientoAsync(int id, UpdateTipoMovimientoDTO dto);
+    Task<Result<bool>> ToggleTipoMovimientoAsync(int id);
 
     Task<Result<PagedList<MovimientoStockDTO>>> MovimientosPagedAsync(
         int idProducto,
         int pageIndex,
         int pageSize,
         int? idTipoMovimiento);
+
+    Task<TipoMovimientoStock?> GetTipoByIdAsync(int id);
 }

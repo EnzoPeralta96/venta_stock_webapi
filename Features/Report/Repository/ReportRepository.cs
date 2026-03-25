@@ -134,14 +134,16 @@ namespace proyecto_venta_stock.Report.Repository
                 group new { d, cat } by new
                 {
                     p.IdProducto,
-                    NombreProducto = p.Nombre,
-                    Categoria      = cat != null ? cat.Categoria : null
+                    NombreProducto  = p.Nombre,
+                    Categoria       = cat != null ? cat.Categoria : null,
+                    p.IdUnidadMedida
                 } into g
                 select new ProductoVendidoDTO
                 {
                     IdProducto      = g.Key.IdProducto,
                     NombreProducto  = g.Key.NombreProducto,
                     Categoria       = g.Key.Categoria ?? "Sin categoría",
+                    IdUnidadMedida  = g.Key.IdUnidadMedida,
                     CantidadVendida = g.Sum(x => x.d.Cantidad ?? 0),
                     TotalFacturado  = g.Sum(x => x.d.SubTotal ?? 0)
                 };
