@@ -55,11 +55,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("create-account-configs")]
         public async Task<IActionResult> CreateAccountConfig([FromBody] CreateAccountConfigDTO accountConfigDTO)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await _accountConfigService.CreateAccountConfig(accountConfigDTO);
 
             if (!result.IsSuccess)
@@ -76,11 +71,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPut("update-account-configs")]
         public async Task<IActionResult> UpdateAccountConfig([FromBody] UpdateAccountConfigDTO accountConfigDTO)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await _accountConfigService.UpdateAccountConfig(accountConfigDTO);
 
             if (!result.IsSuccess)

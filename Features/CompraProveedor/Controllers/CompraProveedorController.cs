@@ -35,24 +35,25 @@ public class CompraProveedorController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int pageIndex = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? activo = "true",
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
     {
-        var result = await _compraProveedorServices.GetAll();
-
-        if (!result.IsSuccess)
+        bool? activoFilter = activo?.ToLower() switch
         {
-            var code = (CompraProveedorErrorCode)result.ErrorCode;
-            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
-            return BadRequest(mensaje);
-        }
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
 
-        return Ok(result.Value);
-    }
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d1) ? d1 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h1) ? h1 : null;
 
-    [HttpGet("with-details")]
-    public async Task<IActionResult> GetAllWithDetails()
-    {
-        var result = await _compraProveedorServices.GetAllWithDetails();
+        var result = await _compraProveedorServices.GetPaged(pageIndex, pageSize, search, activoFilter, desdeParsed, hastaParsed);
 
         if (!result.IsSuccess)
         {
@@ -80,9 +81,25 @@ public class CompraProveedorController : ControllerBase
     }
 
     [HttpGet("proveedor/{idProveedor:int}")]
-    public async Task<IActionResult> GetByProveedor(int idProveedor)
+    public async Task<IActionResult> GetByProveedor(
+        int idProveedor,
+        [FromQuery] int pageIndex = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? activo = "true",
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
     {
-        var result = await _compraProveedorServices.GetByProveedor(idProveedor);
+        bool? activoFilter = activo?.ToLower() switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d2) ? d2 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h2) ? h2 : null;
+
+        var result = await _compraProveedorServices.GetPagedByProveedor(idProveedor, pageIndex, pageSize, activoFilter, desdeParsed, hastaParsed);
 
         if (!result.IsSuccess)
         {
@@ -111,10 +128,81 @@ public class CompraProveedorController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("export/excel")]
-    public async Task<IActionResult> ExportarExcel()
+    [HttpGet("{idCompraProveedor:int}/export/excel")]
+    public async Task<IActionResult> ExportarCompraExcel(int idCompraProveedor)
     {
-        var result = await _compraProveedorServices.ExportarExcelAsync();
+        var result = await _compraProveedorServices.ExportarCompraExcelAsync(idCompraProveedor);
+        if (!result.IsSuccess)
+        {
+            var code = (CompraProveedorErrorCode)result.ErrorCode;
+            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+            return code == CompraProveedorErrorCode.compra_not_found ? NotFound(mensaje) : BadRequest(mensaje);
+        }
+        return File(result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
+    }
+
+    [HttpGet("{idCompraProveedor:int}/export/pdf")]
+    public async Task<IActionResult> ExportarCompraPdf(int idCompraProveedor)
+    {
+        var result = await _compraProveedorServices.ExportarCompraPdfAsync(idCompraProveedor);
+        if (!result.IsSuccess)
+        {
+            var code = (CompraProveedorErrorCode)result.ErrorCode;
+            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+            return code == CompraProveedorErrorCode.compra_not_found ? NotFound(mensaje) : BadRequest(mensaje);
+        }
+        return File(result.Value, "application/pdf", $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
+    }
+
+    [HttpGet("proveedor/{idProveedor:int}/export/excel")]
+    public async Task<IActionResult> ExportarComprasPorProveedorExcel(
+        int idProveedor,
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
+    {
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d1) ? d1 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h1) ? h1 : null;
+        var result = await _compraProveedorServices.ExportarComprasPorProveedorExcelAsync(idProveedor, desdeParsed, hastaParsed);
+        if (!result.IsSuccess)
+        {
+            var code = (CompraProveedorErrorCode)result.ErrorCode;
+            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+            return BadRequest(mensaje);
+        }
+        return File(result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
+    }
+
+    [HttpGet("proveedor/{idProveedor:int}/export/pdf")]
+    public async Task<IActionResult> ExportarComprasPorProveedorPdf(
+        int idProveedor,
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
+    {
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d2) ? d2 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h2) ? h2 : null;
+        var result = await _compraProveedorServices.ExportarComprasPorProveedorPdfAsync(idProveedor, desdeParsed, hastaParsed);
+        if (!result.IsSuccess)
+        {
+            var code = (CompraProveedorErrorCode)result.ErrorCode;
+            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+            return BadRequest(mensaje);
+        }
+        return File(result.Value, "application/pdf", $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportarExcel(
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
+    {
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d3) ? d3 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h3) ? h3 : null;
+
+        var result = await _compraProveedorServices.ExportarExcelAsync(desdeParsed, hastaParsed);
 
         if (!result.IsSuccess)
         {
@@ -126,5 +214,25 @@ public class CompraProveedorController : ControllerBase
         return File(result.Value,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"compras_{DateTime.Today:yyyyMMdd}.xlsx");
+    }
+
+    [HttpGet("export/pdf")]
+    public async Task<IActionResult> ExportarPdf(
+        [FromQuery] string? fechaDesde = null,
+        [FromQuery] string? fechaHasta = null)
+    {
+        DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d4) ? d4 : null;
+        DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h4) ? h4 : null;
+
+        var result = await _compraProveedorServices.ExportarPdfAsync(desdeParsed, hastaParsed);
+
+        if (!result.IsSuccess)
+        {
+            var code = (CompraProveedorErrorCode)result.ErrorCode;
+            var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+            return BadRequest(mensaje);
+        }
+
+        return File(result.Value, "application/pdf", $"compras_{DateTime.Today:yyyyMMdd}.pdf");
     }
 }

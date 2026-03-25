@@ -1,15 +1,18 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using proyecto_venta_stock.CompraProveedor.PDF;
 using proyecto_venta_stock.CompraProveedor.DTO;
 using proyecto_venta_stock.CompraProveedor.Message;
 using proyecto_venta_stock.CompraProveedor.Repository;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
+using QuestPDF.Fluent;
 using venta_stock_webapi.Features.StockMovement.Services;
 using venta_stock_webapi.Shared.Identity;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.CompraProveedor.Services;
 
@@ -38,12 +41,12 @@ public class CompraProveedorServices : ICompraProveedorServices
         _stockMovementService = stockMovementService;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>
-    /// Setea las variables de sesión de PostgreSQL requeridas por los triggers de auditoría.
+    /// Setea las variables de sesiÃ³n de PostgreSQL requeridas por los triggers de auditorÃ­a.
     /// Debe llamarse antes de cualquier SQL raw (ExecuteSqlRawAsync / ExecuteUpdateAsync)
-    /// que no esté precedido por un SaveChangesAsync (el cual dispara el AuditSessionInterceptor).
+    /// que no estÃ© precedido por un SaveChangesAsync (el cual dispara el AuditSessionInterceptor).
     /// </summary>
     private async Task SetAuditContextAsync()
     {
@@ -53,7 +56,7 @@ public class CompraProveedorServices : ICompraProveedorServices
             "SELECT set_config('app.username', {0}, true);", _userContext.UserName ?? "");
     }
 
-    // ── Calcular línea de detalle ──────────────────────────────────────────────
+    // â”€â”€ Calcular lÃ­nea de detalle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static (decimal subtotal, decimal descuento, decimal iva, decimal total) CalcLinea(
         decimal cantidad, decimal precioUnitario, decimal descuentoPorcentaje, decimal ivaPorcentaje)
@@ -65,7 +68,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         return (subtotal, descuento, iva, baseIva + iva);
     }
 
-    // ── CREATE ────────────────────────────────────────────────────────────────
+    // â”€â”€ CREATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public async Task<Result<CompraProveedorResponseDTO>> Create(CompraProveedorCreateDTO dto)
     {
@@ -90,7 +93,7 @@ public class CompraProveedorServices : ICompraProveedorServices
                     return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.usuario_not_found);
             }
 
-            // Validar número de comprobante duplicado
+            // Validar nÃºmero de comprobante duplicado
             if (!string.IsNullOrWhiteSpace(dto.NumeroComprobante))
             {
                 var duplicado = await _compraRepo.ExistsByNumeroComprobanteAsync(
@@ -99,7 +102,7 @@ public class CompraProveedorServices : ICompraProveedorServices
                     return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.numero_comprobante_duplicado);
             }
 
-            // Validar que los productos existan y estén activos
+            // Validar que los productos existan y estÃ©n activos
             var idsProducto = dto.Detalles.Select(d => d.IdProducto).Distinct().ToList();
             var productosExistentes = await _context.Productos
                 .Where(p => idsProducto.Contains(p.IdProducto) && p.Activo)
@@ -175,35 +178,39 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // ── GET ALL ───────────────────────────────────────────────────────────────
+    // â”€â”€ GET PAGED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    public async Task<Result<List<CompraProveedorResponseDTO>>> GetAll()
+    public async Task<Result<PagedList<CompraProveedorDetailResponseDTO>>> GetPaged(
+        int pageIndex, int pageSize, string? search, bool? activo, DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
         {
-            var compras = await _compraRepo.GetAllAsync();
-            var dtos = _mapper.Map<List<CompraProveedorResponseDTO>>(compras);
-            return Result<List<CompraProveedorResponseDTO>>.Success(dtos);
+            var paged = await _compraRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, search, activo, fechaDesde, fechaHasta);
+            var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(paged.Items);
+            var result = new PagedList<CompraProveedorDetailResponseDTO>(dtos, paged.TotalCount, pageIndex, pageSize);
+            return Result<PagedList<CompraProveedorDetailResponseDTO>>.Success(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error inesperado al obtener compras: {Ex}", ex);
-            return Result<List<CompraProveedorResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
+            _logger.LogError("Error inesperado al obtener compras paginadas: {Ex}", ex);
+            return Result<PagedList<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
         }
     }
 
-    public async Task<Result<List<CompraProveedorDetailResponseDTO>>> GetAllWithDetails()
+    public async Task<Result<PagedList<CompraProveedorDetailResponseDTO>>> GetPagedByProveedor(
+        int idProveedor, int pageIndex, int pageSize, bool? activo, DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
         {
-            var compras = await _compraRepo.GetAllWithDetailsAsync();
-            var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(compras);
-            return Result<List<CompraProveedorDetailResponseDTO>>.Success(dtos);
+            var paged = await _compraRepo.GetPagedByProveedorAsync(idProveedor, pageIndex, pageSize, activo, fechaDesde, fechaHasta);
+            var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(paged.Items);
+            var result = new PagedList<CompraProveedorDetailResponseDTO>(dtos, paged.TotalCount, pageIndex, pageSize);
+            return Result<PagedList<CompraProveedorDetailResponseDTO>>.Success(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error inesperado al obtener compras con detalles: {Ex}", ex);
-            return Result<List<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
+            _logger.LogError("Error inesperado al obtener compras por proveedor: {Ex}", ex);
+            return Result<PagedList<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
         }
     }
 
@@ -225,22 +232,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    public async Task<Result<List<CompraProveedorDetailResponseDTO>>> GetByProveedor(int idProveedor)
-    {
-        try
-        {
-            var compras = await _compraRepo.GetByProveedorAsync(idProveedor);
-            var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(compras);
-            return Result<List<CompraProveedorDetailResponseDTO>>.Success(dtos);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("Error inesperado al obtener compras por proveedor: {Ex}", ex);
-            return Result<List<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
-        }
-    }
-
-    // ── ANULAR (soft delete con motivo obligatorio + revertir stock) ──────────
+    // â”€â”€ ANULAR (soft delete con motivo obligatorio + revertir stock) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public async Task<Result<bool>> Anular(int idCompraProveedor, AnulacionCompraDTO dto)
     {
@@ -259,7 +251,7 @@ public class CompraProveedorServices : ICompraProveedorServices
             if (!compra.Activo)
                 return Result<bool>.Failure(CompraProveedorErrorCode.compra_ya_inactiva);
 
-            // Revertir stock de cada línea
+            // Revertir stock de cada lÃ­nea
             foreach (var det in compra.CompraProveedorDetalles)
                 await _stockMovementService.RegistrarMovimientoAsync(
                     det.IdProducto,
@@ -288,18 +280,17 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // ── EXPORT EXCEL ──────────────────────────────────────────────────────────
+    // â”€â”€ EXPORT EXCEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-    public async Task<Result<byte[]>> ExportarExcelAsync()
+    public async Task<Result<byte[]>> ExportarExcelAsync(DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
         {
-            var compras = await _compraRepo.GetAllWithDetailsAsync();
-
+            var compras = await _compraRepo.GetAllWithDetailsAsync(fechaDesde, fechaHasta);
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage();
 
-            // ── Hoja 1: Compras ────────────────────────────────────────────
+            // â”€â”€ Hoja 1: Compras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             var wsCompras = package.Workbook.Worksheets.Add("Compras");
             var headersCompras = new[]
             {
@@ -322,16 +313,17 @@ public class CompraProveedorServices : ICompraProveedorServices
                 wsCompras.Cells[row, 8].Value = c.DescuentoTotal;
                 wsCompras.Cells[row, 9].Value = c.IvaTotal;
                 wsCompras.Cells[row, 10].Value = c.Total;
-                wsCompras.Cells[row, 11].Value = c.Activo ? "Sí" : "No";
+                wsCompras.Cells[row, 11].Value = c.Activo ? "SÃ­" : "No";
             }
             wsCompras.Cells[wsCompras.Dimension.Address].AutoFitColumns();
 
-            // ── Hoja 2: Detalles ───────────────────────────────────────────
-            var wsDetalles = package.Workbook.Worksheets.Add("Detalles");
+            // â”€â”€ Hoja 2: Detalle por producto (una fila por producto por compra) â”€â”€
+            var wsDetalles = package.Workbook.Worksheets.Add("Detalle por Producto");
             var headersDetalles = new[]
             {
-                "ID Compra", "Nro. Comprobante", "Producto", "Cantidad",
-                "Precio Unitario", "Descuento %", "IVA %", "Subtotal", "Total"
+                "ID Compra", "Proveedor", "Fecha", "Nro. Comprobante",
+                "Producto", "Cantidad", "Unidad", "Precio c/u", "Desc %", "IVA %",
+                "Total sin IVA", "Total c/IVA"
             };
             EstiloEncabezado(wsDetalles, headersDetalles);
 
@@ -340,17 +332,34 @@ public class CompraProveedorServices : ICompraProveedorServices
             {
                 foreach (var d in c.CompraProveedorDetalles)
                 {
+                    var baseIva = d.Subtotal - (d.Subtotal * (d.DescuentoPorcentaje / 100m));
+                    var unidad = d.IdProductoNavigation?.IdUnidadMedidaNavigation?.Abreviatura ?? "";
                     wsDetalles.Cells[detalleRow, 1].Value = c.IdCompraProveedor;
-                    wsDetalles.Cells[detalleRow, 2].Value = c.NumeroComprobante;
-                    wsDetalles.Cells[detalleRow, 3].Value = d.IdProductoNavigation?.Nombre;
-                    wsDetalles.Cells[detalleRow, 4].Value = d.Cantidad;
-                    wsDetalles.Cells[detalleRow, 5].Value = d.PrecioUnitario;
-                    wsDetalles.Cells[detalleRow, 6].Value = d.DescuentoPorcentaje;
-                    wsDetalles.Cells[detalleRow, 7].Value = d.IvaPorcentaje;
-                    wsDetalles.Cells[detalleRow, 8].Value = d.Subtotal;
-                    wsDetalles.Cells[detalleRow, 9].Value = d.Total;
+                    wsDetalles.Cells[detalleRow, 2].Value = c.IdProveedorNavigation?.Proveedor1;
+                    wsDetalles.Cells[detalleRow, 3].Value = c.Fecha.ToString("dd/MM/yyyy");
+                    wsDetalles.Cells[detalleRow, 4].Value = c.NumeroComprobante;
+                    wsDetalles.Cells[detalleRow, 5].Value = d.IdProductoNavigation?.Nombre;
+                    wsDetalles.Cells[detalleRow, 6].Value = d.Cantidad;
+                    wsDetalles.Cells[detalleRow, 7].Value = unidad;
+                    wsDetalles.Cells[detalleRow, 8].Value = d.PrecioUnitario;
+                    wsDetalles.Cells[detalleRow, 9].Value = d.DescuentoPorcentaje;
+                    wsDetalles.Cells[detalleRow, 10].Value = d.IvaPorcentaje;
+                    wsDetalles.Cells[detalleRow, 11].Value = baseIva;
+                    wsDetalles.Cells[detalleRow, 12].Value = d.Total;
                     detalleRow++;
                 }
+
+                // Fila resumen de compra
+                var summaryRow = detalleRow;
+                wsDetalles.Cells[summaryRow, 4].Value = $"Subtotal compra #{c.IdCompraProveedor}";
+                wsDetalles.Cells[summaryRow, 4].Style.Font.Bold = true;
+                wsDetalles.Cells[summaryRow, 11].Value = c.Subtotal - c.DescuentoTotal;
+                wsDetalles.Cells[summaryRow, 11].Style.Font.Bold = true;
+                wsDetalles.Cells[summaryRow, 12].Value = c.Total;
+                wsDetalles.Cells[summaryRow, 12].Style.Font.Bold = true;
+                wsDetalles.Cells[summaryRow, 1, summaryRow, 12].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                wsDetalles.Cells[summaryRow, 1, summaryRow, 12].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(220, 230, 245));
+                detalleRow++;
             }
             if (wsDetalles.Dimension != null)
                 wsDetalles.Cells[wsDetalles.Dimension.Address].AutoFitColumns();
@@ -364,15 +373,236 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    private static void EstiloEncabezado(ExcelWorksheet ws, string[] headers)
+    // â”€â”€ EXPORT PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    public async Task<Result<byte[]>> ExportarPdfAsync(DateOnly? fechaDesde, DateOnly? fechaHasta)
+    {
+        try
+        {
+            var comprasReporte = (await _compraRepo.GetAllWithDetailsAsync(fechaDesde, fechaHasta))
+                .OrderByDescending(c => c.Fecha)
+                .ThenByDescending(c => c.IdCompraProveedor)
+                .ToList();
+
+            var filtroTextoReporte = fechaDesde.HasValue || fechaHasta.HasValue
+                ? $"Periodo: {(fechaDesde.HasValue ? fechaDesde.Value.ToString("dd/MM/yyyy") : "inicio")} - {(fechaHasta.HasValue ? fechaHasta.Value.ToString("dd/MM/yyyy") : "hoy")}" 
+                : "Todas las compras";
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+            var document = new CompraProveedorReportDocument(comprasReporte, filtroTextoReporte, DateTime.Now);
+
+            return Result<byte[]>.Success(document.GeneratePdf());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error inesperado al exportar compras a PDF: {Ex}", ex);
+            return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
+        }
+    }
+
+    // ── EXPORT COMPRA INDIVIDUAL ──────────────────────────────────────────────
+
+    public async Task<Result<byte[]>> ExportarCompraExcelAsync(int idCompraProveedor)
+    {
+        try
+        {
+            var compra = await _compraRepo.GetByIdWithDetailsAsync(idCompraProveedor);
+            if (compra == null)
+                return Result<byte[]>.Failure(CompraProveedorErrorCode.compra_not_found);
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("Compra");
+
+            // Encabezado de compra
+            ws.Cells[1, 1].Value = "Compra #";        ws.Cells[1, 2].Value = compra.IdCompraProveedor;
+            ws.Cells[2, 1].Value = "Proveedor";        ws.Cells[2, 2].Value = compra.IdProveedorNavigation?.Proveedor1;
+            ws.Cells[3, 1].Value = "Fecha";            ws.Cells[3, 2].Value = compra.Fecha.ToString("dd/MM/yyyy");
+            ws.Cells[4, 1].Value = "Vencimiento";      ws.Cells[4, 2].Value = compra.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "-";
+            ws.Cells[5, 1].Value = "Comprobante";      ws.Cells[5, 2].Value = $"{compra.TipoComprobante} {compra.NumeroComprobante}".Trim();
+            ws.Cells[6, 1].Value = "Observación";      ws.Cells[6, 2].Value = compra.Observacion;
+            ws.Cells[7, 1].Value = "Estado";           ws.Cells[7, 2].Value = compra.Activo ? "Activa" : "Anulada";
+
+            for (int r = 1; r <= 7; r++)
+                ws.Cells[r, 1].Style.Font.Bold = true;
+
+            // Tabla de productos
+            var headers = new[] { "Producto", "Cantidad", "Unidad", "Precio c/u", "Desc %", "IVA %", "Total s/IVA", "Total c/IVA" };
+            EstiloEncabezado(ws, headers, startRow: 9);
+
+            int row = 10;
+            foreach (var d in compra.CompraProveedorDetalles)
+            {
+                var baseIva = d.Subtotal - (d.Subtotal * (d.DescuentoPorcentaje / 100m));
+                ws.Cells[row, 1].Value = d.IdProductoNavigation?.Nombre;
+                ws.Cells[row, 2].Value = d.Cantidad;
+                ws.Cells[row, 3].Value = d.IdProductoNavigation?.IdUnidadMedidaNavigation?.Abreviatura ?? "";
+                ws.Cells[row, 4].Value = d.PrecioUnitario;
+                ws.Cells[row, 5].Value = d.DescuentoPorcentaje;
+                ws.Cells[row, 6].Value = d.IvaPorcentaje;
+                ws.Cells[row, 7].Value = baseIva;
+                ws.Cells[row, 8].Value = d.Total;
+                row++;
+            }
+
+            // Fila de totales
+            ws.Cells[row, 7].Value = compra.Subtotal - compra.DescuentoTotal;
+            ws.Cells[row, 8].Value = compra.Total;
+            for (int c = 1; c <= 8; c++)
+            {
+                ws.Cells[row, c].Style.Font.Bold = true;
+                ws.Cells[row, c].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                ws.Cells[row, c].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(220, 230, 245));
+            }
+            ws.Cells[row, 6].Value = "TOTAL:";
+            ws.Cells[row, 6].Style.HorizontalAlignment = OfficeOpenXml.Style.ExcelHorizontalAlignment.Right;
+
+            ws.Cells[ws.Dimension.Address].AutoFitColumns();
+            return Result<byte[]>.Success(package.GetAsByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error inesperado al exportar compra individual a Excel: {Ex}", ex);
+            return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
+        }
+    }
+
+    public async Task<Result<byte[]>> ExportarCompraPdfAsync(int idCompraProveedor)
+    {
+        try
+        {
+            var compra = await _compraRepo.GetByIdWithDetailsAsync(idCompraProveedor);
+            if (compra == null)
+                return Result<byte[]>.Failure(CompraProveedorErrorCode.compra_not_found);
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            var document = new CompraProveedorReportDocument(
+                new List<Models.CompraProveedor> { compra },
+                $"Compra #{compra.IdCompraProveedor}",
+                DateTime.Now);
+
+            return Result<byte[]>.Success(document.GeneratePdf());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error inesperado al exportar compra individual a PDF: {Ex}", ex);
+            return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
+        }
+    }
+
+    // ── EXPORT COMPRAS POR PROVEEDOR ──────────────────────────────────────────
+
+    public async Task<Result<byte[]>> ExportarComprasPorProveedorExcelAsync(int idProveedor, DateOnly? fechaDesde, DateOnly? fechaHasta)
+    {
+        try
+        {
+            var compras = await _compraRepo.GetAllByProveedorWithDetailsAsync(idProveedor, fechaDesde, fechaHasta);
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage();
+
+            var wsCompras = package.Workbook.Worksheets.Add("Compras");
+            var headersCompras = new[] { "ID", "Fecha", "Vencimiento", "Comprobante", "Subtotal", "Descuento", "IVA", "Total", "Estado" };
+            EstiloEncabezado(wsCompras, headersCompras);
+
+            for (int i = 0; i < compras.Count; i++)
+            {
+                var c = compras[i];
+                int r = i + 2;
+                wsCompras.Cells[r, 1].Value = c.IdCompraProveedor;
+                wsCompras.Cells[r, 2].Value = c.Fecha.ToString("dd/MM/yyyy");
+                wsCompras.Cells[r, 3].Value = c.FechaVencimiento?.ToString("dd/MM/yyyy") ?? "";
+                wsCompras.Cells[r, 4].Value = $"{c.TipoComprobante} {c.NumeroComprobante}".Trim();
+                wsCompras.Cells[r, 5].Value = c.Subtotal;
+                wsCompras.Cells[r, 6].Value = c.DescuentoTotal;
+                wsCompras.Cells[r, 7].Value = c.IvaTotal;
+                wsCompras.Cells[r, 8].Value = c.Total;
+                wsCompras.Cells[r, 9].Value = c.Activo ? "Activa" : "Anulada";
+            }
+            wsCompras.Cells[wsCompras.Dimension?.Address ?? "A1"].AutoFitColumns();
+
+            var wsDetalles = package.Workbook.Worksheets.Add("Detalle por Producto");
+            var headersDetalles = new[] { "ID Compra", "Fecha", "Nro. Comprobante", "Producto", "Cantidad", "Unidad", "Precio c/u", "Desc %", "IVA %", "Total s/IVA", "Total c/IVA" };
+            EstiloEncabezado(wsDetalles, headersDetalles);
+
+            int detalleRow = 2;
+            foreach (var c in compras)
+            {
+                foreach (var d in c.CompraProveedorDetalles)
+                {
+                    var baseIva = d.Subtotal - (d.Subtotal * (d.DescuentoPorcentaje / 100m));
+                    var unidad = d.IdProductoNavigation?.IdUnidadMedidaNavigation?.Abreviatura ?? "";
+                    wsDetalles.Cells[detalleRow, 1].Value = c.IdCompraProveedor;
+                    wsDetalles.Cells[detalleRow, 2].Value = c.Fecha.ToString("dd/MM/yyyy");
+                    wsDetalles.Cells[detalleRow, 3].Value = c.NumeroComprobante;
+                    wsDetalles.Cells[detalleRow, 4].Value = d.IdProductoNavigation?.Nombre;
+                    wsDetalles.Cells[detalleRow, 5].Value = d.Cantidad;
+                    wsDetalles.Cells[detalleRow, 6].Value = unidad;
+                    wsDetalles.Cells[detalleRow, 7].Value = d.PrecioUnitario;
+                    wsDetalles.Cells[detalleRow, 8].Value = d.DescuentoPorcentaje;
+                    wsDetalles.Cells[detalleRow, 9].Value = d.IvaPorcentaje;
+                    wsDetalles.Cells[detalleRow, 10].Value = baseIva;
+                    wsDetalles.Cells[detalleRow, 11].Value = d.Total;
+                    detalleRow++;
+                }
+                var sr = detalleRow;
+                wsDetalles.Cells[sr, 3].Value = $"Subtotal compra #{c.IdCompraProveedor}";
+                wsDetalles.Cells[sr, 3].Style.Font.Bold = true;
+                wsDetalles.Cells[sr, 10].Value = c.Subtotal - c.DescuentoTotal;
+                wsDetalles.Cells[sr, 10].Style.Font.Bold = true;
+                wsDetalles.Cells[sr, 11].Value = c.Total;
+                wsDetalles.Cells[sr, 11].Style.Font.Bold = true;
+                wsDetalles.Cells[sr, 1, sr, 11].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                wsDetalles.Cells[sr, 1, sr, 11].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(220, 230, 245));
+                detalleRow++;
+            }
+            if (wsDetalles.Dimension != null)
+                wsDetalles.Cells[wsDetalles.Dimension.Address].AutoFitColumns();
+
+            return Result<byte[]>.Success(package.GetAsByteArray());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error inesperado al exportar compras del proveedor a Excel: {Ex}", ex);
+            return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
+        }
+    }
+
+    public async Task<Result<byte[]>> ExportarComprasPorProveedorPdfAsync(int idProveedor, DateOnly? fechaDesde, DateOnly? fechaHasta)
+    {
+        try
+        {
+            var compras = await _compraRepo.GetAllByProveedorWithDetailsAsync(idProveedor, fechaDesde, fechaHasta);
+            var proveedor = compras.FirstOrDefault()?.IdProveedorNavigation?.Proveedor1
+                ?? (await _compraRepo.GetAllByProveedorWithDetailsAsync(idProveedor, null, null))
+                    .FirstOrDefault()?.IdProveedorNavigation?.Proveedor1
+                ?? $"Proveedor #{idProveedor}";
+
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+            var filtroTexto = fechaDesde.HasValue || fechaHasta.HasValue
+                ? $"Proveedor: {proveedor} — Período: {(fechaDesde.HasValue ? fechaDesde.Value.ToString("dd/MM/yyyy") : "inicio")} - {(fechaHasta.HasValue ? fechaHasta.Value.ToString("dd/MM/yyyy") : "hoy")}"
+                : $"Proveedor: {proveedor} — Todas las compras";
+
+            var document = new CompraProveedorReportDocument(compras, filtroTexto, DateTime.Now);
+            return Result<byte[]>.Success(document.GeneratePdf());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error inesperado al exportar compras del proveedor a PDF: {Ex}", ex);
+            return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
+        }
+    }
+
+    private static void EstiloEncabezado(ExcelWorksheet ws, string[] headers, int startRow = 1)
     {
         for (int i = 0; i < headers.Length; i++)
         {
-            ws.Cells[1, i + 1].Value = headers[i];
-            ws.Cells[1, i + 1].Style.Font.Bold = true;
-            ws.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
-            ws.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(68, 114, 196));
-            ws.Cells[1, i + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+            ws.Cells[startRow, i + 1].Value = headers[i];
+            ws.Cells[startRow, i + 1].Style.Font.Bold = true;
+            ws.Cells[startRow, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            ws.Cells[startRow, i + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(68, 114, 196));
+            ws.Cells[startRow, i + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
         }
     }
 }
+

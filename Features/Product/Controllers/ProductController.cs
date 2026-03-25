@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Product.DTO;
+using proyecto_venta_stock.Message;
+using venta_stock_webapi.Shared.MessageProvider;
 
 
 namespace proyecto_venta_stock.Controllers;
@@ -24,7 +26,12 @@ public class ProductController : ControllerBase
     {
         var result = await _productServices.Create(product);
 
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         return Ok(product);
     }
@@ -34,7 +41,12 @@ public class ProductController : ControllerBase
     {
         var result = await _productServices.Update(product);
 
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         return Ok(product);
     }
@@ -43,14 +55,28 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _productServices.GetAll();
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+        
         return Ok(result.Value);
     }
     [HttpGet("with-details")]
     public async Task<IActionResult> GetAllWithDetails([FromQuery] bool? activo = true)
     {
         var result = await _productServices.GetAllWithCategoryAndLocation(activo);
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+
         return Ok(result.Value);
     }
 
@@ -58,19 +84,34 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> GetById(int idProducto)
     {
         var result = await _productServices.GetById(idProducto);
-        if (!result.IsSuccess) return NotFound(result.ErrorCode);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return NotFound(message);
+        }
+
         return Ok(result.Value);
     }
     [HttpDelete("{idProducto:int}")]
     public async Task<IActionResult> Delete(int idProducto)
     {
         var result = await _productServices.Delete(idProducto);
+
         if (!result.IsSuccess)
         {
-            if (Convert.ToString(result.ErrorCode) == "product_not_found") return NotFound();
-            if (Convert.ToString(result.ErrorCode) == "product_in_use") return Conflict(result.ErrorCode);
-            return BadRequest(result.ErrorCode);
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+
+            return code switch
+            {
+                ProductErrorCode.product_not_found => NotFound(message),
+                ProductErrorCode.product_in_use => Conflict(message),
+                _ => BadRequest(message)
+            };
         }
+
         return NoContent();
     }
     [HttpPatch("{idProducto:int}/toggle-estado")]
@@ -79,7 +120,11 @@ public class ProductController : ControllerBase
         var result = await _productServices.ToggleEstado(idProducto);
 
         if (!result.IsSuccess)
-            return BadRequest(result.ErrorCode);
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         return Ok(new { idProducto, activo = result.Value });
     }
@@ -93,7 +138,14 @@ public class ProductController : ControllerBase
     [FromQuery] int? idCategoria = null)
     {
         var result = await _productServices.GetAllWithCategoryAndLocationPaged(pageIndex, pageSize, activo, search, idCategoria);
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+
         return Ok(result.Value);
     }
 
@@ -108,17 +160,20 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> ExportarExcel()
     {
         var file = await _productServices.ExportarExcelAsync();
+
         return File(
             file,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "productos.xlsx"
         );
+
     }
 
     [HttpGet("export/plantilla-csv")]
     public IActionResult ExportarPlantillaCsv()
     {
         var csv = _productServices.ExportarPlantillaCsv();
+
         return File(csv, "text/csv", "plantilla_productos.csv");
     }
 
@@ -126,6 +181,7 @@ public class ProductController : ControllerBase
     public async Task<IActionResult> ExportarPlantillaExcel()
     {
         var file = await _productServices.ExportarPlantillaExcel();
+
         return File(
             file,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -146,7 +202,12 @@ public class ProductController : ControllerBase
 
         var result = await _productServices.ImportarProductosAsync(file, idUsuario);
 
-        if (!result.IsSuccess) return BadRequest(result.ErrorCode);
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         return Ok(result.Value);
     }

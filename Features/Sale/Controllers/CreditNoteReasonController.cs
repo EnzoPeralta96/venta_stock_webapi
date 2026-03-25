@@ -28,7 +28,8 @@ public class CreditNoteReasonController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (CreditNoteReasonCode)result.ErrorCode;
-            return NotFound(MessageProvider.Get(CreditNoteReasonDictionary.Messages, code));
+            var message = MessageProvider.Get(CreditNoteReasonDictionary.Messages, code);
+            return NotFound(message);
         }
 
         return Ok(result.Value);
@@ -43,7 +44,8 @@ public class CreditNoteReasonController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (CreditNoteReasonCode)result.ErrorCode;
-            return StatusCode(500, MessageProvider.Get(CreditNoteReasonDictionary.Messages, code));
+            var message = MessageProvider.Get(CreditNoteReasonDictionary.Messages, code);
+            return StatusCode(500, message);
         }
 
         return Ok(result.Value);
@@ -61,7 +63,8 @@ public class CreditNoteReasonController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (CreditNoteReasonCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(CreditNoteReasonDictionary.Messages, code));
+            var message = MessageProvider.Get(CreditNoteReasonDictionary.Messages, code);
+            return BadRequest(message);
         }
 
         return Ok();
@@ -80,7 +83,8 @@ public class CreditNoteReasonController : ControllerBase
         {
             var code = (CreditNoteReasonCode)result.ErrorCode;
             var status = code == CreditNoteReasonCode.reason_not_found ? 404 : 400;
-            return StatusCode(status, MessageProvider.Get(CreditNoteReasonDictionary.Messages, code));
+            var message = MessageProvider.Get(CreditNoteReasonDictionary.Messages, code);
+            return StatusCode(status, message);
         }
 
         return Ok();
@@ -95,7 +99,8 @@ public class CreditNoteReasonController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (CreditNoteReasonCode)result.ErrorCode;
-            return NotFound(MessageProvider.Get(CreditNoteReasonDictionary.Messages, code));
+            var message = MessageProvider.Get(CreditNoteReasonDictionary.Messages, code);
+            return NotFound(message);
         }
 
         return Ok();

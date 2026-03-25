@@ -22,11 +22,14 @@ public class ListaPrecioController : ControllerBase
     public async Task<IActionResult> GetByProveedor(int idProveedor)
     {
         var result = await _listaPrecioServices.GetByProveedorAsync(idProveedor);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);    
         }
+
         return Ok(result.Value);
     }
 
@@ -34,11 +37,14 @@ public class ListaPrecioController : ControllerBase
     public async Task<IActionResult> GetById(int idLista)
     {
         var result = await _listaPrecioServices.GetByIdAsync(idLista);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
-            return NotFound(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
         }
+
         return Ok(result.Value);
     }
 
@@ -50,10 +56,12 @@ public class ListaPrecioController : ControllerBase
             return Unauthorized();
 
         var result = await _listaPrecioServices.CreateAsync(dto, idUsuario);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
         return Ok();
     }
@@ -62,13 +70,18 @@ public class ListaPrecioController : ControllerBase
     public async Task<IActionResult> Update([FromBody] ListaPrecioUpdateDTO dto)
     {
         var result = await _listaPrecioServices.UpdateAsync(dto);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+
             if (code == ListaPrecioErrorCode.lista_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
+
         return Ok();
     }
 
@@ -79,9 +92,12 @@ public class ListaPrecioController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+
             if (code == ListaPrecioErrorCode.lista_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
         return NoContent();
     }
@@ -93,7 +109,8 @@ public class ListaPrecioController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioErrorCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
         return Ok();
     }

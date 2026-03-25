@@ -59,7 +59,6 @@ public class UserController : ControllerBase
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] UserCreateDTO user)
     {
-        if (!ModelState.IsValid) return BadRequest();
 
         var result = await _userService.CreateAsync(user);
 
@@ -77,7 +76,6 @@ public class UserController : ControllerBase
     [HttpPut("update")]
     public async Task<IActionResult> Update([FromBody] UserUpdateDTO user)
     {
-        if (!ModelState.IsValid) return BadRequest();
 
         var result = await _userService.UpdateAsync(user);
 
@@ -95,7 +93,6 @@ public class UserController : ControllerBase
     [HttpPut("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] UserChangePasswordDTO dto)
     {
-        if (!ModelState.IsValid) return BadRequest();
 
         var result = await _userService.ChangePasswordAsync(dto);
 

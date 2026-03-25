@@ -35,7 +35,8 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
                 Precio = x.Precio,
                 Margen = x.Margen,
                 NombreProducto = x.IdProductoNavigation?.Nombre,
-                Marca = x.IdProductoNavigation?.Marca
+                Marca = x.IdProductoNavigation?.Marca,
+                IdUnidadMedida = x.IdProductoNavigation?.IdUnidadMedida
             }).ToList();
 
             return Result<List<ListaPrecioItemDTO>>.Success(dtos);

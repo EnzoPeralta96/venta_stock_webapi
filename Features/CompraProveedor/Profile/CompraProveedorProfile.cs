@@ -37,6 +37,10 @@ public class CompraProveedorProfile : AutoMapper.Profile
             .ForMember(dest => dest.NombreProducto,
                 opt => opt.MapFrom(src => src.IdProductoNavigation != null
                     ? src.IdProductoNavigation.Nombre
-                    : string.Empty));
+                    : string.Empty))
+            .ForMember(dest => dest.IdUnidadMedida,
+                opt => opt.MapFrom(src => src.IdProductoNavigation != null
+                    ? src.IdProductoNavigation.IdUnidadMedida
+                    : null));
     }
 }

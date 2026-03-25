@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
+using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.CompraProveedor.Repository;
 
@@ -20,28 +21,76 @@ public class CompraProveedorRepository : ICompraProveedorRepository
         return compra;
     }
 
-    public async Task<List<Models.CompraProveedor>> GetAllAsync()
+    // Usado solo internamente (exportación Excel/PDF)
+    public async Task<List<Models.CompraProveedor>> GetAllWithDetailsAsync(DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
-        return await _dbContext.ComprasProveedor
-            .AsNoTracking()
-            .Include(c => c.IdProveedorNavigation)
-            .Include(c => c.IdUsuarioNavigation)
-            .Where(c => c.Activo)
-            .OrderByDescending(c => c.Fecha)
-            .ToListAsync();
-    }
-
-    public async Task<List<Models.CompraProveedor>> GetAllWithDetailsAsync()
-    {
-        return await _dbContext.ComprasProveedor
+        var query = _dbContext.ComprasProveedor
             .AsNoTracking()
             .Include(c => c.IdProveedorNavigation)
             .Include(c => c.IdUsuarioNavigation)
             .Include(c => c.CompraProveedorDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
-            .Where(c => c.Activo)
-            .OrderByDescending(c => c.Fecha)
-            .ToListAsync();
+                    .ThenInclude(p => p.IdUnidadMedidaNavigation)
+            .AsQueryable();
+
+        if (fechaDesde.HasValue) query = query.Where(c => c.Fecha >= fechaDesde.Value);
+        if (fechaHasta.HasValue) query = query.Where(c => c.Fecha <= fechaHasta.Value);
+
+        return await query.OrderByDescending(c => c.Fecha).ToListAsync();
+    }
+
+    public async Task<PagedList<Models.CompraProveedor>> GetPagedWithDetailsAsync(
+        int pageIndex, int pageSize, string? search, bool? activo, DateOnly? fechaDesde, DateOnly? fechaHasta)
+    {
+        var query = _dbContext.ComprasProveedor
+            .AsNoTracking()
+            .Include(c => c.IdProveedorNavigation)
+            .Include(c => c.IdUsuarioNavigation)
+            .Include(c => c.CompraProveedorDetalles)
+                .ThenInclude(d => d.IdProductoNavigation)
+            .AsQueryable();
+
+        if (activo.HasValue)
+            query = query.Where(c => c.Activo == activo.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var q = search.ToLower();
+            query = query.Where(c =>
+                (c.IdProveedorNavigation != null && c.IdProveedorNavigation.Proveedor1.ToLower().Contains(q)) ||
+                (c.NumeroComprobante != null && c.NumeroComprobante.ToLower().Contains(q)) ||
+                (c.TipoComprobante != null && c.TipoComprobante.ToLower().Contains(q)));
+        }
+
+        if (fechaDesde.HasValue) query = query.Where(c => c.Fecha >= fechaDesde.Value);
+        if (fechaHasta.HasValue) query = query.Where(c => c.Fecha <= fechaHasta.Value);
+
+        query = query.OrderByDescending(c => c.Fecha);
+
+        return await PagedList<Models.CompraProveedor>.CreateAsync(query, pageIndex, pageSize);
+    }
+
+    public async Task<PagedList<Models.CompraProveedor>> GetPagedByProveedorAsync(
+        int idProveedor, int pageIndex, int pageSize, bool? activo, DateOnly? fechaDesde, DateOnly? fechaHasta)
+    {
+        var query = _dbContext.ComprasProveedor
+            .AsNoTracking()
+            .Include(c => c.IdProveedorNavigation)
+            .Include(c => c.IdUsuarioNavigation)
+            .Include(c => c.CompraProveedorDetalles)
+                .ThenInclude(d => d.IdProductoNavigation)
+            .Where(c => c.IdProveedor == idProveedor)
+            .AsQueryable();
+
+        if (activo.HasValue)
+            query = query.Where(c => c.Activo == activo.Value);
+
+        if (fechaDesde.HasValue) query = query.Where(c => c.Fecha >= fechaDesde.Value);
+        if (fechaHasta.HasValue) query = query.Where(c => c.Fecha <= fechaHasta.Value);
+
+        query = query.OrderByDescending(c => c.Fecha);
+
+        return await PagedList<Models.CompraProveedor>.CreateAsync(query, pageIndex, pageSize);
     }
 
     public async Task<Models.CompraProveedor?> GetByIdAsync(int idCompraProveedor)
@@ -61,20 +110,27 @@ public class CompraProveedorRepository : ICompraProveedorRepository
             .Include(c => c.IdUsuarioNavigation)
             .Include(c => c.CompraProveedorDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
+                    .ThenInclude(p => p.IdUnidadMedidaNavigation)
             .FirstOrDefaultAsync(c => c.IdCompraProveedor == idCompraProveedor);
     }
 
-    public async Task<List<Models.CompraProveedor>> GetByProveedorAsync(int idProveedor)
+    public async Task<List<Models.CompraProveedor>> GetAllByProveedorWithDetailsAsync(
+        int idProveedor, DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
-        return await _dbContext.ComprasProveedor
+        var query = _dbContext.ComprasProveedor
             .AsNoTracking()
             .Include(c => c.IdProveedorNavigation)
             .Include(c => c.IdUsuarioNavigation)
             .Include(c => c.CompraProveedorDetalles)
                 .ThenInclude(d => d.IdProductoNavigation)
-            .Where(c => c.IdProveedor == idProveedor && c.Activo)
-            .OrderByDescending(c => c.Fecha)
-            .ToListAsync();
+                    .ThenInclude(p => p.IdUnidadMedidaNavigation)
+            .Where(c => c.IdProveedor == idProveedor)
+            .AsQueryable();
+
+        if (fechaDesde.HasValue) query = query.Where(c => c.Fecha >= fechaDesde.Value);
+        if (fechaHasta.HasValue) query = query.Where(c => c.Fecha <= fechaHasta.Value);
+
+        return await query.OrderByDescending(c => c.Fecha).ToListAsync();
     }
 
     public Task<bool> ExistsByNumeroComprobanteAsync(string numeroComprobante, int idProveedor, int? excludeId = null)
@@ -86,5 +142,4 @@ public class CompraProveedorRepository : ICompraProveedorRepository
                 c.Activo &&
                 (excludeId == null || c.IdCompraProveedor != excludeId.Value));
     }
-
 }

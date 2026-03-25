@@ -21,13 +21,18 @@ public class ListaPrecioItemsController : ControllerBase
     public async Task<IActionResult> GetItems(int idLista)
     {
         var result = await _services.GetItemsAsync(idLista);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+
             if (code == ListaPrecioItemErrorCode.lista_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
+
         return Ok(result.Value);
     }
 
@@ -35,12 +40,16 @@ public class ListaPrecioItemsController : ControllerBase
     public async Task<IActionResult> AddItem(int idLista, [FromBody] ListaPrecioItemUpsertDTO dto)
     {
         var result = await _services.AddItemAsync(idLista, dto);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+
             if (code == ListaPrecioItemErrorCode.lista_not_found || code == ListaPrecioItemErrorCode.producto_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
         return Ok();
     }
@@ -52,9 +61,12 @@ public class ListaPrecioItemsController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+
             if (code == ListaPrecioItemErrorCode.item_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
         return Ok();
     }
@@ -63,12 +75,16 @@ public class ListaPrecioItemsController : ControllerBase
     public async Task<IActionResult> DeleteItem(int idLista, int idProducto)
     {
         var result = await _services.DeleteItemAsync(idLista, idProducto);
+
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+
             if (code == ListaPrecioItemErrorCode.item_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
         return NoContent();
     }
@@ -83,10 +99,14 @@ public class ListaPrecioItemsController : ControllerBase
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+
             if (code == ListaPrecioItemErrorCode.lista_not_found)
-                return NotFound(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
-            return BadRequest(MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code));
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
         }
+        
         return Ok(result.Value);
     }
 }

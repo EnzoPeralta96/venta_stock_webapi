@@ -55,9 +55,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("reasons")]
         public async Task<IActionResult> Create([FromBody] CreateDebitNoteReasonDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
+         
             var result = await _debitNoteReasonService.Create(dto);
 
             if (!result.IsSuccess)
@@ -74,8 +72,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPut("reasons")]
         public async Task<IActionResult> Update([FromBody] UpdateDebitNoteReasonDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
 
             var result = await _debitNoteReasonService.Update(dto);
 

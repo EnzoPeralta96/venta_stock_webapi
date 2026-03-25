@@ -47,6 +47,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
             [FromQuery] int? idTipoMovimiento = null)
         {
             int pageSize = 10;
+
             var result = await _currentAccountService.GetAccountMovementsPagedAsync(
                 clientId, pageIndex, pageSize, searchTerm, fechaDesde, fechaHasta, idTipoMovimiento);
 
@@ -129,9 +130,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("annul-payment")]
         public async Task<IActionResult> AnnulPayment([FromBody] AnnulPaymentDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var result = await _currentAccountService.AnnulPayment(dto);
 
             if (!result.IsSuccess)
@@ -164,9 +162,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("register-debit-note")]
         public async Task<IActionResult> RegisterDebitNote([FromBody] RegisterDebitNoteDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var result = await _currentAccountService.RegisterDebitNote(dto);
 
             if (!result.IsSuccess)
@@ -184,11 +179,14 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         public async Task<IActionResult> GetOverdueClients()
         {
             var result = await _currentAccountService.GetOverdueClients();
+
             if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
-                return BadRequest(MessageProvider.Get(CurrentAccountDictionary.Messages, code));
+                var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
+                return NotFound(errorMessage);
             }
+
             return Ok(result.Value);
         }
 
@@ -196,14 +194,12 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("apply-interest/{clientId}")]
         public async Task<IActionResult> ApplyInterestToClient(int clientId, [FromBody] ApplyInterestDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var result = await _currentAccountService.ApplyInterestToClient(clientId, dto.IdUsuarioRegistra);
             if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
-                return BadRequest(MessageProvider.Get(CurrentAccountDictionary.Messages, code));
+                var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
+                return BadRequest(errorMessage);
             }
             return Ok(result.Value);
         }
@@ -212,9 +208,6 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPut("update-limit")]
         public async Task<IActionResult> UpdateAccountLimit([FromBody] UpdateAccountLimitDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var result = await _currentAccountService.UpdateAccountLimitAsync(dto);
 
             if (!result.IsSuccess)
@@ -231,15 +224,15 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("apply-interest/bulk")]
         public async Task<IActionResult> ApplyInterestToAll([FromBody] ApplyInterestDTO dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             var result = await _currentAccountService.ApplyInterestToAll(dto.IdUsuarioRegistra);
+
             if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
-                return BadRequest(MessageProvider.Get(CurrentAccountDictionary.Messages, code));
+                var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
+                return BadRequest(errorMessage);
             }
+            
             return Ok(result.Value);
         }
     }

@@ -30,8 +30,13 @@ public class LocationController : ControllerBase
         bool activos = true)
     {
         var result = await _service.SearchAsync(pageIndex, pageSize, searchTerm, activos);
+
         if (!result.IsSuccess)
-            return BadRequest(result.ErrorCode);
+        {
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            return BadRequest(msg);
+        }
 
         return Ok(result.Value);
     }
@@ -41,8 +46,13 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _service.GetByIdAsync(id);
+
         if (!result.IsSuccess)
-            return NotFound(result.ErrorCode);
+        {
+            var code = (LocationErrorCode)result.ErrorCode;
+            var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            return NotFound(msg);
+        }
 
         return Ok(result.Value);
     }
@@ -51,16 +61,16 @@ public class LocationController : ControllerBase
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] LocationCreateUpdateDTO dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var result = await _service.CreateAsync(dto);
+
         if (!result.IsSuccess)
         {
             var code = (LocationErrorCode)result.ErrorCode;
             var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
+            
             if (code == LocationErrorCode.duplicate_location)
                 return Conflict(msg);
+
             return BadRequest(msg);
         }
 
@@ -71,21 +81,21 @@ public class LocationController : ControllerBase
     [HttpPut("update/{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] LocationCreateUpdateDTO dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
 
         var result = await _service.UpdateAsync(id, dto);
+
         if (!result.IsSuccess)
         {
             var code = (LocationErrorCode)result.ErrorCode;
             var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
-            if (code == LocationErrorCode.location_not_found)
-                return NotFound(msg);
-            if (code == LocationErrorCode.duplicate_location)
-                return Conflict(msg);
-            if (code == LocationErrorCode.location_in_use)
-                return Conflict(msg);
-            return BadRequest(msg);
+
+            return code switch
+            {
+                LocationErrorCode.location_not_found => NotFound(msg),
+                LocationErrorCode.duplicate_location => Conflict(msg),
+                LocationErrorCode.location_in_use => Conflict(msg),
+                _ => BadRequest(msg)
+            };
         }
 
         return Ok(result.Value);
@@ -96,15 +106,17 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _service.DeleteAsync(id);
+
         if (!result.IsSuccess)
         {
             var code = (LocationErrorCode)result.ErrorCode;
             var msg = MessageProvider.Get(LocationErrorDictionary.Messages, code);
-            if (code == LocationErrorCode.location_not_found)
-                return NotFound(msg);
-            if (code == LocationErrorCode.location_in_use)
-                return Conflict(msg);
-            return BadRequest(msg);
+            return code switch
+            {
+                LocationErrorCode.location_not_found => NotFound(msg),
+                LocationErrorCode.location_in_use => Conflict(msg),
+                _ => BadRequest(msg)
+            };
         }
 
         return Ok(new { message = "Ubicación eliminada correctamente" });
@@ -115,6 +127,7 @@ public class LocationController : ControllerBase
     public async Task<IActionResult> ToggleActivo(int id)
     {
         var result = await _service.ToggleActivoAsync(id);
+
         if (!result.IsSuccess)
         {
             var code = (LocationErrorCode)result.ErrorCode;

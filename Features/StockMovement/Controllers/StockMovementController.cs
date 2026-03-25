@@ -35,14 +35,27 @@ public class StockMovementController : ControllerBase
             return Unauthorized();
 
         var tipo = await _stockMovementService.GetTipoByIdAsync(dto.IdTipoMovimiento);
+
         if (tipo == null)
-            return NotFound(MessageProvider.Get(StockMovementErrorDictionary.Messages, StockMovementErrorCode.tipo_not_found));
+        {
+            var code = StockMovementErrorCode.tipo_not_found;
+            var message = MessageProvider.Get(StockMovementErrorDictionary.Messages, code);
+            return NotFound(message);
+        }
 
         if (tipo.EsSistema)
-            return BadRequest(MessageProvider.Get(StockMovementErrorDictionary.Messages, StockMovementErrorCode.tipo_sistema_protegido));
+        {
+            var code = StockMovementErrorCode.tipo_sistema_protegido;
+            var message = MessageProvider.Get(StockMovementErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         if (!tipo.Activo)
-            return BadRequest(MessageProvider.Get(StockMovementErrorDictionary.Messages, StockMovementErrorCode.tipo_movimiento_invalido));
+        {
+            var code = StockMovementErrorCode.tipo_movimiento_invalido;
+            var message = MessageProvider.Get(StockMovementErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
 
         var cantidadFinal = dto.Cantidad * (tipo.EsPositivo ? 1 : -1);
 
@@ -57,7 +70,10 @@ public class StockMovementController : ControllerBase
         {
             var code = (StockMovementErrorCode)result.ErrorCode;
             var message = MessageProvider.Get(StockMovementErrorDictionary.Messages, code);
-            if (code is StockMovementErrorCode.producto_not_found) return NotFound(message);
+
+            if (code is StockMovementErrorCode.producto_not_found) 
+                return NotFound(message);
+
             return BadRequest(message);
         }
 
@@ -190,7 +206,8 @@ public class StockMovementController : ControllerBase
             var code = (StockMovementErrorCode)result.ErrorCode;
             var message = MessageProvider.Get(StockMovementErrorDictionary.Messages, code);
 
-            if (code is StockMovementErrorCode.producto_not_found) return NotFound(message);
+            if (code is StockMovementErrorCode.producto_not_found) 
+                return NotFound(message);
 
             return BadRequest(message);
         }

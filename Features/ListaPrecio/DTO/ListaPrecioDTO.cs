@@ -44,6 +44,7 @@ public class ListaPrecioItemDTO
     public decimal? Margen { get; set; }
     public string? NombreProducto { get; set; }
     public string? Marca { get; set; }
+    public int? IdUnidadMedida { get; set; }
 }
 
 public class ListaPrecioItemUpsertDTO

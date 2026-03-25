@@ -44,11 +44,6 @@ namespace venta_stock_webapi.Features.Ferreteria.Controllers
         [HttpPut("update")]
         public async Task<IActionResult> Update([FromBody] FerreteriaUpdateDTO ferreteriaDTO)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await _ferreteriaService.UpdateAsync(ferreteriaDTO);
 
             if (!result.IsSuccess)

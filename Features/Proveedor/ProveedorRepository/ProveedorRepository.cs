@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using proyecto_venta_stock.Data;
-/* using proyecto_venta_stock.Models.Proveedor; */
 
 namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 {
@@ -15,26 +14,27 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 
         public async Task Create(Models.Proveedor proveedor)
         {
-            await _dbContext.Set<Models.Proveedor>().AddAsync(proveedor);
+            _dbContext.Proveedors.Add(proveedor);
             await _dbContext.SaveChangesAsync();
         }
 
         public async Task Update(Models.Proveedor proveedor)
         {
-            _dbContext.Set<Models.Proveedor>().Update(proveedor);
+            _dbContext.Proveedors.Update(proveedor);
             await _dbContext.SaveChangesAsync();
         }
 
         public Task<Models.Proveedor?> GetById(int idProveedor)
         {
-            return _dbContext.Set<Models.Proveedor>()
+            return _dbContext.Proveedors
                 .Include(p => p.ListaPrecios)
                 .FirstOrDefaultAsync(p => p.IdProveedor == idProveedor);
         }
 
         public Task<List<Models.Proveedor>> GetAll()
         {
-            return _dbContext.Set<Models.Proveedor>()
+            return _dbContext.Proveedors
+                .AsNoTracking()
                 .Include(p => p.ListaPrecios)
                 .Where(p => p.Activo)
                 .OrderBy(p => p.Proveedor1)
@@ -43,7 +43,7 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 
         public IQueryable<Models.Proveedor> ProveedoresQueryable(string searchTerm)
         {
-            var query = _dbContext.Set<Models.Proveedor>()
+            var query = _dbContext.Proveedors
                 .AsNoTracking()
                 .OrderBy(p => p.FechaBaja != null)
                     .ThenBy(p => p.Proveedor1)
@@ -63,7 +63,8 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
 
         public Task<bool> Exists(string nombre, int? excludeId = null)
         {
-            var q = _dbContext.Set<Models.Proveedor>()
+            var q = _dbContext.Proveedors
+                .AsNoTracking()
                 .Where(p => p.FechaBaja == null)
                 .AsQueryable();
 
@@ -77,7 +78,7 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
         {
             proveedor.FechaBaja = DateTime.Now;
             proveedor.Activo = false;
-            _dbContext.Set<Models.Proveedor>().Update(proveedor);
+            _dbContext.Proveedors.Update(proveedor);
             await _dbContext.SaveChangesAsync();
         }
     }

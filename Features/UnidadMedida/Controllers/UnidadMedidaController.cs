@@ -27,11 +27,13 @@ public class UnidadMedidaController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _service.GetAllAsync();
+
         if (!result.IsSuccess)
         {
             var message = MessageProvider.Get(UnidadMedidaErrorDictionary.Messages, (UnidadMedidaErrorCode)result.ErrorCode);
             return BadRequest(message);
         }
+        
         return Ok(result.Value);
     }
 
@@ -43,11 +45,13 @@ public class UnidadMedidaController : ControllerBase
     public async Task<IActionResult> GetActivos()
     {
         var result = await _service.GetActivosAsync();
+
         if (!result.IsSuccess)
         {
             var message = MessageProvider.Get(UnidadMedidaErrorDictionary.Messages, (UnidadMedidaErrorCode)result.ErrorCode);
             return BadRequest(message);
         }
+
         return Ok(result.Value);
     }
 
@@ -59,12 +63,14 @@ public class UnidadMedidaController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateUnidadMedidaDTO dto)
     {
         var result = await _service.CreateAsync(dto);
+
         if (!result.IsSuccess)
         {
             var code = (UnidadMedidaErrorCode)result.ErrorCode;
             var message = MessageProvider.Get(UnidadMedidaErrorDictionary.Messages, code);
             return Conflict(message);
         }
+
         return CreatedAtAction(nameof(GetAll), result.Value);
     }
 
@@ -76,6 +82,7 @@ public class UnidadMedidaController : ControllerBase
     public async Task<IActionResult> Update(int id, [FromBody] UpdateUnidadMedidaDTO dto)
     {
         var result = await _service.UpdateAsync(id, dto);
+
         if (!result.IsSuccess)
         {
             var code = (UnidadMedidaErrorCode)result.ErrorCode;
@@ -86,6 +93,7 @@ public class UnidadMedidaController : ControllerBase
                 _ => Conflict(message)
             };
         }
+
         return Ok(result.Value);
     }
 
@@ -98,10 +106,12 @@ public class UnidadMedidaController : ControllerBase
     public async Task<IActionResult> Toggle(int id)
     {
         var result = await _service.ToggleActivoAsync(id);
+
         if (!result.IsSuccess)
         {
             var code = (UnidadMedidaErrorCode)result.ErrorCode;
             var message = MessageProvider.Get(UnidadMedidaErrorDictionary.Messages, code);
+
             return code switch
             {
                 UnidadMedidaErrorCode.unidad_not_found => NotFound(message),
@@ -109,6 +119,7 @@ public class UnidadMedidaController : ControllerBase
                 _ => BadRequest(message)
             };
         }
+
         return Ok(new { activo = result.Value });
     }
 }

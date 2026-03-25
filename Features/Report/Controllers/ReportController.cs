@@ -29,7 +29,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -48,10 +49,11 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
-
+        
             return Ok(result.Value);
         }
 
@@ -87,7 +89,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -105,7 +108,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -123,7 +127,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -142,7 +147,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -160,7 +166,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 
@@ -192,7 +199,8 @@ namespace proyecto_venta_stock.Report.Controllers
 
             if (!result.IsSuccess)
             {
-                var message = MessageProvider.Get(ReportErrorDictionary.Messages, (ReportErrorCode)result.ErrorCode);
+                var code = (ReportErrorCode)result.ErrorCode;
+                var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
                 return BadRequest(message);
             }
 

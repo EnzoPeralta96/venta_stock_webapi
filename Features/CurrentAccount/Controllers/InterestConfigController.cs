@@ -24,10 +24,12 @@ public class InterestConfigController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var result = await _interestConfigService.GetAll();
-        if (!result.IsSuccess)
+
+        if(!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return NotFound(errorMessage);          
         }
         return Ok(result.Value);
     }
@@ -37,11 +39,15 @@ public class InterestConfigController : ControllerBase
     public async Task<IActionResult> GetCurrent()
     {
         var result = await _interestConfigService.GetCurrent();
+
         if (!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return NotFound(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return NotFound(errorMessage);
         }
+
         return Ok(result.Value);
     }
 
@@ -50,11 +56,14 @@ public class InterestConfigController : ControllerBase
     public async Task<IActionResult> GetById(int idConfig)
     {
         var result = await _interestConfigService.GetById(idConfig);
+
         if (!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return NotFound(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return NotFound(errorMessage);
         }
+
         return Ok(result.Value);
     }
 
@@ -62,15 +71,15 @@ public class InterestConfigController : ControllerBase
     [HttpPost("interest-configs")]
     public async Task<IActionResult> Create([FromBody] CreateInterestConfigDTO dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var result = await _interestConfigService.Create(dto);
+
         if (!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
+
         return Created();
     }
 
@@ -78,14 +87,13 @@ public class InterestConfigController : ControllerBase
     [HttpPut("interest-configs")]
     public async Task<IActionResult> Update([FromBody] UpdateInterestConfigDTO dto)
     {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
         var result = await _interestConfigService.Update(dto);
+
         if (!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
         return Ok();
     }
@@ -95,11 +103,14 @@ public class InterestConfigController : ControllerBase
     public async Task<IActionResult> SetAsCurrent(int idConfig)
     {
         var result = await _interestConfigService.SetAsCurrent(idConfig);
+        
         if (!result.IsSuccess)
         {
             var code = (InterestConfigCode)result.ErrorCode;
-            return BadRequest(MessageProvider.Get(InterestConfigDictionary.Messages, code));
+            var errorMessage = MessageProvider.Get(InterestConfigDictionary.Messages, code);
+            return BadRequest(errorMessage);
         }
+
         return Ok();
     }
 }
