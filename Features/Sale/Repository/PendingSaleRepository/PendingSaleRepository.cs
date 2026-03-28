@@ -41,6 +41,7 @@ namespace venta_stock_webapi.Sale.Repository
                 .Include(vp => vp.IdUsuarioAutorizaNavigation)
                 .Include(vp => vp.DetalleVentaPendientes)
                     .ThenInclude(d => d.IdProductoNavigation)
+                        .ThenInclude(p => p.IdUnidadMedidaNavigation)
                 .FirstOrDefaultAsync(vp => vp.IdVentaPendiente == idVentaPendiente);
         }
 

@@ -37,6 +37,7 @@ namespace venta_stock_webapi.Sale.Repository
                 .Include(v => v.IdMotivoNcNavigation)
                 .Include(v => v.DetalleVenta)
                     .ThenInclude(d => d.IdProductoNavigation)
+                        .ThenInclude(p => p.IdUnidadMedidaNavigation)
                 .FirstOrDefaultAsync(v => v.IdVenta == idVenta);
         }
 

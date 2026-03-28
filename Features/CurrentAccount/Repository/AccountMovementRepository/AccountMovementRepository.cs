@@ -304,5 +304,34 @@ namespace venta_stock_webapi.CurrentAccount.Repository
                 .Where(m => m.IdVenta == idVenta && m.IdTipoMovimiento == 5)
                 .FirstOrDefaultAsync();
         }
+
+        public Task<List<MovimientoCc>> GetMovementsForExportAsync(
+            int clientId,
+            DateTime? fechaDesde,
+            DateTime? fechaHasta,
+            int? idTipoMovimiento)
+        {
+            var query = _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId && m.IdTipoMovimiento != 2)
+                .Include(m => m.IdTipoMovimientoNavigation)
+                .Include(m => m.IdVentaNavigation)
+                .Include(m => m.IdMotivoNdNavigation)
+                .Include(m => m.IdMotivoNcNavigation)
+                .OrderBy(m => m.Fecha)
+                .ThenBy(m => m.IdMovimiento)
+                .AsQueryable();
+
+            if (fechaDesde.HasValue)
+                query = query.Where(m => m.Fecha >= fechaDesde.Value);
+
+            if (fechaHasta.HasValue)
+                query = query.Where(m => m.Fecha <= fechaHasta.Value.Date.AddDays(1).AddTicks(-1));
+
+            if (idTipoMovimiento.HasValue)
+                query = query.Where(m => m.IdTipoMovimiento == idTipoMovimiento.Value);
+
+            return query.ToListAsync();
+        }
     }
 }

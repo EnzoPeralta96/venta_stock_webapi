@@ -13,9 +13,20 @@ namespace venta_stock_webapi.Sale.Services
         Task<Result<SaleResponseDTO>> GetSaleByIdAsync(int idVenta);
 
         // Listar ventas con paginacion y filtros
-        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta, string? estadoFilter);
+        Task<Result<PagedList<SaleListDTO>>> GetSalesPagedAsync(int pageNumber, int pageSize, string? clienteFilter, DateTime? fechaDesde, DateTime? fechaHasta, string? estadoFilter, int? idCliente = null);
 
         // Anular una venta generando NC en CC si corresponde
         Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto);
+
+        // Exportaciones PDF/Excel — Listado general
+        Task<Result<byte[]>> ExportSalesExcelAsync(DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta);
+        Task<Result<byte[]>> ExportSalesPdfAsync(DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta);
+
+        // Exportaciones PDF/Excel — Historial por cliente
+        Task<Result<byte[]>> ExportClientSalesExcelAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta);
+        Task<Result<byte[]>> ExportClientSalesPdfAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta);
+
+        // Exportación Excel — Comprobante individual
+        Task<Result<byte[]>> ExportSaleTicketExcelAsync(int idVenta);
     }
 }

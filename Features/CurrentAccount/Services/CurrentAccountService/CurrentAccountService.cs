@@ -13,6 +13,8 @@ using QuestPDF.Fluent;
 using venta_stock_webapi.CurrentAccount.Services.InterestConfigService;
 using venta_stock_webapi.Shared.Paged;
 using venta_stock_webapi.Shared.Utils;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 
 namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 {
@@ -673,6 +675,198 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task RecomputeMontoPagadoPublic(int clientId)
             => await RecomputeMontoPagado(clientId);
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // EXPORTACIONES PDF / EXCEL — Estado de cuenta de cliente
+        // ═══════════════════════════════════════════════════════════════════════
+
+        public async Task<Result<byte[]>> ExportClientAccountPdfAsync(
+            int idCliente,
+            DateOnly? fechaDesde,
+            DateOnly? fechaHasta,
+            int? idTipoMovimientoCc)
+        {
+            try
+            {
+                var (movimientos, cliente, ferreteria, lastMovement) =
+                    await LoadExportDataAsync(idCliente, fechaDesde, fechaHasta, idTipoMovimientoCc);
+
+                QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+                var items = MapToStatementItems(movimientos);
+
+                var ds = new AccountStatementDataSource
+                {
+                    DatosFerreteria  = ferreteria,
+                    ClienteNombre    = GetClientName(cliente),
+                    ClienteDni       = !string.IsNullOrWhiteSpace(cliente?.Dni) ? cliente.Dni : (cliente?.Cuit ?? "-"),
+                    FechaGeneracion  = DateTime.Now,
+                    FiltroFechaDesde = fechaDesde?.ToString("dd/MM/yyyy"),
+                    FiltroFechaHasta = fechaHasta?.ToString("dd/MM/yyyy"),
+                    SaldoActual      = lastMovement?.SaldoActual ?? 0,
+                    LimiteCredito    = (lastMovement?.SaldoActual ?? 0) + (lastMovement?.LimiteCuenta ?? 0),
+                    Movimientos      = items
+                };
+
+                var bytes = new AccountStatementDocument(ds).GeneratePdf();
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando estado de cuenta de cliente {Id} a PDF", idCliente);
+                return Result<byte[]>.Failure(CurrentAccountCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportClientAccountExcelAsync(
+            int idCliente,
+            DateOnly? fechaDesde,
+            DateOnly? fechaHasta,
+            int? idTipoMovimientoCc)
+        {
+            try
+            {
+                var (movimientos, cliente, ferreteria, lastMovement) =
+                    await LoadExportDataAsync(idCliente, fechaDesde, fechaHasta, idTipoMovimientoCc);
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Estado de Cuenta");
+
+                // Header info
+                ws.Cells["A1"].Value = ferreteria.Nombre;
+                ws.Cells["A1"].Style.Font.Bold = true;
+                ws.Cells["A1"].Style.Font.Size = 13;
+                ws.Cells["A2"].Value = "ESTADO DE CUENTA CORRIENTE";
+                ws.Cells["A2"].Style.Font.Bold = true;
+                ws.Cells["A3"].Value = $"Cliente: {GetClientName(cliente)}";
+                ws.Cells["A4"].Value = $"DNI/CUIT: {(!string.IsNullOrWhiteSpace(cliente?.Dni) ? cliente.Dni : (cliente?.Cuit ?? "-"))}";
+                ws.Cells["A5"].Value = $"Generado: {DateTime.Now:dd/MM/yyyy HH:mm}";
+                if (fechaDesde.HasValue || fechaHasta.HasValue)
+                    ws.Cells["A6"].Value = $"Período: {fechaDesde?.ToString("dd/MM/yyyy") ?? "–"} al {fechaHasta?.ToString("dd/MM/yyyy") ?? "–"}";
+                ws.Cells["A7"].Value = $"Saldo deudor: ${lastMovement?.SaldoActual ?? 0:N2}";
+
+                // Column headers
+                int headerRow = 9;
+                var headers = new[] { "#", "Fecha", "Tipo", "Detalle / Comprobante", "Debe", "Haber", "Saldo" };
+                for (int c = 0; c < headers.Length; c++)
+                {
+                    ws.Cells[headerRow, c + 1].Value = headers[c];
+                    ws.Cells[headerRow, c + 1].Style.Font.Bold = true;
+                    ws.Cells[headerRow, c + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    ws.Cells[headerRow, c + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(30, 86, 160));
+                    ws.Cells[headerRow, c + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                // Data rows
+                var items = MapToStatementItems(movimientos);
+                int dataRow = headerRow + 1;
+                foreach (var item in items)
+                {
+                    ws.Cells[dataRow, 1].Value = item.Numero;
+                    ws.Cells[dataRow, 2].Value = item.Fecha;
+                    ws.Cells[dataRow, 3].Value = item.TipoMovimiento;
+                    ws.Cells[dataRow, 4].Value = item.Detalle;
+
+                    if (item.Debe.HasValue)
+                    {
+                        ws.Cells[dataRow, 5].Value = item.Debe.Value;
+                        ws.Cells[dataRow, 5].Style.Numberformat.Format = "#,##0.00";
+                        ws.Cells[dataRow, 5].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(180, 30, 30));
+                    }
+
+                    if (item.Haber.HasValue)
+                    {
+                        ws.Cells[dataRow, 6].Value = item.Haber.Value;
+                        ws.Cells[dataRow, 6].Style.Numberformat.Format = "#,##0.00";
+                        ws.Cells[dataRow, 6].Style.Font.Color.SetColor(System.Drawing.Color.FromArgb(30, 130, 30));
+                    }
+
+                    if (item.Saldo.HasValue)
+                    {
+                        ws.Cells[dataRow, 7].Value = item.Saldo.Value;
+                        ws.Cells[dataRow, 7].Style.Numberformat.Format = "#,##0.00";
+                        ws.Cells[dataRow, 7].Style.Font.Bold = true;
+                    }
+
+                    if (item.Numero % 2 == 0)
+                    {
+                        ws.Cells[dataRow, 1, dataRow, 7].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        ws.Cells[dataRow, 1, dataRow, 7].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(240, 244, 250));
+                    }
+
+                    dataRow++;
+                }
+
+                // Saldo final
+                ws.Cells[dataRow, 6].Value = "SALDO FINAL:";
+                ws.Cells[dataRow, 6].Style.Font.Bold = true;
+                ws.Cells[dataRow, 7].Value = lastMovement?.SaldoActual ?? 0;
+                ws.Cells[dataRow, 7].Style.Font.Bold = true;
+                ws.Cells[dataRow, 7].Style.Numberformat.Format = "#,##0.00";
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                return Result<byte[]>.Success(package.GetAsByteArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando estado de cuenta de cliente {Id} a Excel", idCliente);
+                return Result<byte[]>.Failure(CurrentAccountCode.unexpected_error);
+            }
+        }
+
+        // ─── Helpers privados export ─────────────────────────────────────────
+
+        private async Task<(List<MovimientoCc> movimientos, Cliente? cliente, Ferreteria ferreteria, MovimientoCc? lastMovement)>
+            LoadExportDataAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, int? idTipo)
+        {
+            DateTime? desde = fechaDesde?.ToDateTime(TimeOnly.MinValue);
+            DateTime? hasta = fechaHasta?.ToDateTime(TimeOnly.MaxValue);
+
+            var movimientos = await _accountMovementRepository.GetMovementsForExportAsync(idCliente, desde, hasta, idTipo);
+            var cliente = await _clientRepository.GetByIdAsync(idCliente);
+            var ferreteria = await _ferreteriaRepository.GetAsync();
+            var lastMovement = await _accountMovementRepository.GetLastMovement(idCliente);
+
+            return (movimientos, cliente, ferreteria, lastMovement);
+        }
+
+        private static List<AccountStatementItemPdf> MapToStatementItems(List<MovimientoCc> movimientos)
+        {
+            // Tipos que van en DEBE (incrementan la deuda)
+            var tiposDebe = new HashSet<int> { 3, 5, 7, 9 };
+            // Tipos que van en HABER (reducen la deuda)
+            var tiposHaber = new HashSet<int> { 4, 6, 8, 11 };
+
+            return movimientos.Select((m, i) =>
+            {
+                decimal? debe = tiposDebe.Contains(m.IdTipoMovimiento ?? 0) ? m.Importe : null;
+                decimal? haber = tiposHaber.Contains(m.IdTipoMovimiento ?? 0) ? m.Importe : null;
+
+                string detalle = m.Detalle ?? "";
+                if (m.IdVentaNavigation != null)
+                    detalle = $"{m.IdVentaNavigation.CodigoVenta} — {detalle}";
+
+                return new AccountStatementItemPdf
+                {
+                    Numero         = i + 1,
+                    Fecha          = m.Fecha?.ToString("dd/MM/yyyy HH:mm") ?? "-",
+                    TipoMovimiento = m.IdTipoMovimientoNavigation?.Nombre ?? "-",
+                    Detalle        = detalle,
+                    Debe           = debe,
+                    Haber          = haber,
+                    Saldo          = m.SaldoActual
+                };
+            }).ToList();
+        }
+
+        private static string GetClientName(Cliente? cliente)
+        {
+            if (cliente is null) return "N/A";
+            return !string.IsNullOrEmpty(cliente.RazonSocial)
+                ? cliente.RazonSocial
+                : $"{cliente.Nombre} {cliente.Apellido}".Trim();
+        }
 
         public async Task<Result<int>> UpdateAccountLimitAsync(UpdateAccountLimitDTO dto)
         {

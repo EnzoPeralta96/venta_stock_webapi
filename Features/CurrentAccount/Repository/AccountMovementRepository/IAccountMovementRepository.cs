@@ -68,5 +68,9 @@ namespace venta_stock_webapi.CurrentAccount.Repository
         // Retorna la fecha del movimiento de apertura de CC (tipo 2) del cliente.
         // Se usa para excluir de mora a clientes cuya CC abrió después del vencimiento del mes actual.
         Task<DateTime?> GetAccountOpeningDateAsync(int clientId);
+
+        // Devuelve todos los movimientos operativos del cliente (excluye alta_cliente) con filtros opcionales.
+        // Ordenados por Fecha ASC. Usado para exportaciones PDF/Excel.
+        Task<List<MovimientoCc>> GetMovementsForExportAsync(int clientId, DateTime? fechaDesde, DateTime? fechaHasta, int? idTipoMovimiento);
     }
 }

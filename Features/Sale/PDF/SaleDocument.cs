@@ -228,9 +228,12 @@ namespace venta_stock_webapi.Sale.PDF
                     table.Cell().Element(e => RowStyle(e, isEven))
                         .Text(item.Marca ?? "-");
 
+                    var cantTexto = string.IsNullOrWhiteSpace(item.UnidadMedidaAbreviatura)
+                        ? item.Cantidad.ToString("G29")
+                        : $"{item.Cantidad:G29} [{item.UnidadMedidaAbreviatura}]";
                     table.Cell().Element(e => RowStyle(e, isEven))
                         .AlignCenter()
-                        .Text(item.Cantidad);
+                        .Text(cantTexto);
 
                     table.Cell().Element(e => RowStyle(e, isEven))
                         .AlignRight()

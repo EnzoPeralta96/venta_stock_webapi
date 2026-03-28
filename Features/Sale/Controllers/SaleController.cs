@@ -40,11 +40,12 @@ namespace venta_stock_webapi.Sale.Controllers
             [FromQuery] string? clienteFilter = null,
             [FromQuery] DateTime? fechaDesde = null,
             [FromQuery] DateTime? fechaHasta = null,
-            [FromQuery] string? estado = null)
+            [FromQuery] string? estado = null,
+            [FromQuery] int? idCliente = null)
         {
             _logger.LogInformation(
-                "Listando ventas - Página: {PageNumber}, Tamaño: {PageSize}, Cliente: {ClienteFilter}, Desde: {FechaDesde}, Hasta: {FechaHasta}, Estado: {Estado}",
-                pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta, estado
+                "Listando ventas - Página: {PageNumber}, Tamaño: {PageSize}, Cliente: {ClienteFilter}, Desde: {FechaDesde}, Hasta: {FechaHasta}, Estado: {Estado}, IdCliente: {IdCliente}",
+                pageNumber, pageSize, clienteFilter, fechaDesde, fechaHasta, estado, idCliente
             );
 
             var result = await _saleService.GetSalesPagedAsync(
@@ -53,7 +54,8 @@ namespace venta_stock_webapi.Sale.Controllers
                 clienteFilter,
                 fechaDesde,
                 fechaHasta,
-                estado
+                estado,
+                idCliente
             );
 
             if (!result.IsSuccess)
@@ -177,21 +179,99 @@ namespace venta_stock_webapi.Sale.Controllers
             try
             {
                 var pdfBytes = await _pdfService.GenerateSalePdfAsync(idVenta);
-
-                return File(
-                    pdfBytes,
-                    "application/pdf",
-                    $"Venta_{idVenta}_{DateTime.Now:yyyyMMdd}.pdf"
-                );
+                return File(pdfBytes, "application/pdf", $"Venta_{idVenta}_{DateTime.Now:yyyyMMdd}.pdf");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generando PDF de venta {id}", idVenta);
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "Error generando el PDF"
-                });
+                return StatusCode(500, new { success = false, message = "Error generando el PDF" });
+            }
+        }
+
+        // ─── Exportaciones ────────────────────────────────────────────────────
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("export/excel")]
+        public async Task<IActionResult> ExportSalesExcel(
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] string? estadoVenta = null)
+        {
+            var result = await _saleService.ExportSalesExcelAsync(fechaDesde, fechaHasta, estadoVenta);
+            if (!result.IsSuccess)
+                return BadRequest(MessageProvider.Get(SaleErrorDictionary.Messages, (SaleErrorCode)result.ErrorCode));
+            return File(result.Value, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"ventas_{DateTime.Now:yyyyMMdd}.xlsx");
+        }
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("export/pdf")]
+        public async Task<IActionResult> ExportSalesPdf(
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] string? estadoVenta = null)
+        {
+            var result = await _saleService.ExportSalesPdfAsync(fechaDesde, fechaHasta, estadoVenta);
+
+            if (!result.IsSuccess)
+                return BadRequest(MessageProvider.Get(SaleErrorDictionary.Messages, (SaleErrorCode)result.ErrorCode));
+                
+            return File(result.Value, "application/pdf", $"ventas_{DateTime.Now:yyyyMMdd}.pdf");
+        }
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("cliente/{idCliente:int}/export/excel")]
+        public async Task<IActionResult> ExportClientSalesExcel(
+            int idCliente,
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] string? estadoVenta = null)
+        {
+            var result = await _saleService.ExportClientSalesExcelAsync(idCliente, fechaDesde, fechaHasta, estadoVenta);
+            if (!result.IsSuccess)
+                return BadRequest(MessageProvider.Get(SaleErrorDictionary.Messages, (SaleErrorCode)result.ErrorCode));
+            return File(result.Value, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"historial_cliente_{idCliente}_{DateTime.Now:yyyyMMdd}.xlsx");
+        }
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("cliente/{idCliente:int}/export/pdf")]
+        public async Task<IActionResult> ExportClientSalesPdf(
+            int idCliente,
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] string? estadoVenta = null)
+        {
+            var result = await _saleService.ExportClientSalesPdfAsync(idCliente, fechaDesde, fechaHasta, estadoVenta);
+            if (!result.IsSuccess)
+                return BadRequest(MessageProvider.Get(SaleErrorDictionary.Messages, (SaleErrorCode)result.ErrorCode));
+            return File(result.Value, "application/pdf", $"historial_cliente_{idCliente}_{DateTime.Now:yyyyMMdd}.pdf");
+        }
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("{idVenta:int}/export/excel")]
+        public async Task<IActionResult> ExportSaleTicketExcel(int idVenta)
+        {
+            var result = await _saleService.ExportSaleTicketExcelAsync(idVenta);
+            if (!result.IsSuccess)
+                return BadRequest(MessageProvider.Get(SaleErrorDictionary.Messages, (SaleErrorCode)result.ErrorCode));
+            return File(result.Value, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"comprobante_{idVenta}_{DateTime.Now:yyyyMMdd}.xlsx");
+        }
+
+        [Authorize(Policy = "PERM:VEN_READ")]
+        [HttpGet("{idVenta:int}/export/pdf")]
+        public async Task<IActionResult> ExportSaleTicketPdf(int idVenta)
+        {
+            try
+            {
+                var pdfBytes = await _pdfService.GenerateSalePdfAsync(idVenta);
+                return File(pdfBytes, "application/pdf", $"comprobante_{idVenta}_{DateTime.Now:yyyyMMdd}.pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando PDF de comprobante {id}", idVenta);
+                return StatusCode(500, new { message = "Error generando el PDF del comprobante." });
             }
         }
     }

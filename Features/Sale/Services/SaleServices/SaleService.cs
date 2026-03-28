@@ -15,6 +15,11 @@ using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.Features.StockMovement.Services;
+using proyecto_venta_stock.Features.Ferreteria.Repository;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
+using QuestPDF.Fluent;
+using venta_stock_webapi.Sale.PDF;
 
 namespace venta_stock_webapi.Sale.Services
 {
@@ -33,6 +38,7 @@ namespace venta_stock_webapi.Sale.Services
         private readonly ICreditNoteReasonRepository _creditNoteReasonRepository;
         private readonly MovementStrategyFactory _movementStrategyFactory;
         private readonly IStockMovementService _stockMovementService;
+        private readonly IFerreteriaRepository _ferreteriaRepository;
 
         public SaleService(
             ISaleRepository saleRepository,
@@ -46,7 +52,8 @@ namespace venta_stock_webapi.Sale.Services
             IAccountMovementRepository accountMovementRepository,
             ICreditNoteReasonRepository creditNoteReasonRepository,
             MovementStrategyFactory movementStrategyFactory,
-            IStockMovementService stockMovementService)
+            IStockMovementService stockMovementService,
+            IFerreteriaRepository ferreteriaRepository)
         {
             _saleRepository = saleRepository;
             _clientRepository = clientRepository;
@@ -60,6 +67,7 @@ namespace venta_stock_webapi.Sale.Services
             _creditNoteReasonRepository = creditNoteReasonRepository;
             _movementStrategyFactory = movementStrategyFactory;
             _stockMovementService = stockMovementService;
+            _ferreteriaRepository = ferreteriaRepository;
         }
 
         public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO)
@@ -257,7 +265,8 @@ namespace venta_stock_webapi.Sale.Services
             string? clienteFilter,
             DateTime? fechaDesde,
             DateTime? fechaHasta,
-            string? estadoFilter)
+            string? estadoFilter,
+            int? idCliente = null)
         {
             try
             {
@@ -283,6 +292,9 @@ namespace venta_stock_webapi.Sale.Services
                 var queryVentas = _saleRepository.SalesQueryable();
 
                 // Aplicar filtros a ventas normales
+                if (idCliente.HasValue)
+                    queryVentas = queryVentas.Where(v => v.IdCliente == idCliente.Value);
+
                 if (!string.IsNullOrWhiteSpace(clienteFilter))
                 {
                     var lowerFilter = clienteFilter.ToLower();
@@ -337,6 +349,9 @@ namespace venta_stock_webapi.Sale.Services
                     .AsNoTracking();
 
                 // Aplicar filtros a ventas rechazadas
+                if (idCliente.HasValue)
+                    queryRechazadas = queryRechazadas.Where(vp => vp.IdCliente == idCliente.Value);
+
                 if (!string.IsNullOrWhiteSpace(clienteFilter))
                 {
                     var lowerFilter = clienteFilter.ToLower();
@@ -506,6 +521,305 @@ namespace venta_stock_webapi.Sale.Services
                 _logger.LogError(ex, "Error al anular venta {IdVenta}", idVenta);
                 return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.unexpected_error);
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // EXPORTACIONES
+        // ═══════════════════════════════════════════════════════════════════════
+
+        public async Task<Result<byte[]>> ExportSalesExcelAsync(DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta)
+        {
+            try
+            {
+                var ventas = await BuildSalesListAsync(null, fechaDesde, fechaHasta, estadoVenta);
+                var bytes = GenerateSalesExcel(ventas, null, fechaDesde, fechaHasta, estadoVenta);
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando ventas a Excel");
+                return Result<byte[]>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportSalesPdfAsync(DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta)
+        {
+            try
+            {
+                var ventas = await BuildSalesListAsync(null, fechaDesde, fechaHasta, estadoVenta);
+                var ferreteria = await _ferreteriaRepository.GetAsync();
+                var bytes = GenerateSalesPdf(ventas, ferreteria, "LISTADO DE VENTAS", null, fechaDesde, fechaHasta, estadoVenta);
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando ventas a PDF");
+                return Result<byte[]>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportClientSalesExcelAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta)
+        {
+            try
+            {
+                var ventas = await BuildSalesListAsync(idCliente, fechaDesde, fechaHasta, estadoVenta);
+                var bytes = GenerateSalesExcel(ventas, idCliente, fechaDesde, fechaHasta, estadoVenta);
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando historial de cliente {Id} a Excel", idCliente);
+                return Result<byte[]>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportClientSalesPdfAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, string? estadoVenta)
+        {
+            try
+            {
+                var ventas = await BuildSalesListAsync(idCliente, fechaDesde, fechaHasta, estadoVenta);
+                var ferreteria = await _ferreteriaRepository.GetAsync();
+                var clienteNombre = ventas.FirstOrDefault()?.Cliente ?? $"Cliente #{idCliente}";
+                var bytes = GenerateSalesPdf(ventas, ferreteria, $"HISTORIAL DE VENTAS — {clienteNombre}", clienteNombre, fechaDesde, fechaHasta, estadoVenta);
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando historial de cliente {Id} a PDF", idCliente);
+                return Result<byte[]>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        public async Task<Result<byte[]>> ExportSaleTicketExcelAsync(int idVenta)
+        {
+            try
+            {
+                var venta = await _saleRepository.GetSaleByIdAsync(idVenta);
+                if (venta is null)
+                    return Result<byte[]>.Failure(SaleErrorCode.sale_not_found);
+
+                var ferreteria = await _ferreteriaRepository.GetAsync();
+                var bytes = GenerateSaleTicketExcel(venta, ferreteria);
+                return Result<byte[]>.Success(bytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exportando comprobante de venta {Id} a Excel", idVenta);
+                return Result<byte[]>.Failure(SaleErrorCode.unexpected_error);
+            }
+        }
+
+        // ─── Helpers privados ────────────────────────────────────────────────
+
+        private async Task<List<SaleListItemPdf>> BuildSalesListAsync(
+            int? idCliente,
+            DateOnly? fechaDesde,
+            DateOnly? fechaHasta,
+            string? estadoVenta)
+        {
+            string? dbEstado = estadoVenta?.ToLower() switch
+            {
+                "aprobada"  => "aprobado",
+                "rechazada" => "rechazado",
+                "anulada"   => "Anulada",
+                "cancelada" => "cancelado",
+                "pendiente" => "pendiente",
+                null or ""  => null,
+                var other   => other
+            };
+
+            var query = _saleRepository.SalesQueryable();
+
+            if (idCliente.HasValue)
+                query = query.Where(v => v.IdCliente == idCliente.Value);
+
+            if (fechaDesde.HasValue)
+                query = query.Where(v => v.Fecha >= fechaDesde.Value.ToDateTime(TimeOnly.MinValue));
+
+            if (fechaHasta.HasValue)
+                query = query.Where(v => v.Fecha <= fechaHasta.Value.ToDateTime(TimeOnly.MaxValue));
+
+            if (!string.IsNullOrWhiteSpace(dbEstado))
+                query = query.Where(v => v.IdEstadoNavigation.Estado1 == dbEstado);
+
+            var list = await query.ToListAsync();
+
+            return list.Select((v, i) => new SaleListItemPdf
+            {
+                Numero = i + 1,
+                CodigoVenta = v.CodigoVenta,
+                Cliente = !string.IsNullOrEmpty(v.IdClienteNavigation?.RazonSocial)
+                    ? v.IdClienteNavigation.RazonSocial
+                    : $"{v.IdClienteNavigation?.Nombre} {v.IdClienteNavigation?.Apellido}".Trim(),
+                Fecha = v.Fecha?.ToString("dd/MM/yyyy HH:mm") ?? "-",
+                MedioPago = v.IdMedioPagoNavigation?.MedioPago1 ?? "-",
+                Estado = v.IdEstadoNavigation?.Estado1 ?? "-",
+                Vendedor = $"{v.IdUsuarioNavigation?.Nombre} {v.IdUsuarioNavigation?.Apellido}".Trim(),
+                Total = v.Total ?? 0
+            }).ToList();
+        }
+
+        private static byte[] GenerateSalesPdf(
+            List<SaleListItemPdf> ventas,
+            Ferreteria ferreteria,
+            string titulo,
+            string? filtroCliente,
+            DateOnly? fechaDesde,
+            DateOnly? fechaHasta,
+            string? estadoVenta)
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+            var ds = new SaleListDataSource
+            {
+                DatosFerreteria  = ferreteria,
+                Titulo           = titulo,
+                FechaGeneracion  = DateTime.Now,
+                FiltroCliente    = filtroCliente,
+                FiltroFechaDesde = fechaDesde?.ToString("dd/MM/yyyy"),
+                FiltroFechaHasta = fechaHasta?.ToString("dd/MM/yyyy"),
+                FiltroEstado     = estadoVenta,
+                TotalVentas      = ventas.Count,
+                TotalRecaudado   = ventas.Sum(v => v.Total),
+                Ventas           = ventas
+            };
+
+            return new SaleListDocument(ds).GeneratePdf();
+        }
+
+        private static byte[] GenerateSalesExcel(
+            List<SaleListItemPdf> ventas,
+            int? idCliente,
+            DateOnly? fechaDesde,
+            DateOnly? fechaHasta,
+            string? estadoVenta)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("Ventas");
+
+            // Headers
+            var headers = new[] { "#", "Código", "Cliente", "Fecha", "Vendedor", "Medio Pago", "Estado", "Total" };
+            for (int c = 0; c < headers.Length; c++)
+            {
+                ws.Cells[1, c + 1].Value = headers[c];
+                ws.Cells[1, c + 1].Style.Font.Bold = true;
+                ws.Cells[1, c + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                ws.Cells[1, c + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(30, 86, 160));
+                ws.Cells[1, c + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+            }
+
+            // Rows
+            for (int i = 0; i < ventas.Count; i++)
+            {
+                var v = ventas[i];
+                int row = i + 2;
+                ws.Cells[row, 1].Value = v.Numero;
+                ws.Cells[row, 2].Value = v.CodigoVenta;
+                ws.Cells[row, 3].Value = v.Cliente;
+                ws.Cells[row, 4].Value = v.Fecha;
+                ws.Cells[row, 5].Value = v.Vendedor;
+                ws.Cells[row, 6].Value = v.MedioPago;
+                ws.Cells[row, 7].Value = v.Estado;
+                ws.Cells[row, 8].Value = v.Total;
+                ws.Cells[row, 8].Style.Numberformat.Format = "#,##0.00";
+
+                if (i % 2 == 1)
+                {
+                    ws.Cells[row, 1, row, 8].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                    ws.Cells[row, 1, row, 8].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(240, 244, 250));
+                }
+            }
+
+            // Total row
+            int totalRow = ventas.Count + 2;
+            ws.Cells[totalRow, 7].Value = "TOTAL:";
+            ws.Cells[totalRow, 7].Style.Font.Bold = true;
+            ws.Cells[totalRow, 8].Value = ventas.Sum(v => v.Total);
+            ws.Cells[totalRow, 8].Style.Font.Bold = true;
+            ws.Cells[totalRow, 8].Style.Numberformat.Format = "#,##0.00";
+
+            ws.Cells[ws.Dimension.Address].AutoFitColumns();
+            return package.GetAsByteArray();
+        }
+
+        private static byte[] GenerateSaleTicketExcel(Ventum venta, Ferreteria ferreteria)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using var package = new ExcelPackage();
+            var ws = package.Workbook.Worksheets.Add("Comprobante");
+
+            var clienteNombre = !string.IsNullOrEmpty(venta.IdClienteNavigation?.RazonSocial)
+                ? venta.IdClienteNavigation.RazonSocial
+                : $"{venta.IdClienteNavigation?.Nombre} {venta.IdClienteNavigation?.Apellido}".Trim();
+
+            var vendedorNombre = $"{venta.IdUsuarioNavigation?.Nombre} {venta.IdUsuarioNavigation?.Apellido}".Trim();
+
+            // Header ferretería
+            ws.Cells["A1"].Value = ferreteria.Nombre;
+            ws.Cells["A1"].Style.Font.Bold = true;
+            ws.Cells["A1"].Style.Font.Size = 14;
+
+            ws.Cells["A2"].Value = "COMPROBANTE DE VENTA";
+            ws.Cells["A2"].Style.Font.Bold = true;
+            ws.Cells["A2"].Style.Font.Size = 12;
+
+            ws.Cells["A3"].Value = $"Código: {venta.CodigoVenta}";
+            ws.Cells["D3"].Value = $"Fecha: {venta.Fecha:dd/MM/yyyy HH:mm}";
+
+            ws.Cells["A4"].Value = $"Cliente: {clienteNombre}";
+            ws.Cells["D4"].Value = $"DNI/CUIT: {venta.IdClienteNavigation?.Dni ?? venta.IdClienteNavigation?.Cuit ?? "-"}";
+
+            ws.Cells["A5"].Value = $"Vendedor: {vendedorNombre}";
+            ws.Cells["D5"].Value = $"Medio de Pago: {venta.IdMedioPagoNavigation?.MedioPago1 ?? "-"}";
+
+            ws.Cells["A6"].Value = $"Estado: {venta.IdEstadoNavigation?.Estado1 ?? "-"}";
+
+            // Separador
+            ws.Cells["A7"].Value = "";
+
+            // Headers productos
+            int headerRow = 8;
+            var prodHeaders = new[] { "#", "Producto", "Marca", "Cantidad [Unidad]", "P. Unitario", "Subtotal" };
+            for (int c = 0; c < prodHeaders.Length; c++)
+            {
+                ws.Cells[headerRow, c + 1].Value = prodHeaders[c];
+                ws.Cells[headerRow, c + 1].Style.Font.Bold = true;
+                ws.Cells[headerRow, c + 1].Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                ws.Cells[headerRow, c + 1].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(30, 86, 160));
+                ws.Cells[headerRow, c + 1].Style.Font.Color.SetColor(System.Drawing.Color.White);
+            }
+
+            // Rows productos
+            int dataRow = headerRow + 1;
+            int idx = 1;
+            foreach (var d in venta.DetalleVenta)
+            {
+                var unidad = d.IdProductoNavigation?.IdUnidadMedidaNavigation?.Abreviatura;
+                var cantTexto = string.IsNullOrWhiteSpace(unidad)
+                    ? (d.Cantidad ?? 0).ToString("G29")
+                    : $"{d.Cantidad ?? 0:G29} [{unidad}]";
+
+                ws.Cells[dataRow, 1].Value = idx++;
+                ws.Cells[dataRow, 2].Value = d.IdProductoNavigation?.Nombre ?? "-";
+                ws.Cells[dataRow, 3].Value = d.IdProductoNavigation?.Marca ?? "-";
+                ws.Cells[dataRow, 4].Value = cantTexto;
+                ws.Cells[dataRow, 5].Value = d.PrecioVenta ?? 0;
+                ws.Cells[dataRow, 5].Style.Numberformat.Format = "#,##0.00";
+                ws.Cells[dataRow, 6].Value = d.SubTotal ?? 0;
+                ws.Cells[dataRow, 6].Style.Numberformat.Format = "#,##0.00";
+                dataRow++;
+            }
+
+            // Total
+            ws.Cells[dataRow, 5].Value = "TOTAL:";
+            ws.Cells[dataRow, 5].Style.Font.Bold = true;
+            ws.Cells[dataRow, 6].Value = venta.Total ?? 0;
+            ws.Cells[dataRow, 6].Style.Font.Bold = true;
+            ws.Cells[dataRow, 6].Style.Numberformat.Format = "#,##0.00";
+
+            ws.Cells[ws.Dimension.Address].AutoFitColumns();
+            return package.GetAsByteArray();
         }
     }
 

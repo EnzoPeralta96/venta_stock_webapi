@@ -95,6 +95,7 @@ namespace venta_stock_webapi.Sale.Services
                         Producto = d.IdProductoNavigation.Nombre ?? "N/A",
                         Marca = d.IdProductoNavigation.Marca,
                         Cantidad = d.Cantidad ?? 0,
+                        UnidadMedidaAbreviatura = d.IdProductoNavigation.IdUnidadMedidaNavigation?.Abreviatura,
                         PrecioUnitario = d.PrecioVenta ?? 0,
                         Subtotal = d.SubTotal ?? 0
                     }).ToList(),
@@ -172,6 +173,7 @@ namespace venta_stock_webapi.Sale.Services
                     Producto       = d.IdProductoNavigation?.Nombre ?? "N/A",
                     Marca          = d.IdProductoNavigation?.Marca ?? "-",
                     Cantidad       = d.Cantidad ?? 0,
+                    UnidadMedidaAbreviatura = d.IdProductoNavigation?.IdUnidadMedidaNavigation?.Abreviatura,
                     PrecioUnitario = d.PrecioVenta ?? 0,
                     Subtotal       = d.SubTotal ?? 0
                 }).ToList(),
@@ -250,6 +252,7 @@ namespace venta_stock_webapi.Sale.Services
                             Producto = d.IdProductoNavigation.Nombre ?? "N/A",
                             Marca = d.IdProductoNavigation.Marca,
                             Cantidad = d.Cantidad,
+                            UnidadMedidaAbreviatura = d.IdProductoNavigation.IdUnidadMedidaNavigation?.Abreviatura,
                             PrecioUnitario = d.PrecioVenta,
                             Subtotal = d.Subtotal
                         }).ToList(),

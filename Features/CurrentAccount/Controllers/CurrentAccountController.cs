@@ -232,8 +232,45 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
                 return BadRequest(errorMessage);
             }
-            
+
             return Ok(result.Value);
+        }
+
+        // ─── Exportaciones ────────────────────────────────────────────────────
+
+        [Authorize(Policy = "PERM:CC_VIEW")]
+        [HttpGet("cliente/{idCliente:int}/export/pdf")]
+        public async Task<IActionResult> ExportClientAccountPdf(
+            int idCliente,
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] int? idTipoMovimientoCc = null)
+        {
+            var result = await _currentAccountService.ExportClientAccountPdfAsync(idCliente, fechaDesde, fechaHasta, idTipoMovimientoCc);
+            if (!result.IsSuccess)
+            {
+                var code = (CurrentAccountCode)result.ErrorCode;
+                return BadRequest(MessageProvider.Get(CurrentAccountDictionary.Messages, code));
+            }
+            return File(result.Value, "application/pdf", $"estado_cuenta_{idCliente}_{DateTime.Now:yyyyMMdd}.pdf");
+        }
+
+        [Authorize(Policy = "PERM:CC_VIEW")]
+        [HttpGet("cliente/{idCliente:int}/export/excel")]
+        public async Task<IActionResult> ExportClientAccountExcel(
+            int idCliente,
+            [FromQuery] DateOnly? fechaDesde = null,
+            [FromQuery] DateOnly? fechaHasta = null,
+            [FromQuery] int? idTipoMovimientoCc = null)
+        {
+            var result = await _currentAccountService.ExportClientAccountExcelAsync(idCliente, fechaDesde, fechaHasta, idTipoMovimientoCc);
+            if (!result.IsSuccess)
+            {
+                var code = (CurrentAccountCode)result.ErrorCode;
+                return BadRequest(MessageProvider.Get(CurrentAccountDictionary.Messages, code));
+            }
+            return File(result.Value, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"estado_cuenta_{idCliente}_{DateTime.Now:yyyyMMdd}.xlsx");
         }
     }
 }

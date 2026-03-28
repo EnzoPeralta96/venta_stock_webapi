@@ -51,6 +51,7 @@ namespace venta_stock_webapi.Sale.PDF
         public string Producto { get; set; }
         public string Marca { get; set; }
         public decimal Cantidad { get; set; }
+        public string? UnidadMedidaAbreviatura { get; set; }
         public decimal PrecioUnitario { get; set; }
         public decimal Subtotal { get; set; }
     }
