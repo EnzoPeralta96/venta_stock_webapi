@@ -17,7 +17,7 @@ public class StockMovementService : IStockMovementService
 {
     private readonly IProductRepository _productRepository;
     private readonly IUserRepository _userRepository;
-    private readonly DbContext _dbContext;
+    private readonly VentaStockContext _dbContext;
     private readonly IMovimientoStockRepository _movimientoStockRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<StockMovementService> _logger;
@@ -140,6 +140,7 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Result<TipoMovimientoStockDTO>> CreateTipoMovimientoAsync(CreateTipoMovimientoDTO dto)
     {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
             if (await _movimientoStockRepository.NombreEnUsoAsync(dto.Nombre))
@@ -157,10 +158,12 @@ public class StockMovementService : IStockMovementService
             _movimientoStockRepository.AddTipo(tipo);
             await _movimientoStockRepository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<TipoMovimientoStockDTO>.Success(_mapper.Map<TipoMovimientoStockDTO>(tipo));
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al crear tipo de movimiento de stock");
             return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.unexpected_error);
         }
@@ -168,6 +171,7 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Result<TipoMovimientoStockDTO>> UpdateTipoMovimientoAsync(int id, UpdateTipoMovimientoDTO dto)
     {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
             var tipo = await _movimientoStockRepository.GetTipoByIdAsync(id);
@@ -185,10 +189,12 @@ public class StockMovementService : IStockMovementService
 
             await _movimientoStockRepository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<TipoMovimientoStockDTO>.Success(_mapper.Map<TipoMovimientoStockDTO>(tipo));
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al actualizar tipo de movimiento {Id}", id);
             return Result<TipoMovimientoStockDTO>.Failure(StockMovementErrorCode.unexpected_error);
         }
@@ -196,6 +202,7 @@ public class StockMovementService : IStockMovementService
 
     public async Task<Result<bool>> ToggleTipoMovimientoAsync(int id)
     {
+        using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
             var tipo = await _movimientoStockRepository.GetTipoByIdAsync(id);
@@ -208,10 +215,12 @@ public class StockMovementService : IStockMovementService
             tipo.Activo = !tipo.Activo;
             await _movimientoStockRepository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<bool>.Success(tipo.Activo);
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al cambiar estado del tipo de movimiento {Id}", id);
             return Result<bool>.Failure(StockMovementErrorCode.unexpected_error);
         }

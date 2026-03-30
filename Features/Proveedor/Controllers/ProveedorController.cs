@@ -19,6 +19,7 @@ public class ProveedorController : ControllerBase
         _proveedorServices = proveedorServices;
     }
 
+    [Authorize(Policy = "PERM:PROV_CREATE")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateProveedorDTO proveedor)
     {
@@ -34,6 +35,7 @@ public class ProveedorController : ControllerBase
         return Ok(proveedor);
     }
 
+    [Authorize(Policy = "PERM:PROV_UPDATE")]
     [HttpPut("update")]
     public async Task<IActionResult> Update([FromBody] UpdateProveedorDTO proveedor)
     {
@@ -49,6 +51,7 @@ public class ProveedorController : ControllerBase
         return Ok(proveedor);
     }
 
+    [Authorize(Policy = "PERM:PROV_READ")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -64,6 +67,7 @@ public class ProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROV_READ")]
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         int pageIndex = 1,
@@ -84,6 +88,7 @@ public class ProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROV_READ")]
     [HttpGet("{idProveedor:int}")]
     public async Task<IActionResult> GetById(int idProveedor)
     {
@@ -100,6 +105,7 @@ public class ProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROV_DELETE")]
     [HttpDelete("{idProveedor:int}")]
     public async Task<IActionResult> Delete(int idProveedor)
     {
@@ -116,6 +122,7 @@ public class ProveedorController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:PROV_DELETE")]
     [HttpPatch("{idProveedor:int}/toggle-estado")]
     public async Task<IActionResult> ToggleEstado(int idProveedor)
     {
@@ -132,6 +139,7 @@ public class ProveedorController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Policy = "PERM:PROV_READ")]
     [HttpGet("export/excel")]
     public async Task<IActionResult> ExportarExcel()
     {
@@ -149,6 +157,7 @@ public class ProveedorController : ControllerBase
             $"proveedores_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 
+    [Authorize(Policy = "PERM:PROV_READ")]
     [HttpGet("export/pdf")]
     public async Task<IActionResult> ExportarPdf()
     {

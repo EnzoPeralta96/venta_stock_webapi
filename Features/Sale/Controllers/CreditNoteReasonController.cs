@@ -19,7 +19,7 @@ public class CreditNoteReasonController : ControllerBase
         _service = service;
     }
 
-    [Authorize(Policy = "PERM:CC_READ")]
+    [Authorize(Policy = "PERM:VEN_READ")]
     [HttpGet("reasons/{idMotivo}")]
     public async Task<IActionResult> GetById(int idMotivo)
     {

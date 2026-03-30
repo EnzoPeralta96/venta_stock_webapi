@@ -19,6 +19,7 @@ public class CompraProveedorController : ControllerBase
         _compraProveedorServices = compraProveedorServices;
     }
 
+    [Authorize(Policy = "PERM:COMP_CREATE")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CompraProveedorCreateDTO dto)
     {
@@ -34,6 +35,7 @@ public class CompraProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int pageIndex = 1,
@@ -65,6 +67,7 @@ public class CompraProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("{idCompraProveedor:int}")]
     public async Task<IActionResult> GetById(int idCompraProveedor)
     {
@@ -80,6 +83,7 @@ public class CompraProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("proveedor/{idProveedor:int}")]
     public async Task<IActionResult> GetByProveedor(
         int idProveedor,
@@ -111,6 +115,7 @@ public class CompraProveedorController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:COMP_DELETE")]
     [HttpPost("{idCompraProveedor:int}/anular")]
     public async Task<IActionResult> Anular(int idCompraProveedor, [FromBody] AnulacionCompraDTO dto)
     {
@@ -130,6 +135,7 @@ public class CompraProveedorController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("{idCompraProveedor:int}/export/excel")]
     public async Task<IActionResult> ExportarCompraExcel(int idCompraProveedor)
     {
@@ -148,6 +154,7 @@ public class CompraProveedorController : ControllerBase
             $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("{idCompraProveedor:int}/export/pdf")]
     public async Task<IActionResult> ExportarCompraPdf(int idCompraProveedor)
     {
@@ -164,6 +171,7 @@ public class CompraProveedorController : ControllerBase
         return File(result.Value, "application/pdf", $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("proveedor/{idProveedor:int}/export/excel")]
     public async Task<IActionResult> ExportarComprasPorProveedorExcel(
         int idProveedor,
@@ -187,6 +195,7 @@ public class CompraProveedorController : ControllerBase
             $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("proveedor/{idProveedor:int}/export/pdf")]
     public async Task<IActionResult> ExportarComprasPorProveedorPdf(
         int idProveedor,
@@ -208,6 +217,7 @@ public class CompraProveedorController : ControllerBase
         return File(result.Value, "application/pdf", $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("export/excel")]
     public async Task<IActionResult> ExportarExcel(
         [FromQuery] string? fechaDesde = null,
@@ -230,6 +240,7 @@ public class CompraProveedorController : ControllerBase
             $"compras_{DateTime.Today:yyyyMMdd}.xlsx");
     }
 
+    [Authorize(Policy = "PERM:COMP_READ")]
     [HttpGet("export/pdf")]
     public async Task<IActionResult> ExportarPdf(
         [FromQuery] string? fechaDesde = null,

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.ListaPrecio.DTO;
 using proyecto_venta_stock.ListaPrecio.Services;
@@ -9,6 +10,7 @@ namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class ListaPrecioController : ControllerBase
 {
     private readonly IListaPrecioServices _listaPrecioServices;
@@ -18,6 +20,7 @@ public class ListaPrecioController : ControllerBase
         _listaPrecioServices = listaPrecioServices;
     }
 
+    [Authorize(Policy = "PERM:LP_READ")]
     [HttpGet("proveedor/{idProveedor:int}")]
     public async Task<IActionResult> GetByProveedor(int idProveedor)
     {
@@ -33,6 +36,7 @@ public class ListaPrecioController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:LP_READ")]
     [HttpGet("{idLista:int}")]
     public async Task<IActionResult> GetById(int idLista)
     {
@@ -48,6 +52,7 @@ public class ListaPrecioController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:LP_CREATE")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ListaPrecioCreateDTO dto)
     {
@@ -66,6 +71,7 @@ public class ListaPrecioController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Policy = "PERM:LP_UPDATE")]
     [HttpPut]
     public async Task<IActionResult> Update([FromBody] ListaPrecioUpdateDTO dto)
     {
@@ -85,6 +91,7 @@ public class ListaPrecioController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Policy = "PERM:LP_DELETE")]
     [HttpDelete("{idLista:int}")]
     public async Task<IActionResult> Delete(int idLista)
     {
@@ -102,6 +109,7 @@ public class ListaPrecioController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:LP_TOGGLE")]
     [HttpPatch("{idLista:int}/toggle-activo")]
     public async Task<IActionResult> ToggleActivo(int idLista)
     {

@@ -49,6 +49,7 @@ namespace venta_stock_webapi.Login.Services
                 if(!_passwordService.VerifyPassword(user, loginRequest.Password)) return Result<LoginResponseDTO>.Failure(UserErrorCode.username_not_found);
 
                 var permissionClaims = BuildPermissionsUserClaims(user);
+                
                 var (token, expiration) = _jwtService.GenerateJwtToken(user, permissionClaims);
 
                 var LoginResponseDTO = new LoginResponseDTO

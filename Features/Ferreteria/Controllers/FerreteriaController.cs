@@ -40,7 +40,7 @@ namespace venta_stock_webapi.Features.Ferreteria.Controllers
         /// <summary>
         /// Actualiza la información de la ferretería
         /// </summary>
-        [Authorize(Policy = "PERM:USR_UPDATE")]
+        [Authorize(Policy = "PERM:SYS_CONFIG")]
         [HttpPut("update")]
         public async Task<IActionResult> Update([FromBody] FerreteriaUpdateDTO ferreteriaDTO)
         {

@@ -11,7 +11,7 @@ public class TipoMovimientoStockConfiguration : IEntityTypeConfiguration<TipoMov
         entity.HasKey(e => e.IdTipoMovimientoStock);
         entity.ToTable("tipo_movimiento_stock");
         entity.Property(e => e.IdTipoMovimientoStock)
-            .ValueGeneratedNever()
+            .ValueGeneratedOnAdd()
             .HasColumnName("id_tipo_movimiento_stock");
         entity.Property(e => e.Nombre).HasMaxLength(50).HasColumnName("nombre");
         entity.Property(e => e.Descripcion).HasMaxLength(255).HasColumnName("descripcion");

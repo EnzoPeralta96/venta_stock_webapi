@@ -21,6 +21,7 @@ public class ProductController : ControllerBase
         _productServices = productServices;
     }
 
+    [Authorize(Policy = "PERM:PROD_CREATE")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ProductDTO product)
     {
@@ -36,6 +37,7 @@ public class ProductController : ControllerBase
         return Ok(product);
     }
 
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPut("update")]
     public async Task<IActionResult> UpdateProduct([FromBody] ProductDTO product)
     {
@@ -51,6 +53,7 @@ public class ProductController : ControllerBase
         return Ok(product);
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -65,6 +68,7 @@ public class ProductController : ControllerBase
         
         return Ok(result.Value);
     }
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("with-details")]
     public async Task<IActionResult> GetAllWithDetails([FromQuery] bool? activo = true)
     {
@@ -80,6 +84,7 @@ public class ProductController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("{idProducto:int}")]
     public async Task<IActionResult> GetById(int idProducto)
     {
@@ -94,6 +99,7 @@ public class ProductController : ControllerBase
 
         return Ok(result.Value);
     }
+    [Authorize(Policy = "PERM:PROD_DELETE")]
     [HttpDelete("{idProducto:int}")]
     public async Task<IActionResult> Delete(int idProducto)
     {
@@ -114,6 +120,7 @@ public class ProductController : ControllerBase
 
         return NoContent();
     }
+    [Authorize(Policy = "PERM:PROD_DELETE")]
     [HttpPatch("{idProducto:int}/toggle-estado")]
     public async Task<IActionResult> ToggleEstado(int idProducto)
     {
@@ -129,6 +136,7 @@ public class ProductController : ControllerBase
         return Ok(new { idProducto, activo = result.Value });
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("with-details-paged")]
     public async Task<IActionResult> GetAllWithDetailsPaged(
     [FromQuery] int pageIndex = 1,
@@ -149,6 +157,7 @@ public class ProductController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("export/csv")]
     public async Task<IActionResult> ExportarCsv()
     {
@@ -156,6 +165,7 @@ public class ProductController : ControllerBase
         return File(file, "text/csv", "productos.csv");
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("export/excel")]
     public async Task<IActionResult> ExportarExcel()
     {
@@ -169,6 +179,7 @@ public class ProductController : ControllerBase
 
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("export/plantilla-csv")]
     public IActionResult ExportarPlantillaCsv()
     {
@@ -177,6 +188,7 @@ public class ProductController : ControllerBase
         return File(csv, "text/csv", "plantilla_productos.csv");
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("export/plantilla-excel")]
     public async Task<IActionResult> ExportarPlantillaExcel()
     {

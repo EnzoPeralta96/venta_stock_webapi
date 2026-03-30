@@ -4,12 +4,14 @@ using proyecto_venta_stock.Location.Services;
 using proyecto_venta_stock.Location.DTO;
 using proyecto_venta_stock.Message;
 using venta_stock_webapi.Shared.MessageProvider;
+using Microsoft.AspNetCore.Authorization;
 
 namespace proyecto_venta_stock.Controllers;
 
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class LocationController : ControllerBase
 {
     private readonly ILocationService _service;
@@ -22,6 +24,7 @@ public class LocationController : ControllerBase
     }
 
     // 🔍 GET api/Location/search?pageIndex=1&pageSize=10&searchTerm=a&activos=true
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         int pageIndex = 1,
@@ -42,6 +45,7 @@ public class LocationController : ControllerBase
     }
 
     // 🔎 GET api/Location/{id}
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -58,6 +62,7 @@ public class LocationController : ControllerBase
     }
 
     // ➕ POST api/Location/create
+    [Authorize(Policy = "PERM:PROD_CREATE")]
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] LocationCreateUpdateDTO dto)
     {
@@ -78,6 +83,7 @@ public class LocationController : ControllerBase
     }
 
     // ✏️ PUT api/Location/update/{id}
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPut("update/{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] LocationCreateUpdateDTO dto)
     {
@@ -102,6 +108,7 @@ public class LocationController : ControllerBase
     }
 
     // 🗑️ DELETE api/Location/delete/{id}
+    [Authorize(Policy = "PERM:PROD_DELETE")]
     [HttpDelete("delete/{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -123,6 +130,7 @@ public class LocationController : ControllerBase
     }
 
     // 🔄 PATCH api/Location/toggle/{id}
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPatch("toggle/{id:int}")]
     public async Task<IActionResult> ToggleActivo(int id)
     {

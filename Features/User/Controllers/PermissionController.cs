@@ -8,7 +8,7 @@ namespace venta_stock_webapi.User.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "PERM:USR_READ")]
+    [Authorize(Policy = "PERM:USR_PERM_READ")]
     public class PermissionController : ControllerBase
     {
         private readonly ILogger<PermissionController> _logger;

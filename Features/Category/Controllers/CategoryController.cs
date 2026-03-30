@@ -19,6 +19,7 @@ public class CategoryController : ControllerBase
         _categoryServices = categoryServices;
     }
 
+    [Authorize(Policy = "PERM:PROD_CREATE")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCategoryDTO category)
     {
@@ -34,6 +35,7 @@ public class CategoryController : ControllerBase
         return Ok(category);
     }
 
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPut("update")]
     public async Task<IActionResult> UpdateCategory([FromBody] UpdateCategoryDTO category)
     {
@@ -49,6 +51,7 @@ public class CategoryController : ControllerBase
         return Ok(category);
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -64,6 +67,7 @@ public class CategoryController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("{idCategoria:int}")]
     public async Task<IActionResult> GetById(int idCategoria)
     {
@@ -79,6 +83,7 @@ public class CategoryController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROD_DELETE")]
     [HttpDelete("{idCategoria:int}")]
     public async Task<IActionResult> Delete(int idCategoria)
     {

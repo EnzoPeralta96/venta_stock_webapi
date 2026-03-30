@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.ListaPrecio.DTO;
 using proyecto_venta_stock.ListaPrecio.Services;
@@ -8,6 +9,7 @@ namespace proyecto_venta_stock.Controllers;
 
 [ApiController]
 [Route("ListaPrecio/{idLista:int}/items")]
+[Authorize]
 public class ListaPrecioItemsController : ControllerBase
 {
     private readonly IListaPrecioItemServices _services;
@@ -17,6 +19,7 @@ public class ListaPrecioItemsController : ControllerBase
         _services = services;
     }
 
+    [Authorize(Policy = "PERM:LP_READ")]
     [HttpGet]
     public async Task<IActionResult> GetItems(int idLista)
     {
@@ -36,6 +39,7 @@ public class ListaPrecioItemsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:LP_ITEM_ADD")]
     [HttpPost]
     public async Task<IActionResult> AddItem(int idLista, [FromBody] ListaPrecioItemUpsertDTO dto)
     {
@@ -54,6 +58,7 @@ public class ListaPrecioItemsController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Policy = "PERM:LP_ITEM_UPDATE")]
     [HttpPut("{idProducto:int}")]
     public async Task<IActionResult> UpdateItem(int idLista, int idProducto, [FromBody] ListaPrecioItemUpsertDTO dto)
     {
@@ -72,6 +77,7 @@ public class ListaPrecioItemsController : ControllerBase
         return Ok();
     }
 
+    [Authorize(Policy = "PERM:LP_ITEM_DELETE")]
     [HttpDelete("{idProducto:int}")]
     public async Task<IActionResult> DeleteItem(int idLista, int idProducto)
     {
@@ -90,6 +96,7 @@ public class ListaPrecioItemsController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Policy = "PERM:LP_READ")]
     [HttpGet("plantilla-excel")]
     public async Task<IActionResult> DescargarPlantilla(int idLista)
     {
@@ -107,6 +114,7 @@ public class ListaPrecioItemsController : ControllerBase
             $"plantilla-lista-{idLista}.xlsx");
     }
 
+    [Authorize(Policy = "PERM:LP_ITEM_ADD")]
     [HttpPost("import")]
     public async Task<IActionResult> Import(int idLista, IFormFile file, [FromForm] bool actualizarPrecioVenta = false)
     {
