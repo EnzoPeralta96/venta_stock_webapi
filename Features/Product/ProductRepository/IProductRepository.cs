@@ -28,6 +28,9 @@ namespace proyecto_venta_stock.Product.ProductRepository
 
         Task<Producto> GetByBarcode(string codigo);
 
+        Task<int> QuantityExistsAndActive(List<int> idsProducto);
+   
+
 
     }
 }

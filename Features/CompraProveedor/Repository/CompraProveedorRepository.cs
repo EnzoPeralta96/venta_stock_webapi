@@ -133,6 +133,13 @@ public class CompraProveedorRepository : ICompraProveedorRepository
         return await query.OrderByDescending(c => c.Fecha).ToListAsync();
     }
 
+    public Task<Models.CompraProveedor?> GetByIdForUpdateAsync(int idCompraProveedor)
+    {
+        return _dbContext.ComprasProveedor
+            .Include(c => c.CompraProveedorDetalles)
+            .FirstOrDefaultAsync(c => c.IdCompraProveedor == idCompraProveedor);
+    }
+
     public Task<bool> ExistsByNumeroComprobanteAsync(string numeroComprobante, int idProveedor, int? excludeId = null)
     {
         return _dbContext.ComprasProveedor
@@ -141,5 +148,10 @@ public class CompraProveedorRepository : ICompraProveedorRepository
                 c.IdProveedor == idProveedor &&
                 c.Activo &&
                 (excludeId == null || c.IdCompraProveedor != excludeId.Value));
+    }
+
+    public Task SaveChangesAsync()
+    {
+       return _dbContext.SaveChangesAsync();
     }
 }

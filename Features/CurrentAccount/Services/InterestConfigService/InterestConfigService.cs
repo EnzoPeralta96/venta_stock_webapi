@@ -28,6 +28,7 @@ public class InterestConfigService : IInterestConfigService
         try
         {
             var config = await _interestConfigRepository.GetByIdAsync(idConfig);
+
             if (config is null)
                 return Result<InterestConfigDTO>.Failure(InterestConfigCode.config_not_found);
 
@@ -59,6 +60,7 @@ public class InterestConfigService : IInterestConfigService
         try
         {
             var config = await _interestConfigRepository.GetCurrentAsync();
+            
             if (config is null)
                 return Result<InterestConfigDTO>.Failure(InterestConfigCode.no_active_config);
 

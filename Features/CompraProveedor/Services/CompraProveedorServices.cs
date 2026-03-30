@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
@@ -13,6 +13,9 @@ using QuestPDF.Fluent;
 using venta_stock_webapi.Features.StockMovement.Services;
 using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
+using proyecto_venta_stock.Proveedor.ProveedorRepository;
+using proyecto_venta_stock.User.UserRepository;
+using proyecto_venta_stock.Product.ProductRepository;
 
 namespace proyecto_venta_stock.CompraProveedor.Services;
 
@@ -21,6 +24,9 @@ public class CompraProveedorServices : ICompraProveedorServices
     private readonly ILogger<CompraProveedorServices> _logger;
     private readonly IMapper _mapper;
     private readonly ICompraProveedorRepository _compraRepo;
+    private readonly IProveedorRepository _proveedorRepo;
+    private readonly IUserRepository _userRepository;
+    private readonly IProductRepository _productRepository;
     private readonly VentaStockContext _context;
     private readonly IUserContext _userContext;
     private readonly IStockMovementService _stockMovementService;
@@ -29,9 +35,12 @@ public class CompraProveedorServices : ICompraProveedorServices
         ILogger<CompraProveedorServices> logger,
         IMapper mapper,
         ICompraProveedorRepository compraRepo,
+        IProveedorRepository proveedorRepo,
         VentaStockContext context,
         IUserContext userContext,
-        IStockMovementService stockMovementService)
+        IStockMovementService stockMovementService,
+        IUserRepository userRepository,
+        IProductRepository productRepository)
     {
         _logger = logger;
         _mapper = mapper;
@@ -39,14 +48,15 @@ public class CompraProveedorServices : ICompraProveedorServices
         _context = context;
         _userContext = userContext;
         _stockMovementService = stockMovementService;
+        _proveedorRepo = proveedorRepo;
+        _userRepository = userRepository;
+        _productRepository = productRepository;
     }
 
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     /// <summary>
-    /// Setea las variables de sesiÃ³n de PostgreSQL requeridas por los triggers de auditorÃ­a.
+    /// Setea las variables de sesión de PostgreSQL requeridas por los triggers de auditoría.
     /// Debe llamarse antes de cualquier SQL raw (ExecuteSqlRawAsync / ExecuteUpdateAsync)
-    /// que no estÃ© precedido por un SaveChangesAsync (el cual dispara el AuditSessionInterceptor).
+    /// que no esté precedido por un SaveChangesAsync (el cual dispara el AuditSessionInterceptor).
     /// </summary>
     private async Task SetAuditContextAsync()
     {
@@ -56,7 +66,15 @@ public class CompraProveedorServices : ICompraProveedorServices
             "SELECT set_config('app.username', {0}, true);", _userContext.UserName ?? "");
     }
 
-    // â”€â”€ Calcular lÃ­nea de detalle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    private async Task RegistrarMovimientosStockAsync(
+        IEnumerable<(int idProducto, decimal cantidad)> lineas,
+        TipoMovimientoStockEnum tipo,
+        string referencia,
+        int idUsuario)
+    {
+        foreach (var (idProducto, cantidad) in lineas)
+            await _stockMovementService.RegistrarMovimientoAsync(idProducto, tipo, cantidad, referencia, idUsuario);
+    }
 
     private static (decimal subtotal, decimal descuento, decimal iva, decimal total) CalcLinea(
         decimal cantidad, decimal precioUnitario, decimal descuentoPorcentaje, decimal ivaPorcentaje)
@@ -68,53 +86,56 @@ public class CompraProveedorServices : ICompraProveedorServices
         return (subtotal, descuento, iva, baseIva + iva);
     }
 
-    // â”€â”€ CREATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
+    /// <summary>
+    /// Crea una nueva compra de proveedor.
+    /// </summary>
+    /// <param name="dto">Datos de la compra a crear.</param>
+    /// <returns>Resultado de la operación.</returns>
     public async Task<Result<CompraProveedorResponseDTO>> Create(CompraProveedorCreateDTO dto)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
+        
         try
         {
             if (dto.Detalles == null || dto.Detalles.Count == 0)
                 return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.sin_detalles);
 
             // Validar proveedor
-            var proveedorExiste = await _context.Proveedors
-                .AnyAsync(p => p.IdProveedor == dto.IdProveedor && p.Activo);
+            var proveedorExiste = await _proveedorRepo.Exists(dto.IdProveedor);
+
             if (!proveedorExiste)
                 return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.proveedor_not_found);
 
             // Validar usuario
             if (dto.IdUsuario > 0)
             {
-                var usuarioExiste = await _context.Usuarios
-                    .AnyAsync(u => u.IdUsuario == dto.IdUsuario && u.FechaBaja == null);
+                var usuarioExiste = await _userRepository.ExistsActive(dto.IdUsuario);
+
                 if (!usuarioExiste)
                     return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.usuario_not_found);
             }
 
-            // Validar nÃºmero de comprobante duplicado
+            // Validar número de comprobante duplicado
             if (!string.IsNullOrWhiteSpace(dto.NumeroComprobante))
             {
-                var duplicado = await _compraRepo.ExistsByNumeroComprobanteAsync(
-                    dto.NumeroComprobante, dto.IdProveedor);
+                var duplicado = await _compraRepo.ExistsByNumeroComprobanteAsync(dto.NumeroComprobante, dto.IdProveedor);
+
                 if (duplicado)
                     return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.numero_comprobante_duplicado);
             }
 
-            // Validar que los productos existan y estÃ©n activos
+            // Validar que los productos existan y estén activos
             var idsProducto = dto.Detalles.Select(d => d.IdProducto).Distinct().ToList();
-            var productosExistentes = await _context.Productos
-                .Where(p => idsProducto.Contains(p.IdProducto) && p.Activo)
-                .AsNoTracking()
-                .CountAsync();
+
+            var productosExistentes = await _productRepository.QuantityExistsAndActive(idsProducto);
 
             if (productosExistentes != idsProducto.Count)
                 return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.producto_not_found);
 
             // Construir detalles y calcular totales
             decimal subtotalTotal = 0, descuentoTotal = 0, ivaTotal = 0;
-            var detalles = new List<Models.CompraProveedorDetalle>();
+
+            var detalles = new List<CompraProveedorDetalle>();
 
             foreach (var d in dto.Detalles)
             {
@@ -123,7 +144,7 @@ public class CompraProveedorServices : ICompraProveedorServices
                 descuentoTotal += desc;
                 ivaTotal += iva;
 
-                detalles.Add(new Models.CompraProveedorDetalle
+                detalles.Add(new CompraProveedorDetalle
                 {
                     IdProducto = d.IdProducto,
                     Cantidad = d.Cantidad,
@@ -156,18 +177,18 @@ public class CompraProveedorServices : ICompraProveedorServices
             await _compraRepo.CreateAsync(compra);
 
             // Registrar ingresos de stock en el ledger
-            foreach (var d in dto.Detalles)
-                await _stockMovementService.RegistrarMovimientoAsync(
-                    d.IdProducto,
-                    TipoMovimientoStockEnum.IngresoCompra,
-                    d.Cantidad,
-                    $"COMPRA:{compra.IdCompraProveedor}",
-                    dto.IdUsuario);
+            await RegistrarMovimientosStockAsync(
+                dto.Detalles.Select(d => (d.IdProducto, d.Cantidad)),
+                TipoMovimientoStockEnum.IngresoCompra,
+                $"COMPRA:{compra.IdCompraProveedor}",
+                dto.IdUsuario);
 
             await transaction.CommitAsync();
 
             var compraCreada = await _compraRepo.GetByIdAsync(compra.IdCompraProveedor);
+
             var responseDTO = _mapper.Map<CompraProveedorResponseDTO>(compraCreada);
+
             return Result<CompraProveedorResponseDTO>.Success(responseDTO);
         }
         catch (Exception ex)
@@ -178,21 +199,23 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // â”€â”€ GET PAGED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     public async Task<Result<PagedList<CompraProveedorDetailResponseDTO>>> GetPaged(
         int pageIndex, int pageSize, string? search, bool? activo, DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
         {
             var paged = await _compraRepo.GetPagedWithDetailsAsync(pageIndex, pageSize, search, activo, fechaDesde, fechaHasta);
+
             var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(paged.Items);
+
             var result = new PagedList<CompraProveedorDetailResponseDTO>(dtos, paged.TotalCount, pageIndex, pageSize);
+
             return Result<PagedList<CompraProveedorDetailResponseDTO>>.Success(result);
         }
         catch (Exception ex)
         {
             _logger.LogError("Error inesperado al obtener compras paginadas: {Ex}", ex);
+
             return Result<PagedList<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
         }
     }
@@ -203,13 +226,17 @@ public class CompraProveedorServices : ICompraProveedorServices
         try
         {
             var paged = await _compraRepo.GetPagedByProveedorAsync(idProveedor, pageIndex, pageSize, activo, fechaDesde, fechaHasta);
+
             var dtos = _mapper.Map<List<CompraProveedorDetailResponseDTO>>(paged.Items);
+
             var result = new PagedList<CompraProveedorDetailResponseDTO>(dtos, paged.TotalCount, pageIndex, pageSize);
+
             return Result<PagedList<CompraProveedorDetailResponseDTO>>.Success(result);
         }
         catch (Exception ex)
         {
             _logger.LogError("Error inesperado al obtener compras por proveedor: {Ex}", ex);
+
             return Result<PagedList<CompraProveedorDetailResponseDTO>>.Failure(CompraProveedorErrorCode.error_inesperado);
         }
     }
@@ -219,7 +246,8 @@ public class CompraProveedorServices : ICompraProveedorServices
         try
         {
             var compra = await _compraRepo.GetByIdWithDetailsAsync(idCompraProveedor);
-            if (compra == null)
+
+            if (compra is null)
                 return Result<CompraProveedorDetailResponseDTO>.Failure(CompraProveedorErrorCode.compra_not_found);
 
             var dto = _mapper.Map<CompraProveedorDetailResponseDTO>(compra);
@@ -232,7 +260,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // â”€â”€ ANULAR (soft delete con motivo obligatorio + revertir stock) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //ANULAR (soft delete con motivo obligatorio + revertir stock) 
 
     public async Task<Result<bool>> Anular(int idCompraProveedor, AnulacionCompraDTO dto)
     {
@@ -241,24 +269,20 @@ public class CompraProveedorServices : ICompraProveedorServices
         {
             await SetAuditContextAsync();
 
-            var compra = await _context.ComprasProveedor
-                .Include(c => c.CompraProveedorDetalles)
-                .FirstOrDefaultAsync(c => c.IdCompraProveedor == idCompraProveedor);
+            var compra = await _compraRepo.GetByIdForUpdateAsync(idCompraProveedor);
 
-            if (compra == null)
+            if (compra is null)
                 return Result<bool>.Failure(CompraProveedorErrorCode.compra_not_found);
 
             if (!compra.Activo)
                 return Result<bool>.Failure(CompraProveedorErrorCode.compra_ya_inactiva);
 
-            // Revertir stock de cada lÃ­nea
-            foreach (var det in compra.CompraProveedorDetalles)
-                await _stockMovementService.RegistrarMovimientoAsync(
-                    det.IdProducto,
-                    TipoMovimientoStockEnum.EgresoAnulacionCompra,
-                    -det.Cantidad,
-                    $"ANULACION:COMPRA:{idCompraProveedor}",
-                    _userContext.UserId);
+            // Revertir stock de cada línea
+            await RegistrarMovimientosStockAsync(
+                compra.CompraProveedorDetalles.Select(d => (d.IdProducto, -d.Cantidad)),
+                TipoMovimientoStockEnum.EgresoAnulacionCompra,
+                $"ANULACION:COMPRA:{idCompraProveedor}",
+                _userContext.UserId);
 
             // Registrar motivo en Observacion
             compra.Observacion = string.IsNullOrWhiteSpace(compra.Observacion)
@@ -267,7 +291,8 @@ public class CompraProveedorServices : ICompraProveedorServices
 
             compra.Activo = false;
 
-            await _context.SaveChangesAsync();
+            await _compraRepo.SaveChangesAsync();
+
             await transaction.CommitAsync();
 
             return Result<bool>.Success(true);
@@ -280,8 +305,6 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // â”€â”€ EXPORT EXCEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
     public async Task<Result<byte[]>> ExportarExcelAsync(DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
@@ -290,7 +313,7 @@ public class CompraProveedorServices : ICompraProveedorServices
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using var package = new ExcelPackage();
 
-            // â”€â”€ Hoja 1: Compras â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    
             var wsCompras = package.Workbook.Worksheets.Add("Compras");
             var headersCompras = new[]
             {
@@ -313,11 +336,11 @@ public class CompraProveedorServices : ICompraProveedorServices
                 wsCompras.Cells[row, 8].Value = c.DescuentoTotal;
                 wsCompras.Cells[row, 9].Value = c.IvaTotal;
                 wsCompras.Cells[row, 10].Value = c.Total;
-                wsCompras.Cells[row, 11].Value = c.Activo ? "SÃ­" : "No";
+                wsCompras.Cells[row, 11].Value = c.Activo ? "Si" : "No";
             }
             wsCompras.Cells[wsCompras.Dimension.Address].AutoFitColumns();
 
-            // â”€â”€ Hoja 2: Detalle por producto (una fila por producto por compra) â”€â”€
+            // Hoja 2: Detalle por producto (una fila por producto por compra) â”€â”€
             var wsDetalles = package.Workbook.Worksheets.Add("Detalle por Producto");
             var headersDetalles = new[]
             {
@@ -373,7 +396,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    // â”€â”€ EXPORT PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── EXPORT PDF LISTADO DE COMPRAS ──────────────────────────────────────────────
     public async Task<Result<byte[]>> ExportarPdfAsync(DateOnly? fechaDesde, DateOnly? fechaHasta)
     {
         try
@@ -472,10 +495,12 @@ public class CompraProveedorServices : ICompraProveedorServices
         try
         {
             var compra = await _compraRepo.GetByIdWithDetailsAsync(idCompraProveedor);
-            if (compra == null)
+
+            if (compra is null)
                 return Result<byte[]>.Failure(CompraProveedorErrorCode.compra_not_found);
 
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
             var document = new CompraProveedorReportDocument(
                 new List<Models.CompraProveedor> { compra },
                 $"Compra #{compra.IdCompraProveedor}",
@@ -486,6 +511,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         catch (Exception ex)
         {
             _logger.LogError("Error inesperado al exportar compra individual a PDF: {Ex}", ex);
+
             return Result<byte[]>.Failure(CompraProveedorErrorCode.error_inesperado);
         }
     }

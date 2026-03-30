@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.Features.UnidadMedida.DTO;
 using venta_stock_webapi.Features.UnidadMedida.Messages;
@@ -11,15 +12,18 @@ public class UnidadMedidaService : IUnidadMedidaService
     private readonly IUnidadMedidaRepository _repository;
     private readonly IMapper _mapper;
     private readonly ILogger<UnidadMedidaService> _logger;
+    private readonly VentaStockContext _context;
 
     public UnidadMedidaService(
         IUnidadMedidaRepository repository,
         IMapper mapper,
-        ILogger<UnidadMedidaService> logger)
+        ILogger<UnidadMedidaService> logger,
+        VentaStockContext context)
     {
         _repository = repository;
         _mapper = mapper;
         _logger = logger;
+        _context = context;
     }
 
     public async Task<Result<List<UnidadMedidaDTO>>> GetAllAsync()
@@ -52,6 +56,7 @@ public class UnidadMedidaService : IUnidadMedidaService
 
     public async Task<Result<UnidadMedidaDTO>> CreateAsync(CreateUnidadMedidaDTO dto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             if (await _repository.NombreDuplicadoAsync(dto.Nombre))
@@ -70,10 +75,12 @@ public class UnidadMedidaService : IUnidadMedidaService
             _repository.Add(unidad);
             await _repository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<UnidadMedidaDTO>.Success(_mapper.Map<UnidadMedidaDTO>(unidad));
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al crear unidad de medida");
             return Result<UnidadMedidaDTO>.Failure(UnidadMedidaErrorCode.unexpected_error);
         }
@@ -81,6 +88,7 @@ public class UnidadMedidaService : IUnidadMedidaService
 
     public async Task<Result<UnidadMedidaDTO>> UpdateAsync(int id, UpdateUnidadMedidaDTO dto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var unidad = await _repository.GetByIdAsync(id);
@@ -98,10 +106,12 @@ public class UnidadMedidaService : IUnidadMedidaService
 
             await _repository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<UnidadMedidaDTO>.Success(_mapper.Map<UnidadMedidaDTO>(unidad));
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al actualizar unidad de medida {Id}", id);
             return Result<UnidadMedidaDTO>.Failure(UnidadMedidaErrorCode.unexpected_error);
         }
@@ -109,23 +119,25 @@ public class UnidadMedidaService : IUnidadMedidaService
 
     public async Task<Result<bool>> ToggleActivoAsync(int id)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var unidad = await _repository.GetByIdAsync(id);
             if (unidad is null)
                 return Result<bool>.Failure(UnidadMedidaErrorCode.unidad_not_found);
 
-            // Si se va a desactivar, verificar que no esté en uso
             if (unidad.Activo && await _repository.EstaEnUsoAsync(id))
                 return Result<bool>.Failure(UnidadMedidaErrorCode.unidad_en_uso);
 
             unidad.Activo = !unidad.Activo;
             await _repository.SaveChangesAsync();
 
+            await transaction.CommitAsync();
             return Result<bool>.Success(unidad.Activo);
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError(ex, "Error al cambiar estado de unidad de medida {Id}", id);
             return Result<bool>.Failure(UnidadMedidaErrorCode.unexpected_error);
         }

@@ -23,7 +23,7 @@ public class UnidadMedidaController : ControllerBase
     /// Retorna todas las unidades (activas e inactivas). Para la grilla de administración.
     /// </summary>
     [HttpGet("admin")]
-    [Authorize(Policy = "PERM:PROD_UPDATE")]
+    [Authorize(Policy = "PERM:PROD_READ")]
     public async Task<IActionResult> GetAll()
     {
         var result = await _service.GetAllAsync();

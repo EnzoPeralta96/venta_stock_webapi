@@ -5,5 +5,5 @@ public class ImportListaPrecioResultDTO
     public int TotalProcesados { get; set; }
     public int Insertados { get; set; }
     public int Actualizados { get; set; }
-    public List<string> Errores { get; set; } = [];
+    public List<string> CodigosIgnorados { get; set; } = [];
 }

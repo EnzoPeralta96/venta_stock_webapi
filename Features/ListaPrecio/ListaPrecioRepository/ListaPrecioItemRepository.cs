@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 
@@ -31,6 +32,15 @@ public class ListaPrecioItemRepository : IListaPrecioItemRepository
             .OrderBy(x => x.IdProductoNavigation.Nombre)
             .ToListAsync();
 
+    public Task<List<ProductoListaprecioProveedor>> GetItemsWithBarcodesAsync(int idLista)
+        => _db.ProductoListaprecioProveedors
+            .AsNoTracking()
+            .Where(x => x.IdLista == idLista)
+            .Include(x => x.IdProductoNavigation)
+                .ThenInclude(p => p.CodigoBarras)
+            .OrderBy(x => x.IdProductoNavigation.Nombre)
+            .ToListAsync();
+
     public Task<ProductoListaprecioProveedor?> GetItemAsync(int idLista, int idProducto)
         => _db.ProductoListaprecioProveedors
             .Include(x => x.IdProductoNavigation)
@@ -59,4 +69,39 @@ public class ListaPrecioItemRepository : IListaPrecioItemRepository
         _db.ProductoListaprecioProveedors.Remove(entity);
         await _db.SaveChangesAsync();
     }
+
+    public async Task UpsertItemNoSaveAsync(int idLista, int idProducto, decimal precio, decimal? margen)
+    {
+        var existing = await _db.ProductoListaprecioProveedors
+            .FirstOrDefaultAsync(x => x.IdLista == idLista && x.IdProducto == idProducto);
+
+        if (existing != null)
+        {
+            existing.Precio = precio;
+            existing.Margen = margen;
+        }
+        else
+        {
+            await _db.ProductoListaprecioProveedors.AddAsync(new ProductoListaprecioProveedor
+            {
+                IdLista = idLista,
+                IdProducto = idProducto,
+                Precio = precio,
+                Margen = margen
+            });
+        }
+    }
+
+    public async Task UpdateProductoPrecioNoSaveAsync(int idProducto, decimal nuevoPrecio)
+    {
+        var producto = await _db.Productos.FindAsync(idProducto);
+        if (producto != null)
+            producto.Precio = nuevoPrecio;
+    }
+
+    public Task<IDbContextTransaction> BeginTransactionAsync()
+        => _db.Database.BeginTransactionAsync();
+
+    public Task SaveChangesAsync()
+        => _db.SaveChangesAsync();
 }

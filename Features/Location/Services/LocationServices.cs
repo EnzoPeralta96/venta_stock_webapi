@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
@@ -13,11 +14,14 @@ namespace proyecto_venta_stock.Location.Services
         private readonly ILogger<LocationServices> _logger;
         private readonly ILocationRepository _locationRepository;
         private readonly IMapper _mapper;
-        public LocationServices(ILocationRepository locationRepository, ILogger<LocationServices> logger, IMapper mapper)
+        private readonly VentaStockContext _context;
+
+        public LocationServices(ILocationRepository locationRepository, ILogger<LocationServices> logger, IMapper mapper, VentaStockContext context)
         {
             _locationRepository = locationRepository;
             _logger = logger;
             _mapper = mapper;
+            _context = context;
         }
        public async Task<Result<PagedList<LocationDTO>>> SearchAsync(int pageIndex, int pageSize, string searchTerm, bool activos)
         {
@@ -57,6 +61,7 @@ namespace proyecto_venta_stock.Location.Services
         // ➕ Crear ubicación
         public async Task<Result<LocationDTO>> CreateAsync(LocationCreateUpdateDTO dto)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var exists = await _locationRepository.ExistsAsync(dto.Fila, dto.Seccion, dto.Nivel);
@@ -68,11 +73,13 @@ namespace proyecto_venta_stock.Location.Services
 
                 await _locationRepository.CreateAsync(ubicacion);
 
+                await transaction.CommitAsync();
                 var created = _mapper.Map<LocationDTO>(ubicacion);
                 return Result<LocationDTO>.Success(created);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al crear ubicación");
                 return Result<LocationDTO>.Failure(LocationErrorCode.unexpected_error);
             }
@@ -81,6 +88,7 @@ namespace proyecto_venta_stock.Location.Services
         // ✏️ Actualizar ubicación
         public async Task<Result<LocationDTO>> UpdateAsync(int id, LocationCreateUpdateDTO dto)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ubicacion = await _locationRepository.GetByIdAsync(id);
@@ -98,11 +106,13 @@ namespace proyecto_venta_stock.Location.Services
                 _mapper.Map(dto, ubicacion);
                 await _locationRepository.UpdateAsync(ubicacion);
 
+                await transaction.CommitAsync();
                 var updated = _mapper.Map<LocationDTO>(ubicacion);
                 return Result<LocationDTO>.Success(updated);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al actualizar ubicación");
                 return Result<LocationDTO>.Failure(LocationErrorCode.unexpected_error);
             }
@@ -111,6 +121,7 @@ namespace proyecto_venta_stock.Location.Services
         // 🗑️ Eliminado lógico
         public async Task<Result<bool>> DeleteAsync(int id)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ubicacion = await _locationRepository.GetByIdAsync(id);
@@ -122,10 +133,12 @@ namespace proyecto_venta_stock.Location.Services
                     return Result<bool>.Failure(LocationErrorCode.location_in_use);
 
                 await _locationRepository.DeleteAsync(id);
+                await transaction.CommitAsync();
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al eliminar ubicación");
                 return Result<bool>.Failure(LocationErrorCode.unexpected_error);
             }
@@ -134,13 +147,16 @@ namespace proyecto_venta_stock.Location.Services
         // 🔄 Cambiar estado (activo/inactivo)
         public async Task<Result<bool>> ToggleActivoAsync(int id)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 await _locationRepository.ToggleActivoAsync(id);
+                await transaction.CommitAsync();
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error al cambiar estado de la ubicación");
                 return Result<bool>.Failure(LocationErrorCode.unexpected_error);
             }

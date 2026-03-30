@@ -1,6 +1,6 @@
 # Prompt Claude Code: Importador Inteligente por Plantilla (Backend)
 
-Copia este texto y pégalo en tu sesión de Claude Code apuntando a la carpeta del Backend (`venta_stock_webapi`).
+
 
 ```md
 Hola Claude. Actúa como un Arquitecto de Software Senior y experto Backend en ASP.NET Core 8.

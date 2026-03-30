@@ -13,4 +13,6 @@ public interface ICompraProveedorRepository
     Task<Models.CompraProveedor?> GetByIdWithDetailsAsync(int idCompraProveedor);
     Task<List<Models.CompraProveedor>> GetAllByProveedorWithDetailsAsync(int idProveedor, DateOnly? fechaDesde, DateOnly? fechaHasta);
     Task<bool> ExistsByNumeroComprobanteAsync(string numeroComprobante, int idProveedor, int? excludeId = null);
+    Task<Models.CompraProveedor?> GetByIdForUpdateAsync(int idCompraProveedor);
+    Task SaveChangesAsync();
 }

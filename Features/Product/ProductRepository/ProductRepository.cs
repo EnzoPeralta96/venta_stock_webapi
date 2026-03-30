@@ -100,8 +100,13 @@ namespace proyecto_venta_stock.Product.ProductRepository
                 .FirstOrDefaultAsync();
         }
 
-
-
+        public Task<int> QuantityExistsAndActive(List<int> idsProducto)
+        {
+            return _dbContext.Productos
+                .Where(p => idsProducto.Contains(p.IdProducto) && p.Activo)
+                .AsNoTracking()
+                .CountAsync();
+        }
     }
 
 }

@@ -58,6 +58,7 @@ public class ListaPrecioItemsController : ControllerBase
     public async Task<IActionResult> UpdateItem(int idLista, int idProducto, [FromBody] ListaPrecioItemUpsertDTO dto)
     {
         var result = await _services.UpdateItemAsync(idLista, idProducto, dto);
+        
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
@@ -89,24 +90,38 @@ public class ListaPrecioItemsController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("import")]
-    public async Task<IActionResult> Import(int idLista, IFormFile file)
+    [HttpGet("plantilla-excel")]
+    public async Task<IActionResult> DescargarPlantilla(int idLista)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("Debe adjuntar un archivo.");
+        var result = await _services.DescargarPlantillaAsync(idLista);
 
-        var result = await _services.ImportarAsync(idLista, file);
         if (!result.IsSuccess)
         {
             var code = (ListaPrecioItemErrorCode)result.ErrorCode;
             var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
-
-            if (code == ListaPrecioItemErrorCode.lista_not_found)
-                return NotFound(errorMessage);
-
-            return BadRequest(errorMessage);
+            return code == ListaPrecioItemErrorCode.lista_not_found ? NotFound(errorMessage) : BadRequest(errorMessage);
         }
-        
+
+        return File(result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"plantilla-lista-{idLista}.xlsx");
+    }
+
+    [HttpPost("import")]
+    public async Task<IActionResult> Import(int idLista, IFormFile file, [FromForm] bool actualizarPrecioVenta = false)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Debe adjuntar un archivo.");
+
+        var result = await _services.ImportarAsync(idLista, file, actualizarPrecioVenta);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+            return code == ListaPrecioItemErrorCode.lista_not_found ? NotFound(errorMessage) : BadRequest(errorMessage);
+        }
+
         return Ok(result.Value);
     }
 }

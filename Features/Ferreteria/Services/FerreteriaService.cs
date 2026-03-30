@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using venta_stock_webapi.Features.Ferreteria.DTO;
@@ -11,15 +12,18 @@ namespace venta_stock_webapi.Features.Ferreteria.Services
         private readonly ILogger<FerreteriaService> _logger;
         private readonly IMapper _mapper;
         private readonly IFerreteriaRepository _ferreteriaRepository;
+        private readonly VentaStockContext _context;
 
         public FerreteriaService(
             ILogger<FerreteriaService> logger,
             IMapper mapper,
-            IFerreteriaRepository ferreteriaRepository)
+            IFerreteriaRepository ferreteriaRepository,
+            VentaStockContext context)
         {
             _logger = logger;
             _mapper = mapper;
             _ferreteriaRepository = ferreteriaRepository;
+            _context = context;
         }
 
         public async Task<Result<FerreteriaResponseDTO>> GetAsync()
@@ -46,6 +50,7 @@ namespace venta_stock_webapi.Features.Ferreteria.Services
 
         public async Task<Result<bool>> UpdateAsync(FerreteriaUpdateDTO ferreteriaDTO)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ferreteria = await _ferreteriaRepository.GetAsync();
@@ -56,7 +61,6 @@ namespace venta_stock_webapi.Features.Ferreteria.Services
                     return Result<bool>.Failure(FerreteriaErrorCode.ferreteria_not_found);
                 }
 
-                // Actualizar los campos con los valores del DTO
                 ferreteria.Nombre = ferreteriaDTO.Nombre;
                 ferreteria.Direccion = ferreteriaDTO.Direccion;
                 ferreteria.Telefono = ferreteriaDTO.Telefono;
@@ -66,10 +70,12 @@ namespace venta_stock_webapi.Features.Ferreteria.Services
 
                 await _ferreteriaRepository.UpdateAsync(ferreteria);
 
+                await transaction.CommitAsync();
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado al actualizar la ferretería: " + ex.ToString());
                 return Result<bool>.Failure(FerreteriaErrorCode.update_failed);
             }

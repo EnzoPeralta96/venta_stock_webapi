@@ -12,16 +12,14 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
             _dbContext = dbContext;
         }
 
-        public async Task Create(Models.Proveedor proveedor)
+        public void Create(Models.Proveedor proveedor)
         {
             _dbContext.Proveedors.Add(proveedor);
-            await _dbContext.SaveChangesAsync();
         }
 
-        public async Task Update(Models.Proveedor proveedor)
+        public void Update(Models.Proveedor proveedor)
         {
             _dbContext.Proveedors.Update(proveedor);
-            await _dbContext.SaveChangesAsync();
         }
 
         public Task<Models.Proveedor?> GetById(int idProveedor)
@@ -74,12 +72,23 @@ namespace proyecto_venta_stock.Proveedor.ProveedorRepository
             return q.AnyAsync(p => p.Proveedor1 == nombre);
         }
 
-        public async Task Delete(Models.Proveedor proveedor)
+        public void Delete(Models.Proveedor proveedor)
         {
             proveedor.FechaBaja = DateTime.Now;
             proveedor.Activo = false;
             _dbContext.Proveedors.Update(proveedor);
-            await _dbContext.SaveChangesAsync();
+        }
+
+        public Task SaveChangesAsync()
+        {
+            return _dbContext.SaveChangesAsync();
+        }
+
+        public Task<bool> Exists(int idProveedor)
+        {
+            return _dbContext.Proveedors
+                .AsNoTracking()
+                .AnyAsync(p => p.IdProveedor == idProveedor && p.Activo);
         }
     }
 }

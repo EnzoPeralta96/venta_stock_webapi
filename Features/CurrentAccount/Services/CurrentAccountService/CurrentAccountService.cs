@@ -84,6 +84,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             try
             {
                 var clientExists = await _clientRepository.ExistsByIdAsync(clientId);
+
                 if (!clientExists)
                 {
                     _logger.LogWarning("Client with ID {ClientId} not found", clientId);
@@ -92,7 +93,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
                 var (opening, latest) = await _accountMovementRepository.GetAccountSummaryAsync(clientId);
 
-                if (opening == null)
+                if (opening is null)
                     return Result<AccountSummaryDTO>.Failure(CurrentAccountCode.account_not_found);
 
                 var dto = new AccountSummaryDTO
@@ -145,6 +146,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<string>> CreateAccountMovement(CreateCurrentAccountDTO accountMovementDTO)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var clientExists = await _clientRepository.ExistsByIdAsync(accountMovementDTO.IdCliente);
@@ -156,14 +158,18 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 }
 
                 var accountMovement = _mapper.Map<MovimientoCc>(accountMovementDTO);
+
                 accountMovement.Detalle = await _accountMovementRepository.GetDetailMovement((int)accountMovement.IdTipoMovimiento);
 
                 await _accountMovementRepository.CreateMovement(accountMovement);
+
+                await transaction.CommitAsync();
 
                 return Result<string>.Success("Creacion de cuenta exitosa");
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error adding account movement for client {ClientId}", accountMovementDTO.IdCliente);
                 return Result<string>.Failure(CurrentAccountCode.unexpected_error);
             }
@@ -171,6 +177,10 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<int>> RegisterMovement(AddMovementDTO addMovementDTO)
         {
+            bool ownTransaction = _context.Database.CurrentTransaction == null;
+            using var transaction = ownTransaction
+                ? await _context.Database.BeginTransactionAsync()
+                : null;
             try
             {
                 var lastMovement = await _accountMovementRepository.GetLastMovement(addMovementDTO.IdCliente);
@@ -215,10 +225,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                     await AllocarPagoGlobal(addMovementDTO.IdCliente, addMovementDTO.Importe);
                 }
 
+                if (ownTransaction) await transaction!.CommitAsync();
+
                 return Result<int>.Success(newMovement.IdMovimiento);
             }
             catch (Exception ex)
             {
+                if (ownTransaction) await transaction!.RollbackAsync();
                 _logger.LogError(ex, "Error registering movement for client {ClientId}", addMovementDTO.IdCliente);
                 return Result<int>.Failure(CurrentAccountCode.unexpected_error);
             }
@@ -284,10 +297,10 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 var (tipoComprobante, colorHeader) = movement.IdTipoMovimiento switch
                 {
                     6 or 8 or 11 => ("COMPROBANTE DE PAGO", "green"),
-                    3            => ("NOTA DE DÉBITO",       "red"),
-                    4            => ("NOTA DE CRÉDITO",      "blue"),
-                    9            => ("ANULACIÓN DE PAGO",    "red"),
-                    _            => ("COMPROBANTE DE MOVIMIENTO", "green")
+                    3 => ("NOTA DE DÉBITO", "red"),
+                    4 => ("NOTA DE CRÉDITO", "blue"),
+                    9 => ("ANULACIÓN DE PAGO", "red"),
+                    _ => ("COMPROBANTE DE MOVIMIENTO", "green")
                 };
 
                 var importe = movement.Importe ?? 0;
@@ -466,17 +479,21 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<int>> RegisterDebitNote(RegisterDebitNoteDTO dto)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 // 1. Verificar que el cliente tiene cuenta corriente
                 var lastMovement = await _accountMovementRepository.GetLastMovement(dto.IdCliente);
+
                 if (lastMovement is null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
                 // 2. Verificar que el motivo de ND existe y está activo
                 var motivo = await _debitNoteReasonRepository.GetByIdAsync(dto.IdMotivo);
+
                 if (motivo is null)
                     return Result<int>.Failure(CurrentAccountCode.debit_note_reason_not_found);
+
                 if (!motivo.Activo)
                     return Result<int>.Failure(CurrentAccountCode.debit_note_reason_inactive);
 
@@ -518,11 +535,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 };
 
                 await _accountMovementRepository.CreateMovement(newMovement);
+                await transaction.CommitAsync();
 
                 return Result<int>.Success(newMovement.IdMovimiento);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error registering debit note for client {ClientId}", dto.IdCliente);
                 return Result<int>.Failure(CurrentAccountCode.unexpected_error);
             }
@@ -592,13 +611,16 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<string>> ApplyInterestToClient(int clientId, int idUsuarioRegistra)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var config = await _interestConfigRepository.GetCurrentAsync();
+
                 if (config is null)
                     return Result<string>.Failure(CurrentAccountCode.no_active_config);
 
                 var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
+
                 if (lastMovement is null || (lastMovement.SaldoActual ?? 0) <= 0)
                     return Result<string>.Failure(CurrentAccountCode.client_has_no_debt);
 
@@ -635,11 +657,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 };
 
                 await _accountMovementRepository.CreateMovement(newMovement);
+                await transaction.CommitAsync();
 
                 return Result<string>.Success($"Interés aplicado: ${importe:F2}");
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error applying interest to client {ClientId}", clientId);
                 return Result<string>.Failure(CurrentAccountCode.unexpected_error);
             }
@@ -647,9 +671,11 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<string>> ApplyInterestToAll(int idUsuarioRegistra)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var overdueResult = await GetOverdueClients();
+
                 if (!overdueResult.IsSuccess)
                     return Result<string>.Failure((CurrentAccountCode)overdueResult.ErrorCode!);
 
@@ -663,11 +689,14 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                     else fallidos++;
                 }
 
+                await transaction.CommitAsync();
+
                 return Result<string>.Success(
                     $"Interés aplicado a {exitosos} clientes. {fallidos} clientes con error.");
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error applying interest to all clients");
                 return Result<string>.Failure(CurrentAccountCode.unexpected_error);
             }
@@ -697,15 +726,15 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
                 var ds = new AccountStatementDataSource
                 {
-                    DatosFerreteria  = ferreteria,
-                    ClienteNombre    = GetClientName(cliente),
-                    ClienteDni       = !string.IsNullOrWhiteSpace(cliente?.Dni) ? cliente.Dni : (cliente?.Cuit ?? "-"),
-                    FechaGeneracion  = DateTime.Now,
+                    DatosFerreteria = ferreteria,
+                    ClienteNombre = GetClientName(cliente),
+                    ClienteDni = !string.IsNullOrWhiteSpace(cliente?.Dni) ? cliente.Dni : (cliente?.Cuit ?? "-"),
+                    FechaGeneracion = DateTime.Now,
                     FiltroFechaDesde = fechaDesde?.ToString("dd/MM/yyyy"),
                     FiltroFechaHasta = fechaHasta?.ToString("dd/MM/yyyy"),
-                    SaldoActual      = lastMovement?.SaldoActual ?? 0,
-                    LimiteCredito    = (lastMovement?.SaldoActual ?? 0) + (lastMovement?.LimiteCuenta ?? 0),
-                    Movimientos      = items
+                    SaldoActual = lastMovement?.SaldoActual ?? 0,
+                    LimiteCredito = (lastMovement?.SaldoActual ?? 0) + (lastMovement?.LimiteCuenta ?? 0),
+                    Movimientos = items
                 };
 
                 var bytes = new AccountStatementDocument(ds).GeneratePdf();
@@ -849,13 +878,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
                 return new AccountStatementItemPdf
                 {
-                    Numero         = i + 1,
-                    Fecha          = m.Fecha?.ToString("dd/MM/yyyy HH:mm") ?? "-",
+                    Numero = i + 1,
+                    Fecha = m.Fecha?.ToString("dd/MM/yyyy HH:mm") ?? "-",
                     TipoMovimiento = m.IdTipoMovimientoNavigation?.Nombre ?? "-",
-                    Detalle        = detalle,
-                    Debe           = debe,
-                    Haber          = haber,
-                    Saldo          = m.SaldoActual
+                    Detalle = detalle,
+                    Debe = debe,
+                    Haber = haber,
+                    Saldo = m.SaldoActual
                 };
             }).ToList();
         }
@@ -870,6 +899,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         public async Task<Result<int>> UpdateAccountLimitAsync(UpdateAccountLimitDTO dto)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var clientExists = await _clientRepository.ExistsByIdAsync(dto.IdCliente);
@@ -914,10 +944,12 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
                 await _accountMovementRepository.CreateMovement(mov);
 
+                await transaction.CommitAsync();
                 return Result<int>.Success(mov.IdMovimiento);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error updating account limit for client {ClientId}", dto.IdCliente);
                 return Result<int>.Failure(CurrentAccountCode.unexpected_error);
             }

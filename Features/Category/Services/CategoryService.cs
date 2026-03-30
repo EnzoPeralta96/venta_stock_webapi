@@ -1,4 +1,5 @@
 using AutoMapper;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Category.DTO;
@@ -13,16 +14,19 @@ namespace proyecto_venta_stock.Category.Services
         private readonly ILogger<CategoryService> _logger;
         private readonly IMapper _mapper;
         private readonly ICategoryRepository _categoryRepo;
+        private readonly VentaStockContext _context;
 
-        public CategoryService(ILogger<CategoryService> logger, IMapper mapper, ICategoryRepository categoryRepo)
+        public CategoryService(ILogger<CategoryService> logger, IMapper mapper, ICategoryRepository categoryRepo, VentaStockContext context)
         {
             _logger = logger;
             _mapper = mapper;
             _categoryRepo = categoryRepo;
+            _context = context;
         }
 
         public async Task<Result<bool>> Create(CreateCategoryDTO categoryDTO)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 bool categoryExists = await _categoryRepo.ExistsByName(categoryDTO.Categoria);
@@ -37,10 +41,12 @@ namespace proyecto_venta_stock.Category.Services
 
                 await _categoryRepo.Create(category);
 
+                await transaction.CommitAsync();
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(CategoryErrorCode.error_inesperado);
             }
@@ -85,13 +91,14 @@ namespace proyecto_venta_stock.Category.Services
 
         public async Task<Result<bool>> Update(UpdateCategoryDTO categoryDTO)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var existingCategory = await _categoryRepo.GetById(categoryDTO.IdCategoria);
 
                 if (existingCategory is null)
                     return Result<bool>.Failure(CategoryErrorCode.category_not_found);
-                
+
                 bool nameInUse = await _categoryRepo.ExistsByName(categoryDTO.Categoria, categoryDTO.IdCategoria);
 
                 if (nameInUse)
@@ -101,11 +108,12 @@ namespace proyecto_venta_stock.Category.Services
 
                 await _categoryRepo.Update(existingCategory);
 
+                await transaction.CommitAsync();
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
-
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado:" + ex.ToString());
                 return Result<bool>.Failure(CategoryErrorCode.error_inesperado);
             }
@@ -114,24 +122,28 @@ namespace proyecto_venta_stock.Category.Services
 
         public async Task<Result<bool>> Delete(int idCategoria)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _categoryRepo.GetById(idCategoria);
 
-                if (existing is null) 
+                if (existing is null)
                     return Result<bool>.Failure(CategoryErrorCode.category_not_found);
 
                 await _categoryRepo.Delete(existing);
 
-                return Result<bool>.Success(true); // <- importante: true
+                await transaction.CommitAsync();
+                return Result<bool>.Success(true);
             }
             catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogWarning(ex, "Category in use");
                 return Result<bool>.Failure(CategoryErrorCode.category_in_use);
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Unexpected");
                 return Result<bool>.Failure(CategoryErrorCode.error_inesperado);
             }

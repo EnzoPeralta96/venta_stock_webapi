@@ -120,8 +120,10 @@ public class CompraProveedorController : ControllerBase
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+
             if (code == CompraProveedorErrorCode.compra_not_found) return NotFound(mensaje);
             if (code == CompraProveedorErrorCode.compra_ya_inactiva) return Conflict(mensaje);
+            
             return BadRequest(mensaje);
         }
 
@@ -132,12 +134,15 @@ public class CompraProveedorController : ControllerBase
     public async Task<IActionResult> ExportarCompraExcel(int idCompraProveedor)
     {
         var result = await _compraProveedorServices.ExportarCompraExcelAsync(idCompraProveedor);
+
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+
             return code == CompraProveedorErrorCode.compra_not_found ? NotFound(mensaje) : BadRequest(mensaje);
         }
+
         return File(result.Value,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
@@ -147,12 +152,15 @@ public class CompraProveedorController : ControllerBase
     public async Task<IActionResult> ExportarCompraPdf(int idCompraProveedor)
     {
         var result = await _compraProveedorServices.ExportarCompraPdfAsync(idCompraProveedor);
+
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
+
             return code == CompraProveedorErrorCode.compra_not_found ? NotFound(mensaje) : BadRequest(mensaje);
         }
+
         return File(result.Value, "application/pdf", $"compra_{idCompraProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
     }
 
@@ -164,13 +172,16 @@ public class CompraProveedorController : ControllerBase
     {
         DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d1) ? d1 : null;
         DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h1) ? h1 : null;
+
         var result = await _compraProveedorServices.ExportarComprasPorProveedorExcelAsync(idProveedor, desdeParsed, hastaParsed);
+
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
             return BadRequest(mensaje);
         }
+
         return File(result.Value,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.xlsx");
@@ -184,13 +195,16 @@ public class CompraProveedorController : ControllerBase
     {
         DateOnly? desdeParsed = DateOnly.TryParse(fechaDesde, out var d2) ? d2 : null;
         DateOnly? hastaParsed = DateOnly.TryParse(fechaHasta, out var h2) ? h2 : null;
+
         var result = await _compraProveedorServices.ExportarComprasPorProveedorPdfAsync(idProveedor, desdeParsed, hastaParsed);
+
         if (!result.IsSuccess)
         {
             var code = (CompraProveedorErrorCode)result.ErrorCode;
             var mensaje = MessageProvider.Get(CompraProveedorErrorDictionary.Messages, code);
             return BadRequest(mensaje);
         }
+        
         return File(result.Value, "application/pdf", $"compras_proveedor_{idProveedor}_{DateTime.Today:yyyyMMdd}.pdf");
     }
 

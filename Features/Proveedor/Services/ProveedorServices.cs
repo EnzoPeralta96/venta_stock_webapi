@@ -1,6 +1,7 @@
 using AutoMapper;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
@@ -19,37 +20,46 @@ namespace proyecto_venta_stock.Proveedor.Services
         private readonly ILogger<ProveedorServices> _logger;
         private readonly IProveedorRepository _proveedorRepository;
         private readonly IFerreteriaRepository _ferreteriaRepository;
+        private readonly VentaStockContext _dbContext;
         private readonly IMapper _mapper;
 
         public ProveedorServices(
             IProveedorRepository proveedorRepository,
             IFerreteriaRepository ferreteriaRepository,
             ILogger<ProveedorServices> logger,
-            IMapper mapper)
+            IMapper mapper,
+            VentaStockContext dbContext)
         {
             _proveedorRepository = proveedorRepository;
             _ferreteriaRepository = ferreteriaRepository;
             _logger = logger;
             _mapper = mapper;
+            _dbContext = dbContext;
         }
 
         public async Task<Result<bool>> Create(CreateProveedorDTO dto)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var exists = await _proveedorRepository.Exists(dto.Nombre);
 
-                if (exists) 
+                if (exists)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_name_in_use);
 
                 var entity = _mapper.Map<Models.Proveedor>(dto);
 
-                await _proveedorRepository.Create(entity);
+                _proveedorRepository.Create(entity);
+
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado: " + ex);
                 return Result<bool>.Failure(ProveedorErrorCode.error_inesperado);
             }
@@ -57,16 +67,17 @@ namespace proyecto_venta_stock.Proveedor.Services
 
         public async Task<Result<bool>> Update(UpdateProveedorDTO dto)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _proveedorRepository.GetById(dto.IdProveedor);
 
-                if (existing is null) 
+                if (existing is null)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
                 var exists = await _proveedorRepository.Exists(dto.Nombre, excludeId: dto.IdProveedor);
 
-                if (exists) 
+                if (exists)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_name_in_use);
 
                 // update manual (similar a ProductServices)
@@ -74,12 +85,17 @@ namespace proyecto_venta_stock.Proveedor.Services
                 existing.Direccion = dto.Direccion;
                 existing.Telefono = dto.Telefono;
 
-                await _proveedorRepository.Update(existing);
+                _proveedorRepository.Update(existing);
+
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado: " + ex);
                 return Result<bool>.Failure(ProveedorErrorCode.error_inesperado);
             }
@@ -108,7 +124,7 @@ namespace proyecto_venta_stock.Proveedor.Services
             {
                 var entity = await _proveedorRepository.GetById(idProveedor);
 
-                if (entity is null) 
+                if (entity is null)
                     return Result<ProveedorDTO>.Failure(ProveedorErrorCode.proveedor_not_found);
 
                 var dto = _mapper.Map<ProveedorDTO>(entity);
@@ -124,19 +140,26 @@ namespace proyecto_venta_stock.Proveedor.Services
 
         public async Task<Result<bool>> Delete(int idProveedor)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
+
             {
                 var existing = await _proveedorRepository.GetById(idProveedor);
 
-                if (existing is null) 
+                if (existing is null)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
-                await _proveedorRepository.Delete(existing);
+                _proveedorRepository.Delete(existing);
+
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado: " + ex);
                 return Result<bool>.Failure(ProveedorErrorCode.error_inesperado);
             }
@@ -167,20 +190,29 @@ namespace proyecto_venta_stock.Proveedor.Services
 
         public async Task<Result<bool>> ToggleEstado(int idProveedor)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _proveedorRepository.GetById(idProveedor);
+
                 if (existing is null)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
                 existing.Activo = !existing.Activo;
+
                 if (existing.Activo) existing.FechaBaja = null;
-                await _proveedorRepository.Update(existing);
+
+                _proveedorRepository.Update(existing);
+
+                await _dbContext.SaveChangesAsync();
+
+                await transaction.CommitAsync();
 
                 return Result<bool>.Success();
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError("Error inesperado: " + ex);
                 return Result<bool>.Failure(ProveedorErrorCode.error_inesperado);
             }
