@@ -1,14 +1,17 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.User.UserRepository;
+using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.StockMovement.DTO;
 using venta_stock_webapi.Features.StockMovement.Messages;
 using venta_stock_webapi.Features.StockMovement.Repository;
+using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
 
 namespace venta_stock_webapi.Features.StockMovement.Services;
@@ -21,6 +24,8 @@ public class StockMovementService : IStockMovementService
     private readonly IMovimientoStockRepository _movimientoStockRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<StockMovementService> _logger;
+    private readonly IAuditRepository _auditRepository;
+    private readonly IUserContext _userContext;
 
     public StockMovementService(
         ILogger<StockMovementService> logger,
@@ -28,7 +33,9 @@ public class StockMovementService : IStockMovementService
         IUserRepository userRepository,
         IMovimientoStockRepository movimientoStockRepository,
         IMapper mapper,
-        VentaStockContext dbContext)
+        VentaStockContext dbContext,
+        IAuditRepository auditRepository,
+        IUserContext userContext)
     {
         _logger = logger;
         _productRepository = productRepository;
@@ -36,7 +43,31 @@ public class StockMovementService : IStockMovementService
         _movimientoStockRepository = movimientoStockRepository;
         _mapper = mapper;
         _dbContext = dbContext;
+        _auditRepository = auditRepository;
+        _userContext = userContext;
+    }
 
+    private async Task LogAsync(string accion, string entidadTipo, string detalle,
+        object? anterior = null, object? nuevo = null)
+    {
+        try
+        {
+            await _auditRepository.LogAsync(new Auditoria
+            {
+                FechaHora         = DateTimeOffset.UtcNow,
+                IdUsuario         = _userContext.UserId,
+                UsuarioNombre     = _userContext.UserName,
+                Accion            = accion,
+                EntidadTipo       = entidadTipo,
+                Detalle           = detalle,
+                ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+        }
     }
 
     /// <summary>
@@ -78,7 +109,8 @@ public class StockMovementService : IStockMovementService
                 "SELECT set_config('app.user_id', {0}::text, true);",
                 idUsuario);
 
-            var nuevoStock = (producto.Stock ?? 0) + cantidad;
+            var stockAnterior = producto.Stock ?? 0;
+            var nuevoStock = stockAnterior + cantidad;
             producto.Stock = nuevoStock;
 
             var movimientoStock = new MovimientoStock
@@ -97,6 +129,48 @@ public class StockMovementService : IStockMovementService
 
             if (ownTransaction)
                 await _dbContext.Database.CurrentTransaction!.CommitAsync();
+
+            // Determinar acción y detalle según tipo de movimiento
+            string accionAudit;
+            string detalleAudit;
+            string nombreProducto = $"{producto.Nombre} {producto.Marca}";
+
+            switch (tipoMovimiento)
+            {
+                case TipoMovimientoStockEnum.IngresoCompra:
+                    accionAudit  = "STOCK_INGRESO";
+                    detalleAudit = $"Ingreso de stock por compra: +{cantidad} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                    break;
+
+                case TipoMovimientoStockEnum.EgresoVenta:
+                    accionAudit  = "STOCK_EGRESO";
+                    detalleAudit = $"Egreso de stock por venta: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                    break;
+
+                case TipoMovimientoStockEnum.ReingresoAnulacionVenta:
+                    accionAudit  = "STOCK_INGRESO";
+                    detalleAudit = $"Reingreso de stock por anulación de venta: +{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                    break;
+
+                case TipoMovimientoStockEnum.EgresoAnulacionCompra:
+                    accionAudit  = "STOCK_EGRESO";
+                    detalleAudit = $"Egreso de stock por anulación de compra: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                    break;
+
+                case TipoMovimientoStockEnum.AjustePositivoManual:
+                case TipoMovimientoStockEnum.AjusteNegativoManual:
+                case TipoMovimientoStockEnum.ConsumoInternoDueno:
+                default:
+                    accionAudit  = "AJUSTE_STOCK";
+                    detalleAudit = $"Ajuste de stock: {(cantidad >= 0 ? "+" : "")}{cantidad} | Producto: '{nombreProducto}' | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                    if (!string.IsNullOrWhiteSpace(referencia))
+                        detalleAudit += $" | Ref: {referencia}";
+                    break;
+            }
+
+            await LogAsync(accionAudit, "PRODUCTO", detalleAudit,
+                new { Producto = nombreProducto, Stock = stockAnterior },
+                new { Producto = nombreProducto, Stock = nuevoStock });
 
             return Result<bool>.Success(true);
         }

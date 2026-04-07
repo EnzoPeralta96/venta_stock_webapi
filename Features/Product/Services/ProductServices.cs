@@ -10,12 +10,15 @@ using proyecto_venta_stock.Location.LocationRepository;
 using venta_stock_webapi.Shared.Paged;
 using OfficeOpenXml;
 using System.Text;
+using System.Text.Json;
 using System.ComponentModel.DataAnnotations;
 using proyecto_venta_stock.Configuration;
 using Microsoft.Extensions.Options;
 using proyecto_venta_stock.Data;
 using venta_stock_webapi.Features.StockMovement.Services;
 using Microsoft.EntityFrameworkCore;
+using venta_stock_webapi.Features.Audit.Repository;
+using venta_stock_webapi.Shared.Identity;
 
 namespace proyecto_venta_stock.Product.Services
 {
@@ -29,8 +32,10 @@ namespace proyecto_venta_stock.Product.Services
         private readonly IOptions<ImportDefaultsOptions> _defaultsOptions;
         private readonly VentaStockContext _dbContext;
         private readonly IStockMovementService _stockMovementService;
+        private readonly IAuditRepository _auditRepository;
+        private readonly IUserContext _userContext;
 
-        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository, IOptions<ImportDefaultsOptions> defaultsOptions, VentaStockContext dbContext, IStockMovementService stockMovementService)
+        public ProductServices(IProductRepository productRepository, ILogger<ProductServices> logger, IMapper mapper, ICategoryRepository categoryRepository, ILocationRepository locationRepository, IOptions<ImportDefaultsOptions> defaultsOptions, VentaStockContext dbContext, IStockMovementService stockMovementService, IAuditRepository auditRepository, IUserContext userContext)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
@@ -40,6 +45,31 @@ namespace proyecto_venta_stock.Product.Services
             _defaultsOptions = defaultsOptions;
             _dbContext = dbContext;
             _stockMovementService = stockMovementService;
+            _auditRepository = auditRepository;
+            _userContext = userContext;
+        }
+
+        private async Task LogAsync(string accion, string entidadTipo, string detalle,
+            object? anterior = null, object? nuevo = null)
+        {
+            try
+            {
+                await _auditRepository.LogAsync(new Auditoria
+                {
+                    FechaHora         = DateTimeOffset.UtcNow,
+                    IdUsuario         = _userContext.UserId,
+                    UsuarioNombre     = _userContext.UserName,
+                    Accion            = accion,
+                    EntidadTipo       = entidadTipo,
+                    Detalle           = detalle,
+                    ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+            }
         }
         public async Task<Result<bool>> Create(ProductDTO productDTO)
         {
@@ -71,6 +101,11 @@ namespace proyecto_venta_stock.Product.Services
                 await _productRepository.Create(product);
 
                 await transaction.CommitAsync();
+
+                await LogAsync("CREACION", "PRODUCTO",
+                    $"Producto creado: '{product.Nombre} {product.Marca}' | Precio: ${product.Precio:N2} | Stock inicial: {product.Stock ?? 0}",
+                    null,
+                    new { Nombre = product.Nombre, Marca = product.Marca, Precio = product.Precio, StockInicial = product.Stock ?? 0 });
 
                 return Result<bool>.Success();
             }
@@ -112,7 +147,15 @@ namespace proyecto_venta_stock.Product.Services
                         return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
                 }
 
-                // Mapear las propiedades básicas del producto (sin CodigoBarras)
+                // Capturar valores anteriores ANTES de sobreescribir
+                var precioAnterior    = existingProduct.Precio;
+                var nombreAnterior    = existingProduct.Nombre;
+                var marcaAnterior     = existingProduct.Marca;
+                var categoriaAnterior = existingProduct.IdCategoria;
+                var ubicAnterior      = existingProduct.IdUbicacion;
+                var stockMinAnterior  = existingProduct.StockMinimo;
+                var vssAnterior       = existingProduct.VentaSinStock;
+
                 existingProduct.Nombre = productDTO.Nombre;
                 existingProduct.Marca = productDTO.Marca;
                 existingProduct.Descripcion = productDTO.Descripcion;
@@ -124,32 +167,47 @@ namespace proyecto_venta_stock.Product.Services
                 existingProduct.IdUnidadMedida = productDTO.IdUnidadMedida;
 
                 // Manejar códigos de barras manualmente
-                var codigosNuevos = productDTO.CodigoBarras
-                    .Where(dto => !existingProduct.CodigoBarras.Any(existing => existing.Codigo == dto.Codigo))
+                var codigosNuevos2 = productDTO.CodigoBarras
+                    .Where(dto2 => !existingProduct.CodigoBarras.Any(existing2 => existing2.Codigo == dto2.Codigo))
                     .ToList();
 
-                var codigosAEliminar = existingProduct.CodigoBarras
-                    .Where(existing => !productDTO.CodigoBarras.Any(dto => dto.Codigo == existing.Codigo))
+                var codigosAEliminar2 = existingProduct.CodigoBarras
+                    .Where(existing2 => !productDTO.CodigoBarras.Any(dto2 => dto2.Codigo == existing2.Codigo))
                     .ToList();
 
-                // Eliminar códigos que ya no están
-                foreach (var codigoEliminar in codigosAEliminar)
-                {
+                foreach (var codigoEliminar in codigosAEliminar2)
                     existingProduct.CodigoBarras.Remove(codigoEliminar);
-                }
 
-                // Agregar nuevos códigos
-                foreach (var codigoNuevo in codigosNuevos)
-                {
-                    existingProduct.CodigoBarras.Add(new CodigoBarra
-                    {
-                        Codigo = codigoNuevo.Codigo,
-                        IdProducto = existingProduct.IdProducto
-                    });
-                }
+                foreach (var codigoNuevo in codigosNuevos2)
+                    existingProduct.CodigoBarras.Add(new CodigoBarra { Codigo = codigoNuevo.Codigo, IdProducto = existingProduct.IdProducto });
 
                 await _productRepository.Update(existingProduct);
                 await transaction.CommitAsync();
+
+                // Auditoría: registrar TODOS los campos modificados
+                var cambios = new List<string>();
+                var anteriorDict = new Dictionary<string, object?>();
+                var nuevoDict    = new Dictionary<string, object?>();
+
+                if (nombreAnterior    != productDTO.Nombre)        { cambios.Add($"Nombre: '{nombreAnterior}' → '{productDTO.Nombre}'");              anteriorDict["Nombre"]         = nombreAnterior;          nuevoDict["Nombre"]         = productDTO.Nombre; }
+                if (marcaAnterior     != productDTO.Marca)         { cambios.Add($"Marca: '{marcaAnterior}' → '{productDTO.Marca}'");                  anteriorDict["Marca"]          = marcaAnterior;           nuevoDict["Marca"]          = productDTO.Marca; }
+                if (precioAnterior    != productDTO.Precio)        { cambios.Add($"Precio: ${precioAnterior:N2} → ${productDTO.Precio:N2}");           anteriorDict["Precio"]         = precioAnterior;          nuevoDict["Precio"]         = productDTO.Precio; }
+                if (categoriaAnterior != productDTO.IdCategoria)   { cambios.Add($"Categoría: {categoriaAnterior} → {productDTO.IdCategoria}");        anteriorDict["IdCategoria"]    = categoriaAnterior;       nuevoDict["IdCategoria"]    = productDTO.IdCategoria; }
+                if (ubicAnterior      != productDTO.IdUbicacion)   { cambios.Add($"Ubicación: {ubicAnterior} → {productDTO.IdUbicacion}");             anteriorDict["IdUbicacion"]    = ubicAnterior;            nuevoDict["IdUbicacion"]    = productDTO.IdUbicacion; }
+                if (stockMinAnterior  != productDTO.StockMinimo)   { cambios.Add($"Stock mínimo: {stockMinAnterior} → {productDTO.StockMinimo}");      anteriorDict["StockMinimo"]    = stockMinAnterior;        nuevoDict["StockMinimo"]    = productDTO.StockMinimo; }
+                if (vssAnterior       != productDTO.VentaSinStock) { cambios.Add($"Venta sin stock: {vssAnterior} → {productDTO.VentaSinStock}");      anteriorDict["VentaSinStock"]  = vssAnterior;             nuevoDict["VentaSinStock"]  = productDTO.VentaSinStock; }
+
+                string accionProducto = precioAnterior != productDTO.Precio ? "PRECIO_ACTUALIZADO"
+                    : nombreAnterior != productDTO.Nombre ? "NOMBRE_ACTUALIZADO"
+                    : "ACTUALIZACION";
+
+                string detalleProducto = $"Producto actualizado: '{productDTO.Nombre} {productDTO.Marca}'";
+                if (cambios.Count > 0)
+                    detalleProducto += " | " + string.Join(" | ", cambios);
+
+                await LogAsync(accionProducto, "PRODUCTO", detalleProducto,
+                    anteriorDict.Count > 0 ? anteriorDict : null,
+                    nuevoDict.Count    > 0 ? nuevoDict    : null);
 
                 return Result<bool>.Success();
             }
@@ -218,6 +276,12 @@ namespace proyecto_venta_stock.Product.Services
 
                 await _productRepository.Delete(existing);
                 await transaction.CommitAsync();
+
+                await LogAsync("BAJA", "PRODUCTO",
+                    $"Producto dado de baja: '{existing.Nombre} {existing.Marca}'",
+                    new { Nombre = existing.Nombre, Marca = existing.Marca, Activo = true },
+                    new { Activo = false });
+
                 return Result<bool>.Success(true);
             }
             catch (Exception ex)
@@ -236,9 +300,19 @@ namespace proyecto_venta_stock.Product.Services
                 if (existing == null)
                     return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
-                existing.Activo = !existing.Activo;  // 👈 invierte el estado
+                bool eraActivo = existing.Activo;
+                existing.Activo = !existing.Activo;
                 await _productRepository.Update(existing);
                 await transaction.CommitAsync();
+
+                if (eraActivo)
+                    await LogAsync("BAJA", "PRODUCTO",
+                        $"Producto desactivado: '{existing.Nombre} {existing.Marca}'",
+                        new { Activo = true }, new { Activo = false });
+                else
+                    await LogAsync("REACTIVACION", "PRODUCTO",
+                        $"Producto reactivado: '{existing.Nombre} {existing.Marca}'",
+                        new { Activo = false }, new { Activo = true });
 
                 return Result<bool>.Success(true);
             }
@@ -614,6 +688,11 @@ namespace proyecto_venta_stock.Product.Services
                     lineNumber++;
                 }
                 await transaction.CommitAsync();
+
+                await LogAsync("IMPORTACION_PRECIOS", "PRODUCTO",
+                    $"Importación lista de precios: {result.ProductosCreados} creados, {result.ProductosActualizados} actualizados, {result.Errores.Count} errores",
+                    null,
+                    new { ProductosCreados = result.ProductosCreados, ProductosActualizados = result.ProductosActualizados, Errores = result.Errores.Count });
 
                 return Result<BulkImportResultDTO>.Success(result);
             }

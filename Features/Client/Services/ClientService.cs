@@ -1,4 +1,5 @@
 using AutoMapper;
+using System.Text.Json;
 using venta_stock_webapi.Client.DTO;
 using venta_stock_webapi.Client.Message;
 using venta_stock_webapi.Client.Repository;
@@ -9,6 +10,7 @@ using venta_stock_webapi.Shared.Paged;
 using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.Data.Audit;
 using venta_stock_webapi.Shared.Identity;
+using venta_stock_webapi.Features.Audit.Repository;
 
 namespace venta_stock_webapi.Client.Services
 {
@@ -20,6 +22,7 @@ namespace venta_stock_webapi.Client.Services
         private readonly IMapper _mapper;
         private readonly ILogger<ClientService> _logger;
         private readonly IUserContext _userContext;
+        private readonly IAuditRepository _auditRepository;
 
         public ClientService(
             IClientRepository clienteRepository,
@@ -27,7 +30,8 @@ namespace venta_stock_webapi.Client.Services
             IMapper mapper,
             ILogger<ClientService> logger,
             IAccountMovementRepository accountMovementRepository,
-            IUserContext userContext)
+            IUserContext userContext,
+            IAuditRepository auditRepository)
         {
             _clienteRepository = clienteRepository;
             _context = context;
@@ -35,6 +39,30 @@ namespace venta_stock_webapi.Client.Services
             _logger = logger;
             _accountMovementRepository = accountMovementRepository;
             _userContext = userContext;
+            _auditRepository = auditRepository;
+        }
+
+        private async Task LogAsync(string accion, string entidadTipo, string detalle,
+            object? anterior = null, object? nuevo = null)
+        {
+            try
+            {
+                await _auditRepository.LogAsync(new Auditoria
+                {
+                    FechaHora         = DateTimeOffset.UtcNow,
+                    IdUsuario         = _userContext.UserId,
+                    UsuarioNombre     = _userContext.UserName,
+                    Accion            = accion,
+                    EntidadTipo       = entidadTipo,
+                    Detalle           = detalle,
+                    ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+            }
         }
 
         //Agregar validaciones de usuario.
@@ -105,6 +133,28 @@ namespace venta_stock_webapi.Client.Services
 
 
                 await transaction.CommitAsync();
+
+                // Auditoría de creación de cliente
+                string nombreCliente = clienteDTO.EsEmpresa
+                    ? $"'{clienteDTO.RazonSocial}' | CUIT: {clienteDTO.Cuit}"
+                    : $"'{clienteDTO.Nombre} {clienteDTO.Apellido}' | DNI: {clienteDTO.Dni}";
+
+                object nuevoClienteAudit = clienteDTO.EsEmpresa
+                    ? (object)new { RazonSocial = clienteDTO.RazonSocial, CUIT = clienteDTO.Cuit, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail }
+                    : new { Nombre = clienteDTO.Nombre, Apellido = clienteDTO.Apellido, DNI = clienteDTO.Dni, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail };
+
+                await LogAsync("CREACION", "CLIENTE", $"Cliente creado: {nombreCliente}", null, nuevoClienteAudit);
+
+                if (clienteDTO.TieneCuentaCorriente)
+                {
+                    string nombreCC = clienteDTO.EsEmpresa
+                        ? clienteDTO.RazonSocial ?? "N/A"
+                        : $"{clienteDTO.Nombre} {clienteDTO.Apellido}";
+                    await LogAsync("CC_CREADA", "CLIENTE",
+                        $"Cuenta corriente habilitada: '{nombreCC}' | Límite: ${clienteDTO.LimiteCuenta!.Value:N2} | Saldo inicial: ${clienteDTO.SaldoInicial ?? 0:N2}",
+                        null,
+                        new { LimiteCuenta = clienteDTO.LimiteCuenta!.Value, SaldoInicial = clienteDTO.SaldoInicial ?? 0 });
+                }
 
                 // Obtener el cliente recién creado con sus relaciones
                 var clienteCompleto = await _clienteRepository.GetByIdAsync(clienteCreado.IdCliente);
@@ -193,6 +243,23 @@ namespace venta_stock_webapi.Client.Services
                         return Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use);
                 }
 
+                // Capturar campos anteriores ANTES de sobrescribir
+                var anteriorClienteDict = new Dictionary<string, object?>();
+                var nuevoClienteDict    = new Dictionary<string, object?>();
+
+                void CompareField(string campo, object? old, object? newVal)
+                {
+                    if (!Equals(old, newVal)) { anteriorClienteDict[campo] = old; nuevoClienteDict[campo] = newVal; }
+                }
+
+                CompareField("Nombre",      clienteExistente.Nombre,      clienteDTO.Nombre);
+                CompareField("Apellido",    clienteExistente.Apellido,    clienteDTO.Apellido);
+                CompareField("RazonSocial", clienteExistente.RazonSocial, clienteDTO.RazonSocial);
+                CompareField("DNI",         clienteExistente.Dni,         clienteDTO.Dni);
+                CompareField("CUIT",        clienteExistente.Cuit,        clienteDTO.Cuit);
+                CompareField("Telefono",    clienteExistente.Telefono,    clienteDTO.Telefono);
+                CompareField("Mail",        clienteExistente.Mail,        clienteDTO.Mail);
+
                 clienteExistente.Nombre = clienteDTO.Nombre;
                 clienteExistente.Apellido = clienteDTO.Apellido;
                 clienteExistente.RazonSocial = clienteDTO.RazonSocial;
@@ -204,6 +271,14 @@ namespace venta_stock_webapi.Client.Services
                 await _clienteRepository.UpdateAsync(clienteExistente);
 
                 await transaction.CommitAsync();
+
+                string nombreClienteUpdate = clienteDTO.EsEmpresa
+                    ? clienteDTO.RazonSocial
+                    : $"{clienteDTO.Nombre} {clienteDTO.Apellido}".Trim();
+                await LogAsync("ACTUALIZACION", "CLIENTE",
+                    $"Cliente actualizado: '{nombreClienteUpdate}' | Tel: {clienteDTO.Telefono} | Mail: {clienteDTO.Mail}",
+                    anteriorClienteDict.Count > 0 ? anteriorClienteDict : null,
+                    nuevoClienteDict.Count    > 0 ? nuevoClienteDict    : null);
 
                 var clienteActualizado = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
 
@@ -224,14 +299,16 @@ namespace venta_stock_webapi.Client.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                await AuditDbSession.SetAsync(_context, _userContext);
-                
                 var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente);
 
                 if (cliente == null)
                 {
                     return Result<string>.Failure(ClientErrorCode.cliente_not_found);
                 }
+
+                string nombreToggle = !string.IsNullOrWhiteSpace(cliente.RazonSocial)
+                    ? cliente.RazonSocial
+                    : $"{cliente.Nombre} {cliente.Apellido}";
 
                 if (!dto.IsActive)
                 {
@@ -242,6 +319,8 @@ namespace venta_stock_webapi.Client.Services
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, DateOnly.FromDateTime(DateTime.Now));
                     await transaction.CommitAsync();
+                    await LogAsync("BAJA", "CLIENTE", $"Cliente dado de baja: '{nombreToggle}'",
+                        new { Activo = true }, new { Activo = false });
                     return Result<string>.Success("Cliente dado de baja exitosamente.");
                 }
                 else
@@ -253,6 +332,8 @@ namespace venta_stock_webapi.Client.Services
 
                     await _clienteRepository.UpdateStatusAsync(dto.IdCliente, null);
                     await transaction.CommitAsync();
+                    await LogAsync("REACTIVACION", "CLIENTE", $"Cliente reactivado: '{nombreToggle}'",
+                        new { Activo = false }, new { Activo = true });
                     return Result<string>.Success("Cliente reactivado exitosamente.");
                 }
             }

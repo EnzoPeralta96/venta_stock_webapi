@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
@@ -14,16 +15,18 @@ using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
 using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 using venta_stock_webapi.CurrentAccount.Repository;
+using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.StockMovement.Services;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using QuestPDF.Fluent;
 using venta_stock_webapi.Sale.PDF;
+using venta_stock_webapi.Shared.Identity;
 
 namespace venta_stock_webapi.Sale.Services
 {
-    
+
     public class SaleService : ISaleServices
     {
         private readonly ISaleRepository _saleRepository;
@@ -39,6 +42,8 @@ namespace venta_stock_webapi.Sale.Services
         private readonly MovementStrategyFactory _movementStrategyFactory;
         private readonly IStockMovementService _stockMovementService;
         private readonly IFerreteriaRepository _ferreteriaRepository;
+        private readonly IAuditRepository _auditRepository;
+        private readonly IUserContext _userContext;
 
         public SaleService(
             ISaleRepository saleRepository,
@@ -53,7 +58,9 @@ namespace venta_stock_webapi.Sale.Services
             ICreditNoteReasonRepository creditNoteReasonRepository,
             MovementStrategyFactory movementStrategyFactory,
             IStockMovementService stockMovementService,
-            IFerreteriaRepository ferreteriaRepository)
+            IFerreteriaRepository ferreteriaRepository,
+            IAuditRepository auditRepository,
+            IUserContext userContext)
         {
             _saleRepository = saleRepository;
             _clientRepository = clientRepository;
@@ -68,6 +75,31 @@ namespace venta_stock_webapi.Sale.Services
             _movementStrategyFactory = movementStrategyFactory;
             _stockMovementService = stockMovementService;
             _ferreteriaRepository = ferreteriaRepository;
+            _auditRepository = auditRepository;
+            _userContext = userContext;
+        }
+
+        private async Task LogAsync(string accion, string entidadTipo, string detalle,
+            object? anterior = null, object? nuevo = null)
+        {
+            try
+            {
+                await _auditRepository.LogAsync(new Auditoria
+                {
+                    FechaHora         = DateTimeOffset.UtcNow,
+                    IdUsuario         = _userContext.UserId,
+                    UsuarioNombre     = _userContext.UserName,
+                    Accion            = accion,
+                    EntidadTipo       = entidadTipo,
+                    Detalle           = detalle,
+                    ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+            }
         }
 
         public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO)
@@ -143,14 +175,25 @@ namespace venta_stock_webapi.Sale.Services
                             .OrderByDescending(vp => vp.FechaRegistro)
                             .FirstOrDefaultAsync();
 
+                        string nombreClientePendiente = !string.IsNullOrWhiteSpace(client.RazonSocial)
+                            ? client.RazonSocial
+                            : $"{client.Nombre} {client.Apellido}".Trim();
+                        if (string.IsNullOrWhiteSpace(nombreClientePendiente)) nombreClientePendiente = "N/A";
+
+                        string codigoPendiente = ventaPendiente?.CodigoVenta ?? "PENDING";
+                        await LogAsync("VENTA_PENDIENTE", "VENTA",
+                            $"Venta pendiente de autorización: {codigoPendiente} | Cliente: '{nombreClientePendiente}' | Total: ${total:N2} | Excedente CC",
+                            null,
+                            new { Codigo = codigoPendiente, Cliente = nombreClientePendiente, Total = total, Estado = "Pendiente de Autorización" });
+
                         return Result<SaleResponseDTO>.Success(new SaleResponseDTO
                         {
                             IdVenta = 0,
                             IdVentaPendiente = ventaPendiente?.IdVentaPendiente,
-                            CodigoVenta = ventaPendiente?.CodigoVenta ?? "PENDING",
+                            CodigoVenta = codigoPendiente,
                             Fecha = DateTime.Now,
                             Total = total,
-                            Cliente = client.Nombre ?? client.RazonSocial ?? "N/A",
+                            Cliente = nombreClientePendiente,
                             ClienteDni = client.Dni ?? client.Cuit ?? "N/A",
                             ClienteTelefono = client.Telefono ?? "N/A",
                             VendedorNombre = "N/A",
@@ -222,6 +265,17 @@ namespace venta_stock_webapi.Sale.Services
 
                 var ventaCompleta = await _saleRepository.GetSaleByIdAsync(ventaCreada.IdVenta);
                 var response = _mapper.Map<SaleResponseDTO>(ventaCompleta);
+
+                string clienteNombre = !string.IsNullOrWhiteSpace(client.RazonSocial)
+                    ? client.RazonSocial
+                    : $"{client.Nombre} {client.Apellido}".Trim();
+                if (string.IsNullOrWhiteSpace(clienteNombre)) clienteNombre = "N/A";
+
+                string medioPagoNombre = createSaleDTO.idMedioPago == 2 ? "Cuenta Corriente" : "Contado";
+                await LogAsync("VENTA_REGISTRADA", "VENTA",
+                    $"Venta: {ventaCreada.CodigoVenta} | Cliente: '{clienteNombre}' | Total: ${total:N2} | Pago: {medioPagoNombre}",
+                    null,
+                    new { Codigo = ventaCreada.CodigoVenta, Cliente = clienteNombre, Total = total, MedioPago = medioPagoNombre, Estado = "Completada" });
 
                 return Result<SaleResponseDTO>.Success(response);
             }
@@ -506,6 +560,16 @@ namespace venta_stock_webapi.Sale.Services
                 }
 
                 await transaction.CommitAsync();
+
+                var clienteAnulacion = await _clientRepository.GetByIdAsync(venta.IdCliente ?? 0);
+                string nombreClienteAnulacion = !string.IsNullOrWhiteSpace(clienteAnulacion?.RazonSocial)
+                    ? clienteAnulacion.RazonSocial
+                    : $"{clienteAnulacion?.Nombre} {clienteAnulacion?.Apellido}".Trim();
+                if (string.IsNullOrWhiteSpace(nombreClienteAnulacion)) nombreClienteAnulacion = "N/A";
+                await LogAsync("VENTA_ANULADA", "VENTA",
+                    $"Venta anulada: {venta.CodigoVenta} | Cliente: '{nombreClienteAnulacion}' | Total: ${venta.Total:N2}",
+                    new { Codigo = venta.CodigoVenta, Cliente = nombreClienteAnulacion, Total = venta.Total, Estado = "Completada" },
+                    new { Estado = "Anulada" });
 
                 return Result<AnnulSaleResponseDTO>.Success(new AnnulSaleResponseDTO
                 {

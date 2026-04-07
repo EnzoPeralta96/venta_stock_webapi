@@ -12,8 +12,8 @@ using proyecto_venta_stock.Data;
 namespace proyecto_venta_stock.Migrations
 {
     [DbContext(typeof(VentaStockContext))]
-    [Migration("20260325004258_AddUnidadMedidaIdentity")]
-    partial class AddUnidadMedidaIdentity
+    [Migration("20260406204944_DropTriggersEntidadesPrincipales")]
+    partial class DropTriggersEntidadesPrincipales
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1111,8 +1111,11 @@ namespace proyecto_venta_stock.Migrations
             modelBuilder.Entity("proyecto_venta_stock.Models.TipoMovimientoStock", b =>
                 {
                     b.Property<int>("IdTipoMovimientoStock")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id_tipo_movimiento_stock");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdTipoMovimientoStock"));
 
                     b.Property<bool>("Activo")
                         .HasColumnType("boolean")
@@ -1148,7 +1151,7 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdTipoMovimientoStock = 1,
                             Activo = true,
-                            Descripcion = "Incremento de stock por recepción de mercadería de proveedor.",
+                            Descripcion = "Incremento de stock por recepciÃ³n de mercaderÃ­a de proveedor.",
                             EsPositivo = true,
                             EsSistema = true,
                             Nombre = "Ingreso por Compra"
@@ -1157,7 +1160,7 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdTipoMovimientoStock = 2,
                             Activo = true,
-                            Descripcion = "Reducción de stock por venta a cliente.",
+                            Descripcion = "ReducciÃ³n de stock por venta a cliente.",
                             EsPositivo = false,
                             EsSistema = true,
                             Nombre = "Egreso por Venta"
@@ -1166,25 +1169,25 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdTipoMovimientoStock = 3,
                             Activo = true,
-                            Descripcion = "Restitución de stock al anular una venta.",
+                            Descripcion = "RestituciÃ³n de stock al anular una venta.",
                             EsPositivo = true,
                             EsSistema = true,
-                            Nombre = "Reingreso por Anulación de Venta"
+                            Nombre = "Reingreso por AnulaciÃ³n de Venta"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 4,
                             Activo = true,
-                            Descripcion = "Reducción de stock al anular o revertir una compra a proveedor.",
+                            Descripcion = "ReducciÃ³n de stock al anular o revertir una compra a proveedor.",
                             EsPositivo = false,
                             EsSistema = true,
-                            Nombre = "Egreso por Anulación de Compra"
+                            Nombre = "Egreso por AnulaciÃ³n de Compra"
                         },
                         new
                         {
                             IdTipoMovimientoStock = 5,
                             Activo = true,
-                            Descripcion = "Incremento manual de stock (ej: sobrante en inventario físico).",
+                            Descripcion = "Incremento manual de stock (ej: sobrante en inventario fÃ­sico).",
                             EsPositivo = true,
                             EsSistema = false,
                             Nombre = "Ajuste Positivo Manual"
@@ -1193,7 +1196,7 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdTipoMovimientoStock = 6,
                             Activo = true,
-                            Descripcion = "Reducción manual de stock (ej: faltante en inventario físico).",
+                            Descripcion = "ReducciÃ³n manual de stock (ej: faltante en inventario fÃ­sico).",
                             EsPositivo = false,
                             EsSistema = false,
                             Nombre = "Ajuste Negativo Manual"
@@ -1202,10 +1205,10 @@ namespace proyecto_venta_stock.Migrations
                         {
                             IdTipoMovimientoStock = 7,
                             Activo = true,
-                            Descripcion = "Retiro de mercadería para uso interno o personal del dueño.",
+                            Descripcion = "Retiro de mercaderÃ­a para uso interno o personal del dueÃ±o.",
                             EsPositivo = false,
                             EsSistema = false,
-                            Nombre = "Consumo Interno Dueño"
+                            Nombre = "Consumo Interno DueÃ±o"
                         });
                 });
 
@@ -1382,7 +1385,7 @@ namespace proyecto_venta_stock.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("excedente")
-                        .HasComment("Monto que excede el límite de crédito");
+                        .HasComment("Monto que excede el lÃ­mite de crÃ©dito");
 
                     b.Property<DateTime?>("FechaAutorizacion")
                         .HasColumnType("timestamp without time zone")
@@ -1466,7 +1469,7 @@ namespace proyecto_venta_stock.Migrations
 
                     b.ToTable("venta_pendiente", null, t =>
                         {
-                            t.HasComment("Ventas que exceden el límite de crédito y requieren autorización");
+                            t.HasComment("Ventas que exceden el lÃ­mite de crÃ©dito y requieren autorizaciÃ³n");
                         });
                 });
 

@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
@@ -9,6 +10,7 @@ using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
 using venta_stock_webapi.Data.Audit;
+using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.User.DTO.UserDTO;
 using venta_stock_webapi.Shared.Auth.PassService;
 using venta_stock_webapi.Shared.Identity;
@@ -25,7 +27,9 @@ namespace proyecto_venta_stock.User.Services
         private readonly VentaStockContext _dbContext;
         private readonly IPasswordService _passwordService;
         private readonly IUserContext _userContext;
-        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext, IPasswordService passwordService, IUserContext userContext)
+        private readonly IAuditRepository _auditRepository;
+
+        public UserService(IUserRepository userRepository, ILogger<UserService> logger, IMapper mapper, IPermissionRepository permitRepository, VentaStockContext dbContext, IPasswordService passwordService, IUserContext userContext, IAuditRepository auditRepository)
         {
             _userRepository = userRepository;
             _logger = logger;
@@ -34,6 +38,30 @@ namespace proyecto_venta_stock.User.Services
             _dbContext = dbContext;
             _passwordService = passwordService;
             _userContext = userContext;
+            _auditRepository = auditRepository;
+        }
+
+        private async Task LogAsync(string accion, string entidadTipo, string detalle,
+            object? anterior = null, object? nuevo = null)
+        {
+            try
+            {
+                await _auditRepository.LogAsync(new Auditoria
+                {
+                    FechaHora         = DateTimeOffset.UtcNow,
+                    IdUsuario         = _userContext.UserId,
+                    UsuarioNombre     = _userContext.UserName,
+                    Accion            = accion,
+                    EntidadTipo       = entidadTipo,
+                    Detalle           = detalle,
+                    ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+            }
         }
 
         public async Task<Result<bool>> CreateAsync(UserCreateDTO userDTO)
@@ -68,6 +96,11 @@ namespace proyecto_venta_stock.User.Services
 
                 await transaction.CommitAsync();
 
+                await LogAsync("CREACION", "USUARIO",
+                    $"Usuario creado: '{userDTO.Usuario}' ({userDTO.Nombre} {userDTO.Apellido}) | Rol: {userDTO.Rol}",
+                    null,
+                    new { Usuario = userDTO.Usuario, Nombre = userDTO.Nombre, Apellido = userDTO.Apellido, Rol = userDTO.Rol, Email = userDTO.Email });
+
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
@@ -78,16 +111,13 @@ namespace proyecto_venta_stock.User.Services
             }
         }
 
-        
+
 
         public async Task<Result<bool>> UpdateAsync(UserUpdateDTO userDTO)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                //Setear las variables de sesion en la db para auditoria
-                await AuditDbSession.SetAsync(_dbContext, _userContext);
-
                 bool exists = await _userRepository.ExistsActive(userDTO.IdUsuario);
                 if (!exists) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
@@ -134,6 +164,12 @@ namespace proyecto_venta_stock.User.Services
                 if (toRemove.Any()) await _permitRepository.RemovePermissionsAsync(user.IdUsuario, toRemove);
 
                 await transaction.CommitAsync();
+
+                await LogAsync("ACTUALIZACION", "USUARIO",
+                    $"Usuario actualizado: '{userDTO.Usuario}' ({userDTO.Nombre} {userDTO.Apellido}) | Rol: {userDTO.Rol}",
+                    null,
+                    new { Usuario = userDTO.Usuario, Nombre = userDTO.Nombre, Apellido = userDTO.Apellido, Rol = userDTO.Rol, Email = userDTO.Email });
+
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
@@ -149,8 +185,6 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                await AuditDbSession.SetAsync(_dbContext, _userContext);
-
                 var user = await _userRepository.GetActiveByIdAsync(dto.IdUsuario);
                 if (user is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
@@ -164,6 +198,10 @@ namespace proyecto_venta_stock.User.Services
                 }
 
                 await transaction.CommitAsync();
+
+                await LogAsync("CAMBIO_CONTRASEÑA", "USUARIO",
+                    $"Contraseña cambiada para: '{user.Usuario1}'");
+
                 return Result<bool>.Success();
             }
             catch (Exception ex)
@@ -179,18 +217,21 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                //Setear las variables de sesion en la db para auditoria
-                await AuditDbSession.SetAsync(_dbContext, _userContext);
+                var userToDelete = await _userRepository.GetActiveByIdAsync(id);
 
-                var exist = await _userRepository.ExistsActive(id);
-
-                if (!exist) return Result<bool>.Failure(UserErrorCode.user_not_found);
+                if (userToDelete is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
                 var row = await _userRepository.DeleteAsync(id);
 
                 if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
                 await transaction.CommitAsync();
+
+                await LogAsync("BAJA", "USUARIO",
+                    $"Usuario dado de baja: '{userToDelete.Usuario1}' ({userToDelete.Nombre} {userToDelete.Apellido})",
+                    new { Usuario = userToDelete.Usuario1, Nombre = userToDelete.Nombre, Apellido = userToDelete.Apellido, Activo = true },
+                    new { Activo = false });
+
                 return Result<bool>.Success();
             }
             catch (System.Exception ex)
@@ -206,16 +247,14 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // Setear variables de sesión para auditoría
-                await AuditDbSession.SetAsync(_dbContext, _userContext);
-
-                // Existe?
-                var exists = await _userRepository.Exists(id);
-                if (!exists) return Result<bool>.Failure(UserErrorCode.user_not_found);
+                // Cargar usuario (puede estar inactivo)
+                var userToActivate = await _dbContext.Usuarios
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.IdUsuario == id);
+                if (userToActivate is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
                 // Ya está activo?
-                var isActive = await _userRepository.ExistsActive(id);
-                if (isActive) return Result<bool>.Failure(UserErrorCode.user_already_active);
+                if (userToActivate.FechaBaja == null) return Result<bool>.Failure(UserErrorCode.user_already_active);
 
                 // Activar (FechaBaja = null)
                 var row = await _userRepository.ActivateAsync(id);
@@ -226,6 +265,12 @@ namespace proyecto_venta_stock.User.Services
                 }
 
                 await transaction.CommitAsync();
+
+                await LogAsync("REACTIVACION", "USUARIO",
+                    $"Usuario reactivado: '{userToActivate.Usuario1}' ({userToActivate.Nombre} {userToActivate.Apellido})",
+                    new { Activo = false },
+                    new { Usuario = userToActivate.Usuario1, Nombre = userToActivate.Nombre, Apellido = userToActivate.Apellido, Activo = true });
+
                 return Result<bool>.Success();
             }
             catch (Exception ex)

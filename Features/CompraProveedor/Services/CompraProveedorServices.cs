@@ -10,12 +10,14 @@ using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using QuestPDF.Fluent;
+using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.StockMovement.Services;
 using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
 using proyecto_venta_stock.Proveedor.ProveedorRepository;
 using proyecto_venta_stock.User.UserRepository;
 using proyecto_venta_stock.Product.ProductRepository;
+using System.Text.Json;
 
 namespace proyecto_venta_stock.CompraProveedor.Services;
 
@@ -30,6 +32,7 @@ public class CompraProveedorServices : ICompraProveedorServices
     private readonly VentaStockContext _context;
     private readonly IUserContext _userContext;
     private readonly IStockMovementService _stockMovementService;
+    private readonly IAuditRepository _auditRepository;
 
     public CompraProveedorServices(
         ILogger<CompraProveedorServices> logger,
@@ -40,7 +43,8 @@ public class CompraProveedorServices : ICompraProveedorServices
         IUserContext userContext,
         IStockMovementService stockMovementService,
         IUserRepository userRepository,
-        IProductRepository productRepository)
+        IProductRepository productRepository,
+        IAuditRepository auditRepository)
     {
         _logger = logger;
         _mapper = mapper;
@@ -51,6 +55,30 @@ public class CompraProveedorServices : ICompraProveedorServices
         _proveedorRepo = proveedorRepo;
         _userRepository = userRepository;
         _productRepository = productRepository;
+        _auditRepository = auditRepository;
+    }
+
+    private async Task LogAsync(string accion, string entidadTipo, string detalle,
+        object? anterior = null, object? nuevo = null)
+    {
+        try
+        {
+            await _auditRepository.LogAsync(new Auditoria
+            {
+                FechaHora         = DateTimeOffset.UtcNow,
+                IdUsuario         = _userContext.UserId,
+                UsuarioNombre     = _userContext.UserName,
+                Accion            = accion,
+                EntidadTipo       = entidadTipo,
+                Detalle           = detalle,
+                ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+        }
     }
 
     /// <summary>
@@ -189,6 +217,24 @@ public class CompraProveedorServices : ICompraProveedorServices
 
             var responseDTO = _mapper.Map<CompraProveedorResponseDTO>(compraCreada);
 
+            string comprobanteCreada = string.IsNullOrWhiteSpace(dto.NumeroComprobante)
+                ? "(sin número)"
+                : $"{dto.TipoComprobante} {dto.NumeroComprobante}".Trim();
+
+            await LogAsync("COMPRA_REGISTRADA", "COMPRA",
+                $"Compra registrada: {comprobanteCreada} | Proveedor: '{responseDTO.NombreProveedor}' | Total: ${compra.Total:N2} | Ítems: {dto.Detalles.Count}",
+                null,
+                new
+                {
+                    Comprobante   = comprobanteCreada,
+                    Proveedor     = responseDTO.NombreProveedor,
+                    Subtotal      = compra.Subtotal,
+                    Descuento     = compra.DescuentoTotal,
+                    IVA           = compra.IvaTotal,
+                    Total         = compra.Total,
+                    CantidadItems = dto.Detalles.Count
+                });
+
             return Result<CompraProveedorResponseDTO>.Success(responseDTO);
         }
         catch (Exception ex)
@@ -277,6 +323,14 @@ public class CompraProveedorServices : ICompraProveedorServices
             if (!compra.Activo)
                 return Result<bool>.Failure(CompraProveedorErrorCode.compra_ya_inactiva);
 
+            // Capturar datos para auditoría antes de modificar
+            var proveedor = await _proveedorRepo.GetById(compra.IdProveedor);
+            string nombreProveedorAnulacion = proveedor?.Proveedor1 ?? $"Proveedor #{compra.IdProveedor}";
+            string comprobanteAnulacion = string.IsNullOrWhiteSpace(compra.NumeroComprobante)
+                ? "(sin número)"
+                : $"{compra.TipoComprobante} {compra.NumeroComprobante}".Trim();
+            decimal totalAnulacion = compra.Total;
+
             // Revertir stock de cada línea
             await RegistrarMovimientosStockAsync(
                 compra.CompraProveedorDetalles.Select(d => (d.IdProducto, -d.Cantidad)),
@@ -294,6 +348,11 @@ public class CompraProveedorServices : ICompraProveedorServices
             await _compraRepo.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            await LogAsync("COMPRA_ANULADA", "COMPRA",
+                $"Compra anulada: {comprobanteAnulacion} | Proveedor: '{nombreProveedorAnulacion}' | Total: ${totalAnulacion:N2} | Motivo: {dto.Motivo}",
+                new { Comprobante = comprobanteAnulacion, Proveedor = nombreProveedorAnulacion, Total = totalAnulacion, Activo = true },
+                new { Activo = false, Motivo = dto.Motivo });
 
             return Result<bool>.Success(true);
         }

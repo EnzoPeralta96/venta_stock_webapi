@@ -39,7 +39,7 @@ public class InterestConfigService : IInterestConfigService
             _logger.LogError(ex, "Error getting interest config by ID {IdConfig}", idConfig);
             return Result<InterestConfigDTO>.Failure(InterestConfigCode.unexpected_error);
         }
-    }
+    } 
 
     public async Task<Result<List<InterestConfigDTO>>> GetAll()
     {

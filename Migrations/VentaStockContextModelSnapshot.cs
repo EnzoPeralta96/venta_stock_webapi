@@ -1241,12 +1241,8 @@ namespace proyecto_venta_stock.Migrations
             modelBuilder.Entity("proyecto_venta_stock.Models.UnidadMedida", b =>
                 {
                     b.Property<int>("IdUnidadMedida")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id_unidad_medida");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("IdUnidadMedida"));
-                    NpgsqlPropertyBuilderExtensions.HasIdentityOptions(b.Property<int>("IdUnidadMedida"), 5L, null, null, null, null, null);
 
                     b.Property<string>("Abreviatura")
                         .HasMaxLength(10)
