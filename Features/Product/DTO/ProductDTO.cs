@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -12,7 +13,9 @@ namespace proyecto_venta_stock.Product.DTO
         public string Marca { get; set; }
         public string? Descripcion { get; set; }
         public decimal? Precio { get; set; }
-        public decimal? Stock { get; set; }
+        [Required]
+        [Range(0, double.MaxValue, ErrorMessage = "El stock debe ser mayor o igual a 0.")]
+        public decimal Stock { get; set; }
         public decimal? StockMinimo { get; set; }
         public bool? VentaSinStock { get; set; }
         public int? IdUbicacion { get; set; }

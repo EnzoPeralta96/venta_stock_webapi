@@ -21,6 +21,8 @@ public class StockMovementProfile : AutoMapper.Profile
             .ForMember(dest => dest.Usuario,
                 opt => opt.MapFrom(src => src.IdUsuarioNavigation != null
                     ? src.IdUsuarioNavigation.Nombre
-                    : null));
+                    : null))
+            .ForMember(dest => dest.StockAnterior,
+                opt => opt.MapFrom(src => src.StockResultante - src.Cantidad));
     }
 }

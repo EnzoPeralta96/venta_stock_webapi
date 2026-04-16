@@ -6,6 +6,7 @@ public class MovimientoStockDTO
     public int IdProducto { get; set; }
     public int IdTipoMovimientoStock { get; set; }
     public string TipoMovimiento { get; set; } = null!;
+    public decimal StockAnterior { get; set; }
     public decimal Cantidad { get; set; }
     public decimal StockResultante { get; set; }
     public DateTime Fecha { get; set; }

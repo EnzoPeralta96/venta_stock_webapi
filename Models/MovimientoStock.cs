@@ -8,7 +8,8 @@ public enum TipoMovimientoStockEnum
     EgresoAnulacionCompra = 4,
     AjustePositivoManual = 5,
     AjusteNegativoManual = 6,
-    ConsumoInternoDueno = 7
+    ConsumoInternoDueno = 7,
+    AltaProducto = 8
 }
 
 public class TipoMovimientoStock

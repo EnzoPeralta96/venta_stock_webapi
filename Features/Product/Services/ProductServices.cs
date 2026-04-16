@@ -86,26 +86,36 @@ namespace proyecto_venta_stock.Product.Services
 
                 var ubic = productDTO.IdUbicacion == null
                 ? null
+                
                 : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
+
                 if (ubic == null)
                     return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
 
-                foreach (var cb in productDTO.CodigoBarras)
-                {
-                    if (await _productRepository.CodigoBarraExists(cb))
-                        return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
-                }
-
                 var product = _mapper.Map<Producto>(productDTO);
+                product.Stock = 0; // el movimiento de alta lo lleva al stock inicial correcto
 
                 await _productRepository.Create(product);
+
+                var movResult = await _stockMovementService.RegistrarMovimientoAsync(
+                    product.IdProducto,
+                    TipoMovimientoStockEnum.AltaProducto,
+                    productDTO.Stock,
+                    "STOCK INICIAL AL DAR DE ALTA EL PRODUCTO",
+                    _userContext.UserId);
+
+                if (!movResult.IsSuccess)
+                {
+                    await transaction.RollbackAsync();
+                    return Result<bool>.Failure(ProductErrorCode.error_inesperado);
+                }
 
                 await transaction.CommitAsync();
 
                 await LogAsync("CREACION", "PRODUCTO",
-                    $"Producto creado: '{product.Nombre} {product.Marca}' | Precio: ${product.Precio:N2} | Stock inicial: {product.Stock ?? 0}",
+                    $"Producto creado: '{product.Nombre} {product.Marca}' | Precio: ${product.Precio:N2} | Stock inicial: {productDTO.Stock}",
                     null,
-                    new { Nombre = product.Nombre, Marca = product.Marca, Precio = product.Precio, StockInicial = product.Stock ?? 0 });
+                    new { Nombre = product.Nombre, Marca = product.Marca, Precio = product.Precio, StockInicial = productDTO.Stock });
 
                 return Result<bool>.Success();
             }
@@ -140,12 +150,6 @@ namespace proyecto_venta_stock.Product.Services
                    : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
                 if (ubic == null)
                     return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
-
-                foreach (var cb in productDTO.CodigoBarras)
-                {
-                    if (await _productRepository.CodigoBarraExists(cb) && !existingProduct.CodigoBarras.Any(e => e.Codigo == cb.Codigo))
-                        return Result<bool>.Failure(ProductErrorCode.error_inesperado); // código de barra duplicado
-                }
 
                 // Capturar valores anteriores ANTES de sobreescribir
                 var precioAnterior    = existingProduct.Precio;
