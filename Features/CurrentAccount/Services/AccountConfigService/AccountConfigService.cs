@@ -5,6 +5,8 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.CurrentAccount.DTO;
 using venta_stock_webapi.CurrentAccount.Message;
 using venta_stock_webapi.CurrentAccount.Repository;
+using venta_stock_webapi.Shared.Extensions;
+using venta_stock_webapi.Shared.Identity;
 
 namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
 {
@@ -14,13 +16,15 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
         private readonly IMapper _mapper;
         private readonly ILogger<AccountConfigService> _logger;
         private readonly VentaStockContext _context;
+        private readonly IUserContext _userContext;
 
-        public AccountConfigService(IAccountConfigRepository accountConfigRepository, IMapper mapper, ILogger<AccountConfigService> logger, VentaStockContext context)
+        public AccountConfigService(IAccountConfigRepository accountConfigRepository, IMapper mapper, ILogger<AccountConfigService> logger, VentaStockContext context, IUserContext userContext)
         {
             _accountConfigRepository = accountConfigRepository;
             _mapper = mapper;
             _logger = logger;
             _context = context;
+            _userContext = userContext;
         }
 
         public async Task<Result<AccountConfigDTO>> GetAccountConfigById(int configId)
@@ -69,10 +73,16 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
             try
             {
                 if (await _accountConfigRepository.AccountConfigExistsByNameAsync(accountConfigDTO.Nombre))
+                {
+                    await transaction.RollbackAsync();
                     return Result<string>.Failure(AccountConfigCode.account_config_name_exists);
+                }
 
                 if (await _accountConfigRepository.AccountConfigExistsByLimitAsync(accountConfigDTO.MontoLimite))
+                {
+                    await transaction.RollbackAsync();
                     return Result<string>.Failure(AccountConfigCode.account_config_limit_exists);
+                }
 
                 var config = _mapper.Map<ConfiguracionCc>(accountConfigDTO);
 
@@ -95,13 +105,20 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
             try
             {
                 if (await _accountConfigRepository.AccountConfigExistsByNameAsync(accountConfigDTO.IdConfig, accountConfigDTO.Nombre))
+                {
+                    await transaction.RollbackAsync();
                     return Result<string>.Failure(AccountConfigCode.account_config_name_exists);
+                }
 
                 if (await _accountConfigRepository.AccountConfigExistsByLimitAsync(accountConfigDTO.IdConfig, accountConfigDTO.MontoLimite))
+                {
+                    await transaction.RollbackAsync();
                     return Result<string>.Failure(AccountConfigCode.account_config_limit_exists);
+                }
 
                 var config = _mapper.Map<ConfiguracionCc>(accountConfigDTO);
 
+                await _context.Database.SetAuditContextAsync(_userContext);
                 await _accountConfigRepository.UpdateAccountConfigAsync(config);
 
                 await transaction.CommitAsync();
@@ -121,8 +138,12 @@ namespace venta_stock_webapi.CurrentAccount.Services.AccountConfigService
             try
             {
                 if (await _accountConfigRepository.GetAccountConfigByIdAsync(configId) is null)
+                {
+                    await transaction.RollbackAsync();
                     return Result<string>.Failure(AccountConfigCode.account_config_not_found);
+                }
 
+                await _context.Database.SetAuditContextAsync(_userContext);
                 await _accountConfigRepository.ToggleStateAccountConfigAsync(configId, active);
 
                 await transaction.CommitAsync();

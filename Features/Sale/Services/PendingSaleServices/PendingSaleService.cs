@@ -7,6 +7,7 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.Sale.DTO;
 using venta_stock_webapi.Sale.Message;
 using venta_stock_webapi.Sale.Repository;
+using venta_stock_webapi.Shared.Extensions;
 
 namespace venta_stock_webapi.Sale.Services
 {
@@ -243,9 +244,7 @@ namespace venta_stock_webapi.Sale.Services
             try
             {
                 // Necesario para auditoría en triggers de BD (fn_auditoria_generica)
-                await _context.Database.ExecuteSqlRawAsync(
-                    "select set_config('app.user_id', {0}::text, true);",
-                    idUsuarioAutoriza);
+                await _context.Database.SetAuditContextAsync(idUsuarioAutoriza);
 
                 // 1. Obtener venta pendiente
                 var ventaPendiente = await _pendingSaleRepository.GetByIdAsync(dto.IdVentaPendiente);

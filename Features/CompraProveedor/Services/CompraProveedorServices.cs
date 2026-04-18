@@ -12,6 +12,7 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using QuestPDF.Fluent;
 using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.StockMovement.Services;
+using venta_stock_webapi.Shared.Extensions;
 using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
 using proyecto_venta_stock.Proveedor.ProveedorRepository;
@@ -79,19 +80,6 @@ public class CompraProveedorServices : ICompraProveedorServices
         {
             _logger.LogWarning(ex, "No se pudo registrar auditoría.");
         }
-    }
-
-    /// <summary>
-    /// Setea las variables de sesión de PostgreSQL requeridas por los triggers de auditoría.
-    /// Debe llamarse antes de cualquier SQL raw (ExecuteSqlRawAsync / ExecuteUpdateAsync)
-    /// que no esté precedido por un SaveChangesAsync (el cual dispara el AuditSessionInterceptor).
-    /// </summary>
-    private async Task SetAuditContextAsync()
-    {
-        await _context.Database.ExecuteSqlRawAsync(
-            "SELECT set_config('app.user_id', {0}::text, true);", _userContext.UserId);
-        await _context.Database.ExecuteSqlRawAsync(
-            "SELECT set_config('app.username', {0}, true);", _userContext.UserName ?? "");
     }
 
     private async Task RegistrarMovimientosStockAsync(
@@ -313,7 +301,7 @@ public class CompraProveedorServices : ICompraProveedorServices
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
-            await SetAuditContextAsync();
+            await _context.Database.SetAuditContextAsync(_userContext);
 
             var compra = await _compraRepo.GetByIdForUpdateAsync(idCompraProveedor);
 

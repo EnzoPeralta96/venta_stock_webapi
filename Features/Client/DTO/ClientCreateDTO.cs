@@ -96,13 +96,13 @@ namespace venta_stock_webapi.Client.DTO
                     );
                 }
 
-                if (SaldoInicial.HasValue && SaldoInicial.Value < 0)
+                /*if (SaldoInicial.HasValue && SaldoInicial.Value < 0)
                 {
                     yield return new ValidationResult(
                         "El campo SaldoInicial no puede ser negativo.",
                         new[] { nameof(SaldoInicial) }
                     );
-                }
+                }*/
             }
         }
 

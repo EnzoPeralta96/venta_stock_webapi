@@ -9,6 +9,7 @@ using venta_stock_webapi.Sale.DTO;
 using venta_stock_webapi.Sale.Message;
 using venta_stock_webapi.Sale.Repository;
 using venta_stock_webapi.Sale.Strategies;
+using venta_stock_webapi.Shared.Extensions;
 using venta_stock_webapi.Shared.Paged;
 using proyecto_venta_stock.Product.ProductRepository;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
@@ -476,9 +477,7 @@ namespace venta_stock_webapi.Sale.Services
             {
                 // Requerido por el trigger de auditoría (fn_auditoria_generica).
                 // ExecuteUpdateAsync bypasea SaveChanges, por lo que el interceptor no actúa.
-                await _context.Database.ExecuteSqlRawAsync(
-                    "SELECT set_config('app.user_id', {0}::text, true);",
-                    dto.IdUsuarioRegistra);
+                await _context.Database.SetAuditContextAsync(dto.IdUsuarioRegistra);
 
                 // 1. Obtener la venta con detalle y tracking
                 var venta = await _saleRepository.GetSaleWithDetailsAsync(idVenta);

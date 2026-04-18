@@ -12,6 +12,7 @@ using venta_stock_webapi.Features.StockMovement.DTO;
 using venta_stock_webapi.Features.StockMovement.Messages;
 using venta_stock_webapi.Features.StockMovement.Repository;
 using venta_stock_webapi.Shared.Identity;
+using venta_stock_webapi.Shared.Extensions;
 using venta_stock_webapi.Shared.Paged;
 
 namespace venta_stock_webapi.Features.StockMovement.Services;
@@ -105,9 +106,7 @@ public class StockMovementService : IStockMovementService
                 return Result<bool>.Failure(StockMovementErrorCode.producto_not_found);
 
             // Requerido por el trigger de auditoría para el UPDATE en producto.
-            await _dbContext.Database.ExecuteSqlRawAsync(
-                "SELECT set_config('app.user_id', {0}::text, true);",
-                idUsuario);
+            await _dbContext.Database.SetAuditContextAsync(idUsuario);
 
             var stockAnterior = producto.Stock ?? 0;
             var nuevoStock = stockAnterior + cantidad;

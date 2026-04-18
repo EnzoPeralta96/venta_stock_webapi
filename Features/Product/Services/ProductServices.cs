@@ -7,6 +7,7 @@ using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
 using proyecto_venta_stock.Category.CategoryRepository;
 using proyecto_venta_stock.Location.LocationRepository;
+using venta_stock_webapi.Shared.Extensions;
 using venta_stock_webapi.Shared.Paged;
 using OfficeOpenXml;
 using System.Text;
@@ -589,8 +590,7 @@ namespace proyecto_venta_stock.Product.Services
                 int lineNumber = 2; // comienza después del encabezado
 
                 // set_config para auditoría del trigger de producto
-                await _dbContext.Database.ExecuteSqlRawAsync(
-                    "SELECT set_config('app.user_id', {0}::text, true);", idUsuario);
+                await _dbContext.Database.SetAuditContextAsync(idUsuario);
 
                 foreach (var row in rows)
                 {

@@ -1,9 +1,12 @@
 using AutoMapper;
+using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
 using venta_stock_webapi.CurrentAccount.DTO.InterestConfigDTO;
 using venta_stock_webapi.CurrentAccount.Message;
 using venta_stock_webapi.CurrentAccount.Repository;
+using venta_stock_webapi.Shared.Extensions;
+using venta_stock_webapi.Shared.Identity;
 
 namespace venta_stock_webapi.CurrentAccount.Services.InterestConfigService;
 
@@ -12,15 +15,21 @@ public class InterestConfigService : IInterestConfigService
     private readonly IInterestConfigRepository _interestConfigRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<InterestConfigService> _logger;
+    private readonly VentaStockContext _context;
+    private readonly IUserContext _userContext;
 
     public InterestConfigService(
         IInterestConfigRepository interestConfigRepository,
         IMapper mapper,
-        ILogger<InterestConfigService> logger)
+        ILogger<InterestConfigService> logger,
+        VentaStockContext context,
+        IUserContext userContext)
     {
         _interestConfigRepository = interestConfigRepository;
         _mapper = mapper;
         _logger = logger;
+        _context = context;
+        _userContext = userContext;
     }
 
     public async Task<Result<InterestConfigDTO>> GetById(int idConfig)
@@ -75,14 +84,18 @@ public class InterestConfigService : IInterestConfigService
 
     public async Task<Result<string>> Create(CreateInterestConfigDTO dto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             if (await _interestConfigRepository.ExistsByNameAsync(dto.Nombre))
                 return Result<string>.Failure(InterestConfigCode.config_name_exists);
 
+            await _context.Database.SetAuditContextAsync(_userContext);
+
             var config = _mapper.Map<ConfiguracionInteres>(dto);
             await _interestConfigRepository.CreateAsync(config);
 
+            await transaction.CommitAsync();
             return Result<string>.Success();
         }
         catch (Exception ex)
@@ -94,6 +107,7 @@ public class InterestConfigService : IInterestConfigService
 
     public async Task<Result<string>> Update(UpdateInterestConfigDTO dto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             if (await _interestConfigRepository.GetByIdAsync(dto.IdConfig) is null)
@@ -102,9 +116,12 @@ public class InterestConfigService : IInterestConfigService
             if (await _interestConfigRepository.ExistsByNameAsync(dto.IdConfig, dto.Nombre))
                 return Result<string>.Failure(InterestConfigCode.config_name_exists);
 
+            await _context.Database.SetAuditContextAsync(_userContext);
+
             var config = _mapper.Map<ConfiguracionInteres>(dto);
             await _interestConfigRepository.UpdateAsync(config);
 
+            await transaction.CommitAsync();
             return Result<string>.Success();
         }
         catch (Exception ex)
@@ -116,13 +133,17 @@ public class InterestConfigService : IInterestConfigService
 
     public async Task<Result<string>> SetAsCurrent(int idConfig)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             if (await _interestConfigRepository.GetByIdAsync(idConfig) is null)
                 return Result<string>.Failure(InterestConfigCode.config_not_found);
 
+            await _context.Database.SetAuditContextAsync(_userContext);
+
             await _interestConfigRepository.SetAsCurrentAsync(idConfig);
 
+            await transaction.CommitAsync();
             return Result<string>.Success();
         }
         catch (Exception ex)
