@@ -8,6 +8,7 @@ namespace venta_stock_webapi.CurrentAccount.DTO.MovementDTO
     public class AccountMovementDTO
     {
         public int IdMovimiento { get; set; }
+        public int IdTipoMovimiento { get; set; }
         public string TipoMovimiento {get; set;}
         public string Detalle { get; set; }
         public string Estado {get; set;}

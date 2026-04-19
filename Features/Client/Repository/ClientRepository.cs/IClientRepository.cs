@@ -31,9 +31,11 @@ namespace venta_stock_webapi.Client.Repository
         public decimal LimiteCuenta { get; set; }
 
         // Propiedades calculadas (helper)
-        public decimal LimiteDisponible => LimiteCuenta - SaldoActual;
-        public decimal PorcentajeUso => LimiteCuenta > 0
-            ? (SaldoActual / LimiteCuenta) * 100
+        public decimal SaldoAFavor => SaldoActual < 0 ? Math.Abs(SaldoActual) : 0;
+        public decimal Deuda => SaldoActual > 0 ? SaldoActual : 0;
+        public decimal LimiteDisponible => LimiteCuenta + SaldoAFavor;
+        public decimal PorcentajeUso => LimiteDisponible > 0
+            ? (Deuda / LimiteDisponible) * 100
             : 0;
     }
 }

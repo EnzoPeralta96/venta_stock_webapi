@@ -46,6 +46,9 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
         // Modifica el límite de crédito de un cliente registrando un movimiento de tipo MODIFICACION_LIMITE.
         Task<Result<int>> UpdateAccountLimitAsync(UpdateAccountLimitDTO dto);
 
+        // Devuelve el historial completo de modificaciones de límite (tipo 10) del cliente.
+        Task<Result<List<AccountMovementDTO>>> GetLimitHistoryAsync(int clientId);
+
         // Exportaciones PDF/Excel — Estado de cuenta de cliente
         Task<Result<byte[]>> ExportClientAccountExcelAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, int? idTipoMovimientoCc);
         Task<Result<byte[]>> ExportClientAccountPdfAsync(int idCliente, DateOnly? fechaDesde, DateOnly? fechaHasta, int? idTipoMovimientoCc);

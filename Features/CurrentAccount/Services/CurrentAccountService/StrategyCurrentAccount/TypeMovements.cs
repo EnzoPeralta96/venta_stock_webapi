@@ -7,7 +7,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.Strat
         NOTA_CREDITO = 4,
         MOVIMIENTO_CC = 5,
         PAGO_GLOBAL = 6,
-        INTERES_SALDO_GLOBAL = 7,
+
         PAGO_FACTURA = 8,
         ANULACION_PAGO = 9,
         MODIFICACION_LIMITE = 10,

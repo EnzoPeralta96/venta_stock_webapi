@@ -72,5 +72,15 @@ namespace venta_stock_webapi.CurrentAccount.Repository
         // Devuelve todos los movimientos operativos del cliente (excluye alta_cliente) con filtros opcionales.
         // Ordenados por Fecha ASC. Usado para exportaciones PDF/Excel.
         Task<List<MovimientoCc>> GetMovementsForExportAsync(int clientId, DateTime? fechaDesde, DateTime? fechaHasta, int? idTipoMovimiento);
+
+        // Devuelve el límite máximo asignado al cliente:
+        // LimiteCuenta de la última MODIFICACION_LIMITE (tipo 10), o del ALTA (tipo 2) si no hay modificaciones.
+        Task<decimal> GetOriginalLimitAsync(int clientId);
+
+        // Devuelve la última modificación de límite (tipo 10) del cliente, o null si nunca se modificó.
+        Task<MovimientoCc?> GetLatestLimitModificationAsync(int clientId);
+
+        // Devuelve todas las modificaciones de límite (tipo 10) ordenadas DESC.
+        Task<List<MovimientoCc>> GetLimitModificationsAsync(int clientId);
     }
 }

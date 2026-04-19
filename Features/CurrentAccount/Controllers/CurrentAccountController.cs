@@ -232,6 +232,21 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
                 var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
                 return BadRequest(errorMessage);
             }
+            return Ok(result.Value);
+        }
+
+        [Authorize(Policy = "PERM:CC_VIEW")]
+        [HttpGet("limit-history/{clientId:int}")]
+        public async Task<IActionResult> GetLimitHistory(int clientId)
+        {
+            var result = await _currentAccountService.GetLimitHistoryAsync(clientId);
+
+            if (!result.IsSuccess)
+            {
+                var code = (CurrentAccountCode)result.ErrorCode;
+                var errorMessage = MessageProvider.Get(CurrentAccountDictionary.Messages, code);
+                return BadRequest(errorMessage);
+            }
 
             return Ok(result.Value);
         }

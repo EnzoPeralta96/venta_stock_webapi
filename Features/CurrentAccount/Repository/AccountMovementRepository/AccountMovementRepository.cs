@@ -141,8 +141,9 @@ namespace venta_stock_webapi.CurrentAccount.Repository
         {
             return _context.MovimientoCcs
                 .Where(m => m.IdCliente == clientId
-                         && m.IdTipoMovimiento == 5  // MOVIMIENTO_CC
-                         && (m.MontoPagado == null || m.MontoPagado < m.Importe))
+                         && m.IdTipoMovimiento == 5
+                         && (m.MontoPagado == null || m.MontoPagado < m.Importe)
+                         && (m.IdVenta == null || m.IdVentaNavigation!.IdEstado != 5))
                 .OrderBy(m => m.Fecha)
                 .ThenBy(m => m.IdMovimiento)
                 .ToListAsync();
@@ -302,6 +303,52 @@ namespace venta_stock_webapi.CurrentAccount.Repository
         {
             return _context.MovimientoCcs
                 .Where(m => m.IdVenta == idVenta && m.IdTipoMovimiento == 5)
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<MovimientoCc?> GetLatestLimitModificationAsync(int clientId)
+        {
+            return _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId && m.IdTipoMovimiento == 10)
+                .Include(m => m.IdUsuarioRegistraNavigation)
+                .Include(m => m.IdTipoMovimientoNavigation)
+                .Include(m => m.IdEstadoNavigation)
+                .OrderByDescending(m => m.Fecha)
+                .ThenByDescending(m => m.IdMovimiento)
+                .FirstOrDefaultAsync();
+        }
+
+        public Task<List<MovimientoCc>> GetLimitModificationsAsync(int clientId)
+        {
+            return _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId && (m.IdTipoMovimiento == 10 || m.IdTipoMovimiento == 2))
+                .Include(m => m.IdUsuarioRegistraNavigation)
+                .Include(m => m.IdTipoMovimientoNavigation)
+                .Include(m => m.IdEstadoNavigation)
+                .OrderByDescending(m => m.Fecha)
+                .ThenByDescending(m => m.IdMovimiento)
+                .ToListAsync();
+        }
+
+        public async Task<decimal> GetOriginalLimitAsync(int clientId)
+        {
+            var latestModification = await _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId && m.IdTipoMovimiento == 10)
+                .OrderByDescending(m => m.Fecha)
+                .ThenByDescending(m => m.IdMovimiento)
+                .Select(m => (decimal?)m.LimiteCuenta)
+                .FirstOrDefaultAsync();
+
+            if (latestModification.HasValue)
+                return latestModification.Value;
+
+            return await _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId && m.IdTipoMovimiento == 2)
+                .Select(m => m.LimiteCuenta ?? 0)
                 .FirstOrDefaultAsync();
         }
 

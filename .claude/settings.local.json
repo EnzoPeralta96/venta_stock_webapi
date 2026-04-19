@@ -21,7 +21,11 @@
       "Bash(find:*)",
       "Bash(grep -v \"//\")",
       "Bash(xargs grep:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(psql \"Host=shuttle.proxy.rlwy.net;Port=23500;Database=railway;Username=postgres;Password=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH\" --no-psqlrc -c \"SELECT id_movimiento, id_tipo_movimiento, importe, saldo_actual, limite_cuenta, fecha FROM movimiento_cc WHERE id_cliente = 34 ORDER BY fecha, id_movimiento;\")",
+      "Bash(PGPASSWORD=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH psql -h shuttle.proxy.rlwy.net -p 23500 -U postgres -d railway -c \"SELECT id_movimiento, id_tipo_movimiento, importe, saldo_actual, limite_cuenta, fecha FROM movimiento_cc WHERE id_cliente = 34 ORDER BY fecha, id_movimiento;\")",
+      "Bash(dotnet script *)",
+      "Bash(where dotnet *)"
     ]
   }
 }

@@ -23,6 +23,7 @@ namespace venta_stock_webapi.CurrentAccount.Profile
                 .ForMember(dest => dest.MontoPagado, opt => opt.MapFrom(src => src.MontoPagado))
                 .ForMember(dest => dest.EstadoPago, opt => opt.MapFrom(src =>
                     src.IdTipoMovimiento != 5 ? null :
+                    src.IdVentaNavigation != null && src.IdVentaNavigation.IdEstado == 5 ? "anulado" :
                     (src.MontoPagado == null || src.MontoPagado == 0) ? "pendiente" :
                     src.MontoPagado >= src.Importe ? "pagado" : "parcial"))
                 .ForMember(dest => dest.EsAnulado, opt => opt.MapFrom(src => src.EsAnulado))

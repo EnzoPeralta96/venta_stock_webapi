@@ -314,18 +314,35 @@ namespace venta_stock_webapi.Sale.Services
                         ventaPendiente.DetalleVentaPendientes.Count);
                     
                     // 3.3. Crear movimiento en cuenta corriente
+                    var lastMovementBeforeApproval = await _context.MovimientoCcs
+                        .AsNoTracking()
+                        .Where(m => m.IdCliente == ventaPendiente.IdCliente)
+                        .OrderByDescending(m => m.Fecha)
+                        .ThenByDescending(m => m.IdMovimiento)
+                        .FirstOrDefaultAsync();
+
+                    decimal saldoAntes = lastMovementBeforeApproval?.SaldoActual ?? 0;
+                    decimal? montoPagadoPendiente = saldoAntes < 0
+                        ? Math.Min(Math.Abs(saldoAntes), ventaPendiente.Total)
+                        : null;
+
+                    decimal saldoAFavor = Math.Max(0, -saldoAntes);
+                    decimal amountFromLimit = Math.Max(0, ventaPendiente.Total - saldoAFavor);
+                    decimal limiteDespues = (lastMovementBeforeApproval?.LimiteCuenta ?? 0) - amountFromLimit;
+
                     var movimiento = new MovimientoCc
                     {
                         IdCliente = ventaPendiente.IdCliente,
                         IdVenta = venta.IdVenta,
-                        IdTipoMovimiento = 5,  // 5 = movimiento_cc (consumo por venta)
+                        IdTipoMovimiento = 5,
                         Importe = ventaPendiente.Total,
                         Fecha = DateTime.Now,
                         Detalle = $"Venta {venta.CodigoVenta} (aprobada por autorización)",
                         SaldoActual = ventaPendiente.SaldoDespuesVenta,
-                        LimiteCuenta = ventaPendiente.LimiteCuenta - ventaPendiente.Total,
+                        LimiteCuenta = limiteDespues,
                         IdUsuarioRegistra = idUsuarioAutoriza,
-                        IdEstado = 2  // 2 = Completada
+                        IdEstado = 2,
+                        MontoPagado = montoPagadoPendiente
                     };
                     
                     await _context.MovimientoCcs.AddAsync(movimiento);

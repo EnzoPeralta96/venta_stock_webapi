@@ -13,6 +13,7 @@ using QuestPDF.Fluent;
 using venta_stock_webapi.CurrentAccount.Services.InterestConfigService;
 using venta_stock_webapi.Shared.Paged;
 using venta_stock_webapi.Shared.Utils;
+using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 
@@ -96,10 +97,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 if (opening is null)
                     return Result<AccountSummaryDTO>.Failure(CurrentAccountCode.account_not_found);
 
+                var latestLimitMod = await _accountMovementRepository.GetLatestLimitModificationAsync(clientId);
+
                 var dto = new AccountSummaryDTO
                 {
                     Opening = _mapper.Map<AccountMovementDTO>(opening),
-                    Latest = latest != null ? _mapper.Map<AccountMovementDTO>(latest) : null
+                    Latest = latest != null ? _mapper.Map<AccountMovementDTO>(latest) : null,
+                    LatestLimitModification = latestLimitMod != null ? _mapper.Map<AccountMovementDTO>(latestLimitMod) : null
                 };
 
                 return Result<AccountSummaryDTO>.Success(dto);
@@ -123,6 +127,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             try
             {
                 var clientExists = await _clientRepository.ExistsByIdAsync(clientId);
+
                 if (!clientExists)
                 {
                     _logger.LogWarning("Client with ID {ClientId} not found", clientId);
@@ -200,6 +205,25 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 IMovementStrategy movementStrategy = _movementStrategyFactory.GetStrategy(typeMovement);
                 CalculationResult calculationResult = movementStrategy.Calculate(balanceBase, limitBase, addMovementDTO.Importe);
 
+                // Capear limite_cuenta al máximo asignado para tipos de pago
+                if (typeMovement == TypeMovement.PAGO_GLOBAL ||
+                    typeMovement == TypeMovement.PAGO_FACTURA ||
+                    typeMovement == TypeMovement.PAGO_PARCIAL)
+                {
+                    decimal originalLimit = await _accountMovementRepository.GetOriginalLimitAsync(addMovementDTO.IdCliente);
+                    calculationResult = new CalculationResult(
+                        calculationResult.NewBalance,
+                        Math.Min(calculationResult.NewLimit, originalLimit));
+                }
+
+                // Si había saldo a favor, inicializar MontoPagado con lo absorbido implícitamente
+                decimal? montoPagadoInicial = null;
+                if (typeMovement == TypeMovement.MOVIMIENTO_CC && balanceBase < 0)
+                {
+                    decimal absorcion = Math.Min(Math.Abs(balanceBase), addMovementDTO.Importe);
+                    montoPagadoInicial = absorcion;
+                }
+
                 var newMovement = new MovimientoCc
                 {
                     IdCliente = addMovementDTO.IdCliente,
@@ -211,7 +235,8 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                     IdVenta = (addMovementDTO.IdVenta == 0) ? null : addMovementDTO.IdVenta,
                     SaldoActual = calculationResult.NewBalance,
                     LimiteCuenta = calculationResult.NewLimit,
-                    Fecha = DateTime.Now
+                    Fecha = DateTime.Now,
+                    MontoPagado = montoPagadoInicial
                 };
 
                 await _accountMovementRepository.CreateMovement(newMovement);
@@ -242,7 +267,9 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             try
             {
                 var types = await _accountMovementRepository.GetMovementType();
+
                 var typesDTO = _mapper.Map<List<TypeMovementDTO>>(types);
+
                 return Result<List<TypeMovementDTO>>.Success(typesDTO);
             }
             catch (Exception ex)
@@ -265,6 +292,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 }
 
                 var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
+                
                 if (lastMovement is null || lastMovement.SaldoActual <= 0)
                     return Result<List<PendingSalePaymentDTO>>.Success(new List<PendingSalePaymentDTO>());
 
@@ -410,32 +438,60 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
 
         private async Task RecomputeMontoPagado(int clientId)
         {
-            // 1. Todos los consumos con tracking, reseteados a 0
+            // 1. Todos los consumos con tracking
             var consumos = await _accountMovementRepository.GetAllConsumptionsTracked(clientId);
+            var consumoById = consumos.ToDictionary(c => c.IdMovimiento);
             foreach (var consumo in consumos)
                 consumo.MontoPagado = 0;
 
-            // 2. Todos los pagos válidos (no anulados) en orden cronológico
-            var pagos = await _accountMovementRepository.GetAllValidPayments(clientId);
+            // 2. Reconstruir la absorción implícita de saldo a favor recorriendo el historial en orden.
+            //    Cada row almacena SaldoActual como snapshot, por lo que el saldo
+            //    justo antes de un MOVIMIENTO_CC es el SaldoActual del movimiento previo.
+            var allMovements = await _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == clientId)
+                .OrderBy(m => m.Fecha)
+                .ThenBy(m => m.IdMovimiento)
+                .ToListAsync();
 
-            // 3. Re-aplicar asignación para cada pago en orden cronológico
+            decimal saldoAnterior = 0;
+            foreach (var mov in allMovements)
+            {
+                if (mov.IdTipoMovimiento == (int)TypeMovement.MOVIMIENTO_CC
+                    && consumoById.TryGetValue(mov.IdMovimiento, out var consumo))
+                {
+                    decimal saldoAFavor = Math.Max(0, -saldoAnterior);
+                    decimal absorcion = Math.Min(saldoAFavor, consumo.Importe ?? 0);
+                    if (absorcion > 0)
+                        consumo.MontoPagado = absorcion;
+                }
+                saldoAnterior = mov.SaldoActual ?? saldoAnterior;
+            }
+
+            // 3. Re-aplicar pagos explícitos (no anulados) en orden cronológico.
+            //    PAGO_GLOBAL/PAGO_PARCIAL solo se aplican a consumos que existían
+            //    en el momento del pago (evita asignación retroactiva a consumos futuros).
+            var pagos = await _accountMovementRepository.GetAllValidPayments(clientId);
             foreach (var pago in pagos)
             {
                 if (pago.IdTipoMovimiento == (int)TypeMovement.PAGO_FACTURA && pago.IdVenta.HasValue)
                     AllocarPagoFacturaEnMemoria(pago.IdVenta.Value, pago.Importe ?? 0, consumos);
                 else if (pago.IdTipoMovimiento == (int)TypeMovement.PAGO_GLOBAL
                       || pago.IdTipoMovimiento == (int)TypeMovement.PAGO_PARCIAL)
-                    AllocarPagoGlobalEnMemoria(pago.Importe ?? 0, consumos);
+                    AllocarPagoGlobalEnMemoria(pago.Importe ?? 0, pago.Fecha, consumos);
             }
 
             // 4. Guardar en batch
             await _accountMovementRepository.UpdateMovimientos(consumos);
         }
 
-        private void AllocarPagoGlobalEnMemoria(decimal importePago, List<MovimientoCc> consumos)
+        private void AllocarPagoGlobalEnMemoria(decimal importePago, DateTime? maxConsumoDate, List<MovimientoCc> consumos)
         {
             decimal restante = importePago;
-            foreach (var consumo in consumos.OrderBy(c => c.Fecha).ThenBy(c => c.IdMovimiento))
+            var elegibles = maxConsumoDate.HasValue
+                ? consumos.Where(c => c.Fecha <= maxConsumoDate).OrderBy(c => c.Fecha).ThenBy(c => c.IdMovimiento)
+                : consumos.OrderBy(c => c.Fecha).ThenBy(c => c.IdMovimiento);
+            foreach (var consumo in elegibles)
             {
                 if (restante <= 0) break;
                 decimal pendiente = (consumo.Importe ?? 0) - (consumo.MontoPagado ?? 0);
@@ -465,7 +521,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
         {
             var consumos = await _accountMovementRepository.GetUnpaidConsumptions(clientId);
             if (consumos.Count == 0) return;
-            AllocarPagoGlobalEnMemoria(importePago, consumos);
+            AllocarPagoGlobalEnMemoria(importePago, null, consumos);
             await _accountMovementRepository.UpdateMovimientos(consumos);
         }
 
@@ -702,6 +758,21 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             }
         }
 
+        public async Task<Result<List<AccountMovementDTO>>> GetLimitHistoryAsync(int clientId)
+        {
+            try
+            {
+                var modifications = await _accountMovementRepository.GetLimitModificationsAsync(clientId);
+                var dtos = _mapper.Map<List<AccountMovementDTO>>(modifications);
+                return Result<List<AccountMovementDTO>>.Success(dtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting limit history for client {ClientId}", clientId);
+                return Result<List<AccountMovementDTO>>.Failure(CurrentAccountCode.unexpected_error);
+            }
+        }
+
         public async Task RecomputeMontoPagadoPublic(int clientId)
             => await RecomputeMontoPagado(clientId);
 
@@ -919,8 +990,8 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 if (ultimoMovimiento == null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
-                var limiteGlobalActual = (ultimoMovimiento.SaldoActual ?? 0) + (ultimoMovimiento.LimiteCuenta ?? 0);
-                if (nuevoLimite == limiteGlobalActual)
+                var limiteActual = await _accountMovementRepository.GetOriginalLimitAsync(dto.IdCliente);
+                if (nuevoLimite == limiteActual)
                     return Result<int>.Failure(CurrentAccountCode.limit_already_set);
 
                 var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.MODIFICACION_LIMITE);

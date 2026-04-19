@@ -10,7 +10,7 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.Strat
                 TypeMovement.PAGO_GLOBAL => new PaymentStrategy(),
                 TypeMovement.PAGO_PARCIAL => new PaymentStrategy(),
                 TypeMovement.PAGO_FACTURA => new PaymentStrategy(),
-                TypeMovement.INTERES_SALDO_GLOBAL => new InterestStrategy(),
+
                 TypeMovement.NOTA_DEBITO => new DebitNoteStrategy(),
                 TypeMovement.NOTA_CREDITO => new CreditNoteStrategy(),
                 TypeMovement.ANULACION_PAGO => new DebitNoteStrategy(), // revertir un pago = sumar deuda de vuelta
