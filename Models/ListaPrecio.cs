@@ -15,6 +15,8 @@ public partial class ListaPrecio
 
     public bool Activo { get; set; }
 
+    public decimal IvaPorDefecto { get; set; } = 21;
+
     public virtual Proveedor? IdProveedorNavigation { get; set; }
 
     public virtual Usuario? IdUsuarioRegistraNavigation { get; set; }

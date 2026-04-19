@@ -12,6 +12,7 @@ public class ListaPrecioDTO
     public bool Activo { get; set; }
     public int? IdUsuarioRegistra { get; set; }
     public int CantidadItems { get; set; }
+    public decimal IvaPorDefecto { get; set; }
 }
 
 public class ListaPrecioCreateDTO
@@ -23,6 +24,8 @@ public class ListaPrecioCreateDTO
     public string Nombre { get; set; }
 
     public string? Observaciones { get; set; }
+
+    public decimal IvaPorDefecto { get; set; } = 21;
 }
 
 public class ListaPrecioUpdateDTO
@@ -34,6 +37,8 @@ public class ListaPrecioUpdateDTO
     public string Nombre { get; set; }
 
     public string? Observaciones { get; set; }
+
+    public decimal IvaPorDefecto { get; set; } = 21;
 }
 
 public class ListaPrecioItemDTO

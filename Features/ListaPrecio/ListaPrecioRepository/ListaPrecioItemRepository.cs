@@ -99,6 +99,15 @@ public class ListaPrecioItemRepository : IListaPrecioItemRepository
             producto.Precio = nuevoPrecio;
     }
 
+    public async Task UpdateProductoCostoNoSaveAsync(int idProducto, decimal costo, decimal porcentajeGanancia, decimal precio)
+    {
+        var producto = await _db.Productos.FindAsync(idProducto);
+        if (producto == null) return;
+        producto.Costo = costo;
+        producto.PorcentajeGanancia = porcentajeGanancia;
+        producto.Precio = precio;
+    }
+
     public Task<IDbContextTransaction> BeginTransactionAsync()
         => _db.Database.BeginTransactionAsync();
 

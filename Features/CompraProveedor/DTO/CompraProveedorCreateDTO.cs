@@ -41,4 +41,6 @@ public class CompraProveedorDetalleCreateDTO
 
     [Range(0, 100, ErrorMessage = "El IVA debe estar entre 0 y 100.")]
     public decimal IvaPorcentaje { get; set; }
+
+    public decimal? MargenAplicado { get; set; }
 }

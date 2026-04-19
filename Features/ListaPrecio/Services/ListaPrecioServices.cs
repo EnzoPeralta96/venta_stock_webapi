@@ -104,6 +104,7 @@ public class ListaPrecioServices : IListaPrecioServices
 
             existing.Nombre = dto.Nombre;
             existing.Observaciones = dto.Observaciones;
+            existing.IvaPorDefecto = dto.IvaPorDefecto;
 
             await _repository.UpdateAsync(existing);
             await transaction.CommitAsync();

@@ -56,9 +56,11 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
     public async Task<Result<bool>> AddItemAsync(int idLista, ListaPrecioItemUpsertDTO dto)
     {
+        await using var transaction = await _repo.BeginTransactionAsync();
         try
         {
-            if (!await _repo.ListaExistsAsync(idLista))
+            var lista = await _listaRepo.GetByIdAsync(idLista);
+            if (lista is null)
                 return Result<bool>.Failure(ListaPrecioItemErrorCode.lista_not_found);
 
             if (!await _repo.ProductoExistsAsync(dto.IdProducto))
@@ -67,20 +69,24 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
             if (await _repo.ItemExistsAsync(idLista, dto.IdProducto))
                 return Result<bool>.Failure(ListaPrecioItemErrorCode.item_already_exists);
 
-            var entity = new ProductoListaprecioProveedor
-            {
-                IdLista = idLista,
-                IdProducto = dto.IdProducto,
-                Precio = dto.Precio,
-                Margen = dto.Margen
-            };
+            decimal costoConIva = dto.Precio * (1 + lista.IvaPorDefecto / 100m);
 
-            await _repo.CreateAsync(entity);
+            await _repo.UpsertItemNoSaveAsync(idLista, dto.IdProducto, costoConIva, dto.Margen);
+
+            if (dto.Margen.HasValue)
+            {
+                decimal nuevoPrecio = costoConIva * (1 + dto.Margen.Value / 100m);
+                await _repo.UpdateProductoCostoNoSaveAsync(dto.IdProducto, costoConIva, dto.Margen.Value, nuevoPrecio);
+            }
+
+            await _repo.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return Result<bool>.Success();
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError("Error inesperado: " + ex);
             return Result<bool>.Failure(ListaPrecioItemErrorCode.error_inesperado);
         }
@@ -88,20 +94,34 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
     public async Task<Result<bool>> UpdateItemAsync(int idLista, int idProducto, ListaPrecioItemUpsertDTO dto)
     {
+        await using var transaction = await _repo.BeginTransactionAsync();
         try
         {
+            var lista = await _listaRepo.GetByIdAsync(idLista);
+            if (lista is null)
+                return Result<bool>.Failure(ListaPrecioItemErrorCode.lista_not_found);
+
             var item = await _repo.GetItemAsync(idLista, idProducto);
             if (item == null)
                 return Result<bool>.Failure(ListaPrecioItemErrorCode.item_not_found);
 
-            item.Precio = dto.Precio;
-            item.Margen = dto.Margen;
+            decimal costoConIva = dto.Precio * (1 + lista.IvaPorDefecto / 100m);
 
-            await _repo.UpdateAsync(item);
+            await _repo.UpsertItemNoSaveAsync(idLista, idProducto, costoConIva, dto.Margen);
+
+            if (dto.Margen.HasValue)
+            {
+                decimal nuevoPrecio = costoConIva * (1 + dto.Margen.Value / 100m);
+                await _repo.UpdateProductoCostoNoSaveAsync(idProducto, costoConIva, dto.Margen.Value, nuevoPrecio);
+            }
+
+            await _repo.SaveChangesAsync();
+            await transaction.CommitAsync();
             return Result<bool>.Success();
         }
         catch (Exception ex)
         {
+            await transaction.RollbackAsync();
             _logger.LogError("Error inesperado: " + ex);
             return Result<bool>.Failure(ListaPrecioItemErrorCode.error_inesperado);
         }
@@ -185,12 +205,16 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
     // ── Importación ───────────────────────────────────────────────────────────
 
-    public async Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta)
+    public async Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta, decimal ivaAplicacion = 0)
     {
         try
         {
-            if (!await _repo.ListaExistsAsync(idLista))
+            var lista = await _listaRepo.GetByIdAsync(idLista);
+            if (lista is null)
                 return Result<ImportListaPrecioResultDTO>.Failure(ListaPrecioItemErrorCode.lista_not_found);
+
+            if (ivaAplicacion == 0)
+                ivaAplicacion = lista.IvaPorDefecto;
 
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
             List<ImportRow> rows;
@@ -219,15 +243,26 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
                     }
 
                     bool existed = await _repo.ItemExistsAsync(idLista, idProducto.Value);
-                    await _repo.UpsertItemNoSaveAsync(idLista, idProducto.Value, row.NuevoCosto, row.Margen);
+
+                    // Calcular costo con IVA
+                    decimal costoConIva = row.NuevoCosto * (1 + ivaAplicacion / 100m);
+
+                    // Guardar costo con IVA en la pivot (reemplaza el precio neto)
+                    await _repo.UpsertItemNoSaveAsync(idLista, idProducto.Value, costoConIva, row.Margen);
 
                     if (existed) resultado.Actualizados++;
                     else resultado.Insertados++;
 
-                    if (actualizarPrecioVenta && row.Margen.HasValue)
+                    // Actualizar Producto.Costo y recalcular Precio si hay margen
+                    if (row.Margen.HasValue)
                     {
-                        var precioVenta = row.NuevoCosto * (1 + row.Margen.Value / 100);
-                        await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, precioVenta);
+                        decimal nuevoPrecio = costoConIva * (1 + row.Margen.Value / 100m);
+                        await _repo.UpdateProductoCostoNoSaveAsync(idProducto.Value, costoConIva, row.Margen.Value, nuevoPrecio);
+                    }
+                    else if (actualizarPrecioVenta)
+                    {
+                        // sin margen, solo actualizamos el precio con el costo+IVA como PVP directo
+                        await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, costoConIva);
                     }
                 }
 

@@ -18,6 +18,7 @@ public interface IListaPrecioItemRepository
     // Import-specific: no individual SaveChanges, caller manages transaction
     Task UpsertItemNoSaveAsync(int idLista, int idProducto, decimal precio, decimal? margen);
     Task UpdateProductoPrecioNoSaveAsync(int idProducto, decimal nuevoPrecio);
+    Task UpdateProductoCostoNoSaveAsync(int idProducto, decimal costo, decimal porcentajeGanancia, decimal precio);
     Task<IDbContextTransaction> BeginTransactionAsync();
     Task SaveChangesAsync();
 }

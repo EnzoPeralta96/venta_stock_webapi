@@ -22,6 +22,8 @@ namespace proyecto_venta_stock.Product.DTO
         public int? IdCategoria { get; set; }
         public int? IdUnidadMedida { get; set; }
         public bool Activo { get; set; }
+        public decimal Costo { get; set; }
+        public decimal PorcentajeGanancia { get; set; }
         public List<CodigoBarraDTO> CodigoBarras { get; set; } = [];
     }
 
@@ -40,6 +42,8 @@ namespace proyecto_venta_stock.Product.DTO
         public int? IdUnidadMedida { get; set; }
         public string? UnidadMedida { get; set; }
         public bool Activo { get; set; }
+        public decimal Costo { get; set; }
+        public decimal PorcentajeGanancia { get; set; }
 
         // Info extra para "with category and ubication"
         public string? Categoria { get; set; }

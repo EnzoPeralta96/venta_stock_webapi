@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using proyecto_venta_stock.Data;
@@ -11,9 +12,11 @@ using proyecto_venta_stock.Data;
 namespace proyecto_venta_stock.Migrations
 {
     [DbContext(typeof(VentaStockContext))]
-    partial class VentaStockContextModelSnapshot : ModelSnapshot
+    [Migration("20260419063119_AddIvaPorDefectoToListaPrecio")]
+    partial class AddIvaPorDefectoToListaPrecio
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

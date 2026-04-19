@@ -170,6 +170,8 @@ namespace proyecto_venta_stock.Product.Services
                 existingProduct.IdUbicacion = productDTO.IdUbicacion;
                 existingProduct.VentaSinStock = productDTO.VentaSinStock;
                 existingProduct.IdUnidadMedida = productDTO.IdUnidadMedida;
+                existingProduct.Costo = productDTO.Costo;
+                existingProduct.PorcentajeGanancia = productDTO.PorcentajeGanancia;
 
                 // Manejar códigos de barras manualmente
                 var codigosNuevos2 = productDTO.CodigoBarras

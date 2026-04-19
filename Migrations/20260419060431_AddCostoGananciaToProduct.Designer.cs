@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using proyecto_venta_stock.Data;
@@ -11,9 +12,11 @@ using proyecto_venta_stock.Data;
 namespace proyecto_venta_stock.Migrations
 {
     [DbContext(typeof(VentaStockContext))]
-    partial class VentaStockContextModelSnapshot : ModelSnapshot
+    [Migration("20260419060431_AddCostoGananciaToProduct")]
+    partial class AddCostoGananciaToProduct
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -639,9 +642,6 @@ namespace proyecto_venta_stock.Migrations
                     b.Property<int?>("IdUsuarioRegistra")
                         .HasColumnType("integer")
                         .HasColumnName("id_usuario_registra");
-
-                    b.Property<decimal>("IvaPorDefecto")
-                        .HasColumnType("numeric");
 
                     b.Property<string>("Nombre")
                         .HasMaxLength(100)

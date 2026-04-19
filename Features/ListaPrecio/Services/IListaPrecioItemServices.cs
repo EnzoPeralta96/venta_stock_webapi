@@ -11,5 +11,5 @@ public interface IListaPrecioItemServices
     Task<Result<bool>> UpdateItemAsync(int idLista, int idProducto, ListaPrecioItemUpsertDTO dto);
     Task<Result<bool>> DeleteItemAsync(int idLista, int idProducto);
     Task<Result<byte[]>> DescargarPlantillaAsync(int idLista);
-    Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta);
+    Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta, decimal ivaAplicacion = 0);
 }

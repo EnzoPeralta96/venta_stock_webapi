@@ -116,12 +116,12 @@ public class ListaPrecioItemsController : ControllerBase
 
     [Authorize(Policy = "PERM:LP_ITEM_ADD")]
     [HttpPost("import")]
-    public async Task<IActionResult> Import(int idLista, IFormFile file, [FromForm] bool actualizarPrecioVenta = false)
+    public async Task<IActionResult> Import(int idLista, IFormFile file, [FromForm] bool actualizarPrecioVenta = false, [FromForm] decimal ivaAplicacion = 0)
     {
         if (file == null || file.Length == 0)
             return BadRequest("Debe adjuntar un archivo.");
 
-        var result = await _services.ImportarAsync(idLista, file, actualizarPrecioVenta);
+        var result = await _services.ImportarAsync(idLista, file, actualizarPrecioVenta, ivaAplicacion);
 
         if (!result.IsSuccess)
         {

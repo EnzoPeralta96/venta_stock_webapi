@@ -25,6 +25,8 @@ public partial class Producto
 
     public bool Activo { get; set; } = true;
 
+    public decimal Costo { get; set; } = 0;
+    public decimal PorcentajeGanancia { get; set; } = 30;
 
     public virtual ICollection<CodigoBarra> CodigoBarras { get; set; } = new List<CodigoBarra>();
 

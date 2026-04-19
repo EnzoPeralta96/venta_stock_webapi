@@ -192,6 +192,34 @@ public class CompraProveedorServices : ICompraProveedorServices
             // Guardar la compra (el repo llama a SaveChangesAsync internamente)
             await _compraRepo.CreateAsync(compra);
 
+            // Actualizar Costo y PorcentajeGanancia de cada producto
+            var productosParaActualizar = await _context.Productos
+                .Where(p => idsProducto.Contains(p.IdProducto))
+                .ToListAsync();
+
+            foreach (var d in dto.Detalles)
+            {
+                var producto = productosParaActualizar.FirstOrDefault(p => p.IdProducto == d.IdProducto);
+                if (producto == null) continue;
+
+                decimal costoReal = d.PrecioUnitario
+                    * (1 - d.DescuentoPorcentaje / 100m)
+                    * (1 + d.IvaPorcentaje / 100m);
+
+                bool margenCambiado = d.MargenAplicado.HasValue;
+                bool costoCrecio = costoReal > producto.Costo;
+
+                if (margenCambiado)
+                    producto.PorcentajeGanancia = d.MargenAplicado!.Value;
+
+                if (costoCrecio || margenCambiado)
+                {
+                    producto.Costo = costoReal;
+                    producto.Precio = producto.Costo * (1 + producto.PorcentajeGanancia / 100m);
+                }
+            }
+            await _context.SaveChangesAsync();
+
             // Registrar ingresos de stock en el ledger
             await RegistrarMovimientosStockAsync(
                 dto.Detalles.Select(d => (d.IdProducto, d.Cantidad)),
