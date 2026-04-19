@@ -8,22 +8,30 @@ namespace venta_stock_webapi.Client.DTO
         [Required(ErrorMessage = "El ID del cliente es obligatorio.")]
         public int IdCliente { get; set; }
 
-        //Obligatorios solo para clientes comunes (EsEmpresa == false)
+        // Obligatorios solo para clientes comunes (EsEmpresa == false)
+        [StringLength(100, ErrorMessage = "El nombre no puede superar los 100 caracteres.")]
         public string Nombre { get; set; }
 
+        [StringLength(100, ErrorMessage = "El apellido no puede superar los 100 caracteres.")]
         public string Apellido { get; set; }
 
-        //Obligatorios solo para empresas (EsEmpresa == true)
+        // Obligatorios solo para empresas (EsEmpresa == true)
+        [StringLength(200, ErrorMessage = "La razón social no puede superar los 200 caracteres.")]
         public string RazonSocial { get; set; }
+
+        // Validación de formato delegada a IValidatableObject (condicional según EsEmpresa)
         public string Dni { get; set; }
         public string Cuit { get; set; }
 
-        //Siempre obligatorios
+        // Siempre obligatorios
         [Required(ErrorMessage = "El teléfono es obligatorio.")]
+        [RegularExpression(@"^\d{7,15}$", ErrorMessage = "El teléfono debe contener solo dígitos (7 a 15).")]
+        [StringLength(15, MinimumLength = 7, ErrorMessage = "El teléfono debe tener entre 7 y 15 dígitos.")]
         public string Telefono { get; set; }
 
         [Required(ErrorMessage = "El mail es obligatorio.")]
         [EmailAddress(ErrorMessage = "El campo Mail no es una dirección de correo electrónico válida.")]
+        [StringLength(200, ErrorMessage = "El email no puede superar los 200 caracteres.")]
         public string Mail { get; set; }
 
         public bool EsEmpresa { get; set; }
@@ -61,6 +69,13 @@ namespace venta_stock_webapi.Client.DTO
                         new[] { nameof(Cuit) }
                     );
                 }
+                else if (!System.Text.RegularExpressions.Regex.IsMatch(Cuit, @"^\d{11}$"))
+                {
+                    yield return new ValidationResult(
+                        "El CUIT debe contener exactamente 11 dígitos numéricos.",
+                        new[] { nameof(Cuit) }
+                    );
+                }
             }
             // ---------------------------
             // CLIENTE COMÚN / PERSONA
@@ -87,6 +102,13 @@ namespace venta_stock_webapi.Client.DTO
                 {
                     yield return new ValidationResult(
                         "El DNI es obligatorio para clientes comunes.",
+                        new[] { nameof(Dni) }
+                    );
+                }
+                else if (!System.Text.RegularExpressions.Regex.IsMatch(Dni, @"^\d{7,8}$"))
+                {
+                    yield return new ValidationResult(
+                        "El DNI debe contener entre 7 y 8 dígitos numéricos.",
                         new[] { nameof(Dni) }
                     );
                 }
