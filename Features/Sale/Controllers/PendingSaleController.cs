@@ -10,11 +10,10 @@ namespace venta_stock_webapi.Sale.Controllers
 {
     /// <summary>
     /// Controlador para gestión de ventas pendientes de autorización
-    /// Exclusivo para administradores con permiso SALE_AUTHORIZE
+    /// GET endpoints requieren VEN_READ; POST endpoints (approve/reject) requieren SALE_AUTHORIZE
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Policy = "PERM:SALE_AUTHORIZE")]
     public class PendingSaleController : ControllerBase
     {
         private readonly IPendingSaleService _pendingSaleService;
@@ -36,6 +35,7 @@ namespace venta_stock_webapi.Sale.Controllers
         /// </summary>
         /// <returns>Lista de ventas pendientes sin autorizar</returns>
         [HttpGet]
+        [Authorize(Policy = "PERM:VEN_READ")]
         public async Task<IActionResult> GetPendingSales()
         {
             _logger.LogInformation("Listando ventas pendientes (estado=1)");
@@ -59,6 +59,7 @@ namespace venta_stock_webapi.Sale.Controllers
         /// </summary>
         /// <param name="id">ID de la venta pendiente</param>
         [HttpGet("{id:int}")]
+        [Authorize(Policy = "PERM:VEN_READ")]
         public async Task<IActionResult> GetPendingSaleById(int id)
         {
             _logger.LogInformation("Obteniendo detalle de venta pendiente: {id}", id);
@@ -86,6 +87,7 @@ namespace venta_stock_webapi.Sale.Controllers
         /// <param name="id">ID de la venta pendiente</param>
         /// <param name="dto">Observaciones de la aprobación (opcional)</param>
         [HttpPost("{id:int}/approve")]
+        [Authorize(Policy = "PERM:SALE_AUTHORIZE")]
         public async Task<IActionResult> ApproveSale(
             int id,
             [FromBody] ApproveRejectDTO dto)
@@ -140,6 +142,7 @@ namespace venta_stock_webapi.Sale.Controllers
         /// <param name="id">ID de la venta pendiente</param>
         /// <param name="dto">Motivo del rechazo (obligatorio)</param>
         [HttpPost("{id:int}/reject")]
+        [Authorize(Policy = "PERM:SALE_AUTHORIZE")]
         public async Task<IActionResult> RejectSale(
             int id,
             [FromBody] ApproveRejectDTO dto)
@@ -197,6 +200,7 @@ namespace venta_stock_webapi.Sale.Controllers
         /// Útil para dashboards y métricas administrativas
         /// </summary>
         [HttpGet("stats")]
+        [Authorize(Policy = "PERM:VEN_READ")]
         public async Task<IActionResult> GetStats()
         {
             _logger.LogInformation("Obteniendo estadísticas de ventas pendientes");
