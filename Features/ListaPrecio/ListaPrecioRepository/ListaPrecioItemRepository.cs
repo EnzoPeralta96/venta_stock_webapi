@@ -108,6 +108,14 @@ public class ListaPrecioItemRepository : IListaPrecioItemRepository
         producto.Precio = precio;
     }
 
+    public async Task UpdateProductoCostoConMargenExistenteNoSaveAsync(int idProducto, decimal costo)
+    {
+        var producto = await _db.Productos.FindAsync(idProducto);
+        if (producto == null) return;
+        producto.Costo = costo;
+        producto.Precio = costo * (1 + producto.PorcentajeGanancia / 100m);
+    }
+
     public Task<IDbContextTransaction> BeginTransactionAsync()
         => _db.Database.BeginTransactionAsync();
 

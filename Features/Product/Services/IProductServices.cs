@@ -32,5 +32,9 @@ namespace proyecto_venta_stock.Product.Services
         public Task<byte[]> ExportarPlantillaExcel();
         public byte[] ExportarPlantillaCsv();
         public Task<Result<BulkImportResultDTO>> ImportarProductosAsync(IFormFile file, int idUsuario);
+
+        Task<Result<byte[]>> DescargarPlantillaPreciosAsync();
+        Task<Result<ActualizarMasivoResultDTO>> ActualizarMasivoManualAsync(ActualizarMasivoManualDTO dto);
+        Task<Result<ActualizarMasivoResultDTO>> ActualizarMasivoExcelAsync(IFormFile file, decimal ivaDefecto);
     }
 }

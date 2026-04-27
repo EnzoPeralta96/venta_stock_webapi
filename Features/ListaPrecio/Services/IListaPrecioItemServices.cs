@@ -12,4 +12,5 @@ public interface IListaPrecioItemServices
     Task<Result<bool>> DeleteItemAsync(int idLista, int idProducto);
     Task<Result<byte[]>> DescargarPlantillaAsync(int idLista);
     Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta, decimal ivaAplicacion = 0);
+    Task<Result<BulkAddResultDTO>> AddItemsBulkAsync(int idLista, ListaPrecioItemBulkCreateDTO dto);
 }

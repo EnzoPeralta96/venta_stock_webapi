@@ -224,5 +224,59 @@ public class ProductController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
+    [HttpGet("plantilla-precios")]
+    public async Task<IActionResult> DescargarPlantillaPrecios()
+    {
+        var result = await _productServices.DescargarPlantillaPreciosAsync();
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+
+        return File(
+            result.Value,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"plantilla_precios_{DateTime.Today:yyyyMMdd}.xlsx");
+    }
+
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
+    [HttpPost("actualizar-masivo/manual")]
+    public async Task<IActionResult> ActualizarMasivoManual([FromBody] ActualizarMasivoManualDTO dto)
+    {
+        var result = await _productServices.ActualizarMasivoManualAsync(dto);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [Authorize(Policy = "PERM:PROD_UPDATE")]
+    [HttpPost("actualizar-masivo/excel")]
+    public async Task<IActionResult> ActualizarMasivoExcel(IFormFile file, [FromForm] decimal ivaDefecto = 21)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("Debe subir un archivo Excel o CSV válido.");
+
+        var result = await _productServices.ActualizarMasivoExcelAsync(file, ivaDefecto);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ProductErrorCode)result.ErrorCode;
+            var message = MessageProvider.Get(ProductErrorDictionary.Messages, code);
+            return BadRequest(message);
+        }
+
+        return Ok(result.Value);
+    }
+
 
 }

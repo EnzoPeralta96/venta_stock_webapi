@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using proyecto_venta_stock.Data;
@@ -11,6 +12,9 @@ using proyecto_venta_stock.Proveedor.ProveedorRepository;
 using proyecto_venta_stock.Shared.ResultPattern;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
+using System.Text.Json;
+using venta_stock_webapi.Features.Audit.Repository;
+using venta_stock_webapi.Shared.Identity;
 using venta_stock_webapi.Shared.Paged;
 
 namespace proyecto_venta_stock.Proveedor.Services
@@ -22,19 +26,48 @@ namespace proyecto_venta_stock.Proveedor.Services
         private readonly IFerreteriaRepository _ferreteriaRepository;
         private readonly VentaStockContext _dbContext;
         private readonly IMapper _mapper;
+        private readonly IUserContext _userContext;
+        private readonly IAuditRepository _auditRepository;
 
         public ProveedorServices(
             IProveedorRepository proveedorRepository,
             IFerreteriaRepository ferreteriaRepository,
             ILogger<ProveedorServices> logger,
             IMapper mapper,
-            VentaStockContext dbContext)
+            VentaStockContext dbContext,
+            IUserContext userContext,
+            IAuditRepository auditRepository)
         {
             _proveedorRepository = proveedorRepository;
             _ferreteriaRepository = ferreteriaRepository;
             _logger = logger;
             _mapper = mapper;
             _dbContext = dbContext;
+            _userContext = userContext;
+            _auditRepository = auditRepository;
+        }
+
+        private async Task LogAsync(string accion, string entidadTipo, string detalle,
+            object? anterior = null, object? nuevo = null)
+        {
+            try
+            {
+                await _auditRepository.LogAsync(new Auditoria
+                {
+                    FechaHora         = DateTimeOffset.UtcNow,
+                    IdUsuario         = _userContext.UserId,
+                    UsuarioNombre     = _userContext.UserName,
+                    Accion            = accion,
+                    EntidadTipo       = entidadTipo,
+                    Detalle           = detalle,
+                    ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
+                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo registrar auditoría.");
+            }
         }
 
         public async Task<Result<bool>> Create(CreateProveedorDTO dto)
@@ -281,5 +314,6 @@ namespace proyecto_venta_stock.Proveedor.Services
                 return Result<byte[]>.Failure(ProveedorErrorCode.error_inesperado);
             }
         }
+
     }
 }

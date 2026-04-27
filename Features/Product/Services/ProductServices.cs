@@ -82,6 +82,10 @@ namespace proyecto_venta_stock.Product.Services
 
                 if (productExists) return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
 
+                foreach (var cb in productDTO.CodigoBarras)
+                    if (await _productRepository.CodigoBarraExists(cb))
+                        return Result<bool>.Failure(ProductErrorCode.barcode_in_use);
+
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
 
@@ -142,6 +146,14 @@ namespace proyecto_venta_stock.Product.Services
                 bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
                 if (productExists && (existingProduct.Nombre != productDTO.Nombre || existingProduct.Marca != productDTO.Marca))
                     return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
+
+                // Validar barcodes nuevos (que no pertenecen ya a este mismo producto)
+                var codigosNuevos = productDTO.CodigoBarras
+                    .Where(cb => !existingProduct.CodigoBarras.Any(e => e.Codigo == cb.Codigo))
+                    .ToList();
+                foreach (var cb in codigosNuevos)
+                    if (await _productRepository.CodigoBarraExists(cb))
+                        return Result<bool>.Failure(ProductErrorCode.barcode_in_use);
 
                 if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
                     return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
@@ -505,6 +517,246 @@ namespace proyecto_venta_stock.Product.Services
             wsUm.Cells.AutoFitColumns();
 
             return await package.GetAsByteArrayAsync();
+        }
+
+        /* Actualización masiva de precios */
+
+        public async Task<Result<byte[]>> DescargarPlantillaPreciosAsync()
+        {
+            try
+            {
+                var productos = await _dbContext.Productos
+                    .Where(p => p.Activo)
+                    .Include(p => p.CodigoBarras)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("Precios");
+
+                // Header
+                ws.Cells[1, 1].Value = "CodigoBarra";
+                ws.Cells[1, 2].Value = "NombreProducto";
+                ws.Cells[1, 3].Value = "CostoNeto";
+                ws.Cells[1, 4].Value = "MargenGanancia";
+
+                using (var headerRange = ws.Cells[1, 1, 1, 4])
+                {
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
+                    headerRange.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.FromArgb(68, 114, 196));
+                    headerRange.Style.Font.Color.SetColor(System.Drawing.Color.White);
+                }
+
+                int row = 2;
+                foreach (var p in productos)
+                {
+                    var codigoPrincipal = p.CodigoBarras.FirstOrDefault(c => c.Prinicial == true)?.Codigo
+                        ?? p.CodigoBarras.FirstOrDefault()?.Codigo
+                        ?? string.Empty;
+
+                    ws.Cells[row, 1].Value = codigoPrincipal;
+                    ws.Cells[row, 2].Value = p.Nombre;
+                    ws.Cells[row, 3].Value = p.Costo;
+                    ws.Cells[row, 4].Value = p.PorcentajeGanancia;
+                    row++;
+                }
+
+                if (ws.Dimension != null)
+                    ws.Cells[ws.Dimension.Address].AutoFitColumns();
+
+                return Result<byte[]>.Success(package.GetAsByteArray());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Error inesperado al generar plantilla de precios: {Ex}", ex);
+                return Result<byte[]>.Failure(ProductErrorCode.error_inesperado);
+            }
+        }
+
+        public async Task<Result<ActualizarMasivoResultDTO>> ActualizarMasivoManualAsync(ActualizarMasivoManualDTO dto)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var ids = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
+                var productos = await _dbContext.Productos
+                    .Where(p => ids.Contains(p.IdProducto) && p.Activo)
+                    .ToListAsync();
+
+                var resultado = new ActualizarMasivoResultDTO();
+
+                foreach (var item in dto.Items)
+                {
+                    var producto = productos.FirstOrDefault(p => p.IdProducto == item.IdProducto);
+                    if (producto == null)
+                    {
+                        resultado.Ignorados.Add(item.IdProducto);
+                        continue;
+                    }
+
+                    decimal costoAnterior  = producto.Costo;
+                    decimal precioAnterior = producto.Precio ?? 0m;
+
+                    decimal costoConIva = item.CostoNeto * (1 + item.IvaPorcentaje / 100m);
+
+                    producto.Costo = costoConIva;
+
+                    if (item.Margen.HasValue && item.Margen.Value >= 0)
+                        producto.PorcentajeGanancia = item.Margen.Value;
+
+                    producto.Precio = producto.Costo * (1 + producto.PorcentajeGanancia / 100m);
+
+                    resultado.Actualizados++;
+                    resultado.Detalle.Add(new ActualizarPrecioResultItemDTO
+                    {
+                        IdProducto     = producto.IdProducto,
+                        Nombre         = producto.Nombre,
+                        CostoAnterior  = costoAnterior,
+                        CostoNuevo     = producto.Costo,
+                        PrecioAnterior = precioAnterior,
+                        PrecioNuevo    = producto.Precio ?? 0m,
+                    });
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await LogAsync(
+                    "ACTUALIZACION_PRECIOS_MANUAL",
+                    "PRODUCTO",
+                    $"{resultado.Actualizados} producto(s) actualizados manualmente",
+                    anterior: resultado.Detalle.Select(d => new { d.IdProducto, d.Nombre, Costo = d.CostoAnterior, Precio = d.PrecioAnterior }),
+                    nuevo:    resultado.Detalle.Select(d => new { d.IdProducto, d.Nombre, Costo = d.CostoNuevo,    Precio = d.PrecioNuevo })
+                );
+
+                return Result<ActualizarMasivoResultDTO>.Success(resultado);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Error inesperado al actualizar precios masivos (manual): {Ex}", ex);
+                return Result<ActualizarMasivoResultDTO>.Failure(ProductErrorCode.error_inesperado);
+            }
+        }
+
+        public async Task<Result<ActualizarMasivoResultDTO>> ActualizarMasivoExcelAsync(IFormFile file, decimal ivaDefecto)
+        {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            try
+            {
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (ext is not (".xlsx" or ".xls" or ".csv"))
+                    return Result<ActualizarMasivoResultDTO>.Failure(ProductErrorCode.formato_no_soportado);
+
+                // Parse rows from Excel/CSV
+                var rows = ParsePreciosExcel(file);
+
+                var resultado = new ActualizarMasivoResultDTO();
+
+                foreach (var row in rows)
+                {
+                    var idProducto = await _dbContext.CodigoBarras
+                        .Where(cb => cb.Codigo == row.CodigoBarra && cb.Activo == true)
+                        .Select(cb => cb.IdProducto)
+                        .FirstOrDefaultAsync();
+
+                    if (idProducto == 0)
+                    {
+                        resultado.CodigosIgnorados.Add(row.CodigoBarra);
+                        continue;
+                    }
+
+                    var producto = await _dbContext.Productos
+                        .Where(p => p.IdProducto == idProducto && p.Activo)
+                        .FirstOrDefaultAsync();
+
+                    if (producto == null)
+                    {
+                        resultado.CodigosIgnorados.Add(row.CodigoBarra);
+                        continue;
+                    }
+
+                    decimal costoAnterior  = producto.Costo;
+                    decimal precioAnterior = producto.Precio ?? 0m;
+
+                    decimal costoConIva = row.CostoNeto * (1 + ivaDefecto / 100m);
+
+                    producto.Costo = costoConIva;
+
+                    if (row.Margen.HasValue && row.Margen.Value >= 0)
+                        producto.PorcentajeGanancia = row.Margen.Value;
+
+                    producto.Precio = producto.Costo * (1 + producto.PorcentajeGanancia / 100m);
+
+                    resultado.Actualizados++;
+                    resultado.Detalle.Add(new ActualizarPrecioResultItemDTO
+                    {
+                        IdProducto     = producto.IdProducto,
+                        Nombre         = producto.Nombre,
+                        CostoAnterior  = costoAnterior,
+                        CostoNuevo     = producto.Costo,
+                        PrecioAnterior = precioAnterior,
+                        PrecioNuevo    = producto.Precio ?? 0m,
+                    });
+                }
+
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await LogAsync(
+                    "ACTUALIZACION_PRECIOS_EXCEL",
+                    "PRODUCTO",
+                    $"{resultado.Actualizados} producto(s) actualizados vía Excel",
+                    anterior: resultado.Detalle.Select(d => new { d.IdProducto, d.Nombre, Costo = d.CostoAnterior, Precio = d.PrecioAnterior }),
+                    nuevo:    resultado.Detalle.Select(d => new { d.IdProducto, d.Nombre, Costo = d.CostoNuevo,    Precio = d.PrecioNuevo })
+                );
+
+                return Result<ActualizarMasivoResultDTO>.Success(resultado);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError("Error inesperado al actualizar precios masivos (Excel): {Ex}", ex);
+                return Result<ActualizarMasivoResultDTO>.Failure(ProductErrorCode.error_inesperado);
+            }
+        }
+
+        private record PrecioImportRow(string CodigoBarra, decimal CostoNeto, decimal? Margen);
+
+        private List<PrecioImportRow> ParsePreciosExcel(IFormFile file)
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            var rows = new List<PrecioImportRow>();
+
+            using var stream = file.OpenReadStream();
+            using var package = new ExcelPackage(stream);
+
+            var ws = package.Workbook.Worksheets[0];
+            if (ws?.Dimension == null) return rows;
+
+            for (int row = 2; row <= ws.Dimension.Rows; row++)
+            {
+                var codigo = ws.Cells[row, 1].Text.Trim();
+                if (string.IsNullOrWhiteSpace(codigo)) continue;
+
+                // col 2 = NombreProducto — ignorar
+                var costoText = ws.Cells[row, 3].Text.Trim();
+                if (!decimal.TryParse(costoText, System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var costo)) continue;
+
+                decimal? margen = null;
+                var margenText = ws.Cells[row, 4].Text.Trim();
+                if (!string.IsNullOrWhiteSpace(margenText) &&
+                    decimal.TryParse(margenText, System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var m))
+                    margen = m;
+
+                rows.Add(new PrecioImportRow(codigo, costo, margen));
+            }
+
+            return rows;
         }
 
         /* Importacion */

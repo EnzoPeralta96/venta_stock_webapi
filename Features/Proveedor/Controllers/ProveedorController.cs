@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Proveedor.DTO;
 using proyecto_venta_stock.Proveedor.Services;
+using proyecto_venta_stock.Proveedor.Services;
 using venta_stock_webapi.Shared.MessageProvider;
 
 namespace proyecto_venta_stock.Controllers;
@@ -174,4 +175,5 @@ public class ProveedorController : ControllerBase
             "application/pdf",
             $"proveedores_{DateTime.Today:yyyyMMdd}.pdf");
     }
+
 }

@@ -115,6 +115,22 @@ public class ListaPrecioItemsController : ControllerBase
     }
 
     [Authorize(Policy = "PERM:LP_ITEM_ADD")]
+    [HttpPost("bulk")]
+    public async Task<IActionResult> AddItemsBulk(int idLista, [FromBody] ListaPrecioItemBulkCreateDTO dto)
+    {
+        var result = await _services.AddItemsBulkAsync(idLista, dto);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioItemErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioItemErrorDictionary.Messages, code);
+            return code == ListaPrecioItemErrorCode.lista_not_found ? NotFound(errorMessage) : BadRequest(errorMessage);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [Authorize(Policy = "PERM:LP_ITEM_ADD")]
     [HttpPost("import")]
     public async Task<IActionResult> Import(int idLista, IFormFile file, [FromForm] bool actualizarPrecioVenta = false, [FromForm] decimal ivaAplicacion = 0)
     {

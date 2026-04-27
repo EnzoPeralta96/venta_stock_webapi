@@ -26,7 +26,10 @@
       "Bash(PGPASSWORD=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH psql -h shuttle.proxy.rlwy.net -p 23500 -U postgres -d railway -c \"SELECT id_movimiento, id_tipo_movimiento, importe, saldo_actual, limite_cuenta, fecha FROM movimiento_cc WHERE id_cliente = 34 ORDER BY fecha, id_movimiento;\")",
       "Bash(dotnet script *)",
       "Bash(where dotnet *)",
-      "Bash(grep -E \"\\\\.\\(cs|dto|entity\\)$\")"
+      "Bash(grep -E \"\\\\.\\(cs|dto|entity\\)$\")",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff --name-only)",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal diff --name-only)",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff src/components/Proveedores/ListaDetailsPage.jsx)"
     ]
   }
 }

@@ -73,12 +73,6 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
             await _repo.UpsertItemNoSaveAsync(idLista, dto.IdProducto, costoConIva, dto.Margen);
 
-            if (dto.Margen.HasValue)
-            {
-                decimal nuevoPrecio = costoConIva * (1 + dto.Margen.Value / 100m);
-                await _repo.UpdateProductoCostoNoSaveAsync(dto.IdProducto, costoConIva, dto.Margen.Value, nuevoPrecio);
-            }
-
             await _repo.SaveChangesAsync();
             await transaction.CommitAsync();
 
@@ -109,12 +103,6 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
             await _repo.UpsertItemNoSaveAsync(idLista, idProducto, costoConIva, dto.Margen);
 
-            if (dto.Margen.HasValue)
-            {
-                decimal nuevoPrecio = costoConIva * (1 + dto.Margen.Value / 100m);
-                await _repo.UpdateProductoCostoNoSaveAsync(idProducto, costoConIva, dto.Margen.Value, nuevoPrecio);
-            }
-
             await _repo.SaveChangesAsync();
             await transaction.CommitAsync();
             return Result<bool>.Success();
@@ -142,6 +130,47 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
         {
             _logger.LogError("Error inesperado: " + ex);
             return Result<bool>.Failure(ListaPrecioItemErrorCode.error_inesperado);
+        }
+    }
+
+    public async Task<Result<BulkAddResultDTO>> AddItemsBulkAsync(int idLista, ListaPrecioItemBulkCreateDTO dto)
+    {
+        await using var transaction = await _repo.BeginTransactionAsync();
+        try
+        {
+            var lista = await _listaRepo.GetByIdAsync(idLista);
+            if (lista is null)
+                return Result<BulkAddResultDTO>.Failure(ListaPrecioItemErrorCode.lista_not_found);
+
+            var resultado = new BulkAddResultDTO();
+
+            foreach (var item in dto.Items)
+            {
+                if (!await _repo.ProductoExistsAsync(item.IdProducto))
+                {
+                    resultado.Ignorados.Add(item.IdProducto);
+                    continue;
+                }
+
+                bool existed = await _repo.ItemExistsAsync(idLista, item.IdProducto);
+                decimal costoConIva = item.Precio * (1 + lista.IvaPorDefecto / 100m);
+
+                await _repo.UpsertItemNoSaveAsync(idLista, item.IdProducto, costoConIva, null);
+
+                if (existed) resultado.Actualizados++;
+                else resultado.Insertados++;
+            }
+
+            await _repo.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Result<BulkAddResultDTO>.Success(resultado);
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError("Error inesperado al agregar productos en bulk a lista {IdLista}: {Ex}", idLista, ex);
+            return Result<BulkAddResultDTO>.Failure(ListaPrecioItemErrorCode.error_inesperado);
         }
     }
 
@@ -186,7 +215,10 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
                 ws.Cells[row, 1].Value = codigoPrincipal;
                 ws.Cells[row, 2].Value = item.IdProductoNavigation?.Nombre ?? string.Empty;
-                ws.Cells[row, 3].Value = item.Precio;
+                decimal precioNeto = lista.IvaPorDefecto > 0
+                    ? item.Precio / (1 + lista.IvaPorDefecto / 100m)
+                    : item.Precio;
+                ws.Cells[row, 3].Value = precioNeto;
                 ws.Cells[row, 4].Value = item.Margen.HasValue ? (object)item.Margen.Value : null;
                 row++;
             }

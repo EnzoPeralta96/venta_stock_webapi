@@ -1,0 +1,67 @@
+Se necesita realizar un sistema según el siguiente enunciado: 
+“Tengo  una  ferretería  con  bastante  movimiento.  Vendemos  tanto  a  consumidores  finales  como  a 
+pequeños  comerciantes  y  tenemos  una  cartera  de  clientes  bastante  amplia.  Hoy  en  día 
+trabajamos  con  un  sistema  muy  básico,  casi  todo  en  Excel  y  papeles,  y  ya  se  nos  fue  quedando 
+chico.  Lo  que  necesito  es  un  sistema  que  me  permita  gestionar  todo:  desde  los  productos  que 
+vendo, hasta los usuarios que trabajan con el sistema. 
+En  el  negocio  somos  varias  personas.  Tengo  empleados  que  solo  venden,  otros  que  manejan 
+precios  y  hacen  cargas  de  productos,  y  yo,  como  dueño  necesito  tener  el  acceso  a  todas  las 
+funciones  y  listados  del  sistema.  En  el  momento  de  dar  de  alta  un  usuario  me  gustaría  definir  qué 
+puede  hacer  cada  uno;  por  ejemplo,  si  vende,  que  no  pueda  modificar  precios,  y  que  sólo  algunos 
+puedan  ver  los  reportes  financieros.  Así  también  como  sacarlos  del  sistema  en  caso  de  que  ya  no 
+trabajen en el negocio. 
+Con  respecto  a  los  productos,  vendemos  una  variedad  enorme:  tornillos,  herramientas  eléctricas, 
+pinturas,  caños,  y  más.  Cada  producto  puede  tener  varios  códigos  de  barra,  siempre  cargamos  al 
+menos  el  código  de  barra  del  empaque  y  podríamos  agregar  otros.  Me  gustaría  poder  agrupar 
+productos  en  familias,  por  ejemplo,  "pinturas",  "ferretería  pesada",  etc.,  y  tener  bien  claro  en  qué 
+lugar  del  depósito  se  guarda  cada  cosa.  Por  otro  lado,  es  importante  ubicar  el  producto  dentro  de 
+cada estante, para buscar por sistema el producto e ir a buscarlo en el estante correspondiente. 
+Algo  fundamental  es  el  stock.  Quiero  saber  cuántas  unidades  tengo  de  cada  producto,  poder 
+buscarlos  fácil  por  nombre  o  categoría,  y  que  me  avise  cuando  me  estoy  quedando  sin  stock  de 
+algo.  Aunque  también  necesito  tener  la  posibilidad  de  vender  algún  producto  en  particular  que 
+esté sin stock. 
+También necesito realizar ingresos de stock cuando recibamos mercadería. 
+Otro  tema  clave  son  los  clientes.  Necesito  tenerlos  registrados  con  sus  datos,  si  pagan  al  contado 
+o  con  cuenta  corriente.  Algunos  clientes  los  heredamos  con  una  deuda  anterior  o  saldo  a  favor,  así 
+que estaría bueno poder cargar un saldo inicial también al darlos de alta. 
+Con  respecto  a  la  cuenta  corriente  de  cada  cliente,  me  gustaría  ver  claramente  los  movimientos: 
+qué  facturas  se  emitieron,  si  hay  notas  de  crédito  o  notas  de  débito,  recibos  de  pago,  y  el  saldo 
+actual.  Quiero  que  el  sistema  no  me  permita  seguir  vendiéndole  a  un  cliente  que  se  pasó  de  cierto 
+límite de deuda que yo defina, a menos que yo lo autorice. 
+En las facturas el total a pagar se debe leer en números y letras. 
+Necesito  poder  generar  notas  de  débito  para  aquellos  clientes  que  no  hayan  pagado  las  facturas 
+de cuenta corriente antes de su vencimiento. 
+En  cuanto  a  las  ventas  en  sí,  me  gustaría  que  se  seleccionen  los  productos,  se  carga  el  cliente,  se 
+decide  si  se  paga  al  contado  o  queda  a  cuenta  corriente,  y  se  emite  el  comprobante.  Pero  estoy 
+abierto  a  otras  soluciones  siempre  y  cuando  sea  fácil  y  claro  en  todo  su  proceso.  Este  proceso 
+debe ser rápido, porque los clientes no esperan, y si se van, pierdo ventas. 
+También  quiero  poder  sacar  reportes  e  informes.  Por  ejemplo,  el  margen  de  utilidad  bruta,  ver 
+cuánto  vendimos  por  día,  semana  o  mes,  dentro  de  cada  categoría  qué  productos  es  el  que  más 
+se  vende,  quiénes  son  los  clientes  más  frecuentes,  total  vendido,  poder  listar  los  clientes  con 
+saldo  deudor,  saber  cuánto  me  deben  en  total  e  individualmente  cada  cliente,  cual  es  el  artículo 
+más vendido. Todo eso es clave para tomar decisiones. 
+Es  deseable  saber  cuanto  tiempo  me  demoro  en  promedio  para  poder  cobrar  las  ventas  de  cuenta 
+corriente. 
+Me  gustaría  que  el  sistema  tenga  un  buscador  bien  completo,  productos  por  nombre,  categoría, 
+código, y buscar un cliente también, lo que sea.
+Necesito,  sobre  todo  porque  tenemos  varios  empleados,  es  poder  saber  quién  hizo  qué  cosa.  Si 
+alguien  cambió  el  precio,  vendió  algo,  modificó  un  stock,  etc.,  que  quede  todo  registrado,  con 
+nombre, fecha y hora. 
+Los  proveedores  suelen  enviar  listas  de  precios  de  los  artículos.  Necesitamos  que  el  sistema 
+pueda tomar ese listado y se realice en forma automática los precios para ahorrar tiempo. 
+Y  por  supuesto,  quiero  poder  imprimir  todos  los  reportes  que  genere  el  sistema,  o  exportarlos  a 
+PDF o Excel, porque a veces se los tengo que mandar al contador o revisarlos fuera del local. 
+Por  último,  me  interesa  mucho  que  el  sistema  sea  accesible  desde  cualquier  computadora  con 
+navegador.  No  quiero  depender  de  una  sola  máquina,  y  si  en  el  futuro  quiero  usarlo  desde  otra 
+sucursal, debería poder hacerlo. 
+Ah,  y  muy  importante:  que  el  sistema  sea  fácil  de  usar.  El  personal  con  el  que  contamos  tiene 
+mínimos conocimientos sobre el uso de computadoras y sistemas.” 
+Requisito  técnico:  La  solución  propuesta  debe  presentar  una  jerarquía  de  clases  reutilizable.  Se 
+espera una arquitectura modular que permita escalar el sistema.
+
+
+
+
+
+
+

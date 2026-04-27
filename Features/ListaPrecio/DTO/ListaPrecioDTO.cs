@@ -70,3 +70,27 @@ public class ListaPrecioItemUpsertDTO
 
     public decimal? Margen { get; set; }
 }
+
+public class ListaPrecioItemBulkItemDTO
+{
+    [Required(ErrorMessage = "El producto es requerido.")]
+    public int IdProducto { get; set; }
+
+    [Required(ErrorMessage = "El precio es requerido.")]
+    [Range(0, double.MaxValue, ErrorMessage = "El precio debe ser mayor o igual a 0.")]
+    public decimal Precio { get; set; } // costo neto sin IVA
+}
+
+public class ListaPrecioItemBulkCreateDTO
+{
+    [Required]
+    [MinLength(1, ErrorMessage = "Debe incluir al menos un producto.")]
+    public List<ListaPrecioItemBulkItemDTO> Items { get; set; } = new();
+}
+
+public class BulkAddResultDTO
+{
+    public int Insertados { get; set; }
+    public int Actualizados { get; set; }
+    public List<int> Ignorados { get; set; } = new();
+}
