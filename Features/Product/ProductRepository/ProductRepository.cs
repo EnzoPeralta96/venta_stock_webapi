@@ -89,6 +89,10 @@ namespace proyecto_venta_stock.Product.ProductRepository
         {
             return await _dbContext.Productos
                 .Include(p => p.CodigoBarras)
+                .Include(p => p.IdCategoriaNavigation)
+                .Include(p => p.IdUbicacionNavigation)
+                .Include(p => p.IdUnidadMedidaNavigation)
+                .AsNoTracking()
                 .ToListAsync();
         }
 

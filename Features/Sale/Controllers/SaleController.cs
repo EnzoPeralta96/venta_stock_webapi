@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.Sale.DTO;
 using venta_stock_webapi.Sale.Message;
 using venta_stock_webapi.Sale.Services;
+using venta_stock_webapi.Shared.Controllers;
 using venta_stock_webapi.Shared.MessageProvider;
 
 namespace venta_stock_webapi.Sale.Controllers
@@ -10,7 +11,7 @@ namespace venta_stock_webapi.Sale.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class SaleController : ControllerBase
+    public class SaleController : BaseController
     {
         private readonly ISaleServices _saleService;
         private readonly IPdfService _pdfService;
@@ -108,11 +109,11 @@ namespace venta_stock_webapi.Sale.Controllers
         public async Task<IActionResult> CreateSale([FromBody] CreateSaleDTO createSaleDTO)
         {
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
 
-            var result = await _saleService.CreateSaleAsync(createSaleDTO);
+            if (!TryGetUserId(out int idUsuarioVendedor)) return Unauthorized();
+
+            var result = await _saleService.CreateSaleAsync(createSaleDTO, idUsuarioVendedor);
 
             if (!result.IsSuccess)
             {
@@ -136,7 +137,9 @@ namespace venta_stock_webapi.Sale.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var result = await _saleService.AnnulSaleAsync(idVenta, dto);
+            if (!TryGetUserId(out int idUsuarioRegistra)) return Unauthorized();
+
+            var result = await _saleService.AnnulSaleAsync(idVenta, dto, idUsuarioRegistra);
 
             if (!result.IsSuccess)
             {

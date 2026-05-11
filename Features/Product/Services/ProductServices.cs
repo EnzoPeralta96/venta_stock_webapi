@@ -390,12 +390,17 @@ namespace proyecto_venta_stock.Product.Services
 
             var sb = new StringBuilder();
 
-            sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion;Stock;IdUnidadMedida");
+            sb.AppendLine("CodigoBarra;Nombre;Marca;Costo;MargenGanancia;Precio;Categoria;Ubicacion;Stock;UnidadMedida");
 
             foreach (var p in productos)
             {
-                string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
-                sb.AppendLine($"{codigo};{p.Nombre};{p.Marca};{p.Precio};{p.IdCategoria};{p.IdUbicacion};{p.Stock};{p.IdUnidadMedida}");
+                string codigo     = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+                string categoria  = p.IdCategoriaNavigation?.Categoria ?? "";
+                string ubicacion  = p.IdUbicacionNavigation != null
+                    ? $"Fila {p.IdUbicacionNavigation.Fila} - Sección {p.IdUbicacionNavigation.Seccion} - Nivel {p.IdUbicacionNavigation.Nivel}"
+                    : "";
+                string unidad     = p.IdUnidadMedidaNavigation?.Nombre ?? "";
+                sb.AppendLine($"{codigo};{p.Nombre};{p.Marca};{p.Costo};{p.PorcentajeGanancia};{p.Precio};{categoria};{ubicacion};{p.Stock};{unidad}");
             }
 
             return Encoding.UTF8.GetBytes(sb.ToString());
@@ -411,25 +416,34 @@ namespace proyecto_venta_stock.Product.Services
             ws.Cells[1, 1].Value = "CodigoBarra";
             ws.Cells[1, 2].Value = "Nombre";
             ws.Cells[1, 3].Value = "Marca";
-            ws.Cells[1, 4].Value = "Precio";
-            ws.Cells[1, 5].Value = "IdCategoria";
-            ws.Cells[1, 6].Value = "IdUbicacion";
-            ws.Cells[1, 7].Value = "Stock";
-            ws.Cells[1, 8].Value = "IdUnidadMedida";
-            ws.Cells["A1:H1"].Style.Font.Bold = true;
+            ws.Cells[1, 4].Value = "Costo";
+            ws.Cells[1, 5].Value = "MargenGanancia";
+            ws.Cells[1, 6].Value = "Precio";
+            ws.Cells[1, 7].Value = "Categoria";
+            ws.Cells[1, 8].Value = "Ubicacion";
+            ws.Cells[1, 9].Value = "Stock";
+            ws.Cells[1, 10].Value = "UnidadMedida";
+            ws.Cells["A1:J1"].Style.Font.Bold = true;
 
             int row = 2;
             foreach (var p in productos)
             {
-                string codigo = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+                string codigo    = p.CodigoBarras.FirstOrDefault()?.Codigo ?? "";
+                string categoria = p.IdCategoriaNavigation?.Categoria ?? "";
+                string ubicacion = p.IdUbicacionNavigation != null
+                    ? $"Fila {p.IdUbicacionNavigation.Fila} - Sección {p.IdUbicacionNavigation.Seccion} - Nivel {p.IdUbicacionNavigation.Nivel}"
+                    : "";
+                string unidad    = p.IdUnidadMedidaNavigation?.Nombre ?? "";
                 ws.Cells[row, 1].Value = codigo;
                 ws.Cells[row, 2].Value = p.Nombre;
                 ws.Cells[row, 3].Value = p.Marca;
-                ws.Cells[row, 4].Value = p.Precio;
-                ws.Cells[row, 5].Value = p.IdCategoria;
-                ws.Cells[row, 6].Value = p.IdUbicacion;
-                ws.Cells[row, 7].Value = p.Stock;
-                ws.Cells[row, 8].Value = p.IdUnidadMedida;
+                ws.Cells[row, 4].Value = p.Costo;
+                ws.Cells[row, 5].Value = p.PorcentajeGanancia;
+                ws.Cells[row, 6].Value = p.Precio;
+                ws.Cells[row, 7].Value = categoria;
+                ws.Cells[row, 8].Value = ubicacion;
+                ws.Cells[row, 9].Value = p.Stock;
+                ws.Cells[row, 10].Value = unidad;
                 row++;
             }
 
@@ -441,7 +455,7 @@ namespace proyecto_venta_stock.Product.Services
         public byte[] ExportarPlantillaCsv()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("CodigoBarra;Nombre;Marca;Precio;IdCategoria;IdUbicacion;Stock;IdUnidadMedida");
+            sb.AppendLine("CodigoBarra;Nombre;Marca;Costo;MargenGanancia;Categoria;Ubicacion;Stock;UnidadMedida");
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
@@ -449,12 +463,46 @@ namespace proyecto_venta_stock.Product.Services
         {
             using var package = new ExcelPackage();
 
+            // Pre-cargar datos para diccionarios y dropdowns
+            List<Categorium> categorias = new();
+            List<Ubicacion> ubicaciones = new();
+            List<UnidadMedida> unidades = new();
+            try { categorias = (await _categoryRepository.GetAll()).ToList(); } catch { }
+            try { ubicaciones = await _locationRepository.LocationsQueryable("", true).ToListAsync(); } catch { }
+            try { unidades = await _dbContext.UnidadMedidas.AsNoTracking().ToListAsync(); } catch { }
+
             // ── Hoja 1: Plantilla ──────────────────────────────────────────
             var wsPlantilla = package.Workbook.Worksheets.Add("Plantilla");
-            string[] headers = { "CodigoBarra", "Nombre", "Marca", "Precio", "IdCategoria", "IdUbicacion", "Stock", "IdUnidadMedida" };
+            string[] headers = { "CodigoBarra", "Nombre", "Marca", "Costo", "MargenGanancia", "Categoria", "Ubicacion", "Stock", "UnidadMedida" };
             for (int i = 0; i < headers.Length; i++)
                 wsPlantilla.Cells[1, i + 1].Value = headers[i];
             wsPlantilla.Cells[$"A1:{(char)('A' + headers.Length - 1)}1"].Style.Font.Bold = true;
+
+            // Dropdowns: Categoria (col F=6), Ubicacion (col G=7), UnidadMedida (col I=9)
+            if (categorias.Count > 0)
+            {
+                var dv = wsPlantilla.DataValidations.AddListValidation("F2:F10001");
+                dv.ShowErrorMessage = true;
+                dv.ErrorTitle = "Categoría inválida";
+                dv.Error = "Seleccioná una categoría de la lista.";
+                dv.Formula.ExcelFormula = $"Diccionario_Categorias!$B$2:$B${categorias.Count + 1}";
+            }
+            if (ubicaciones.Count > 0)
+            {
+                var dv = wsPlantilla.DataValidations.AddListValidation("G2:G10001");
+                dv.ShowErrorMessage = true;
+                dv.ErrorTitle = "Ubicación inválida";
+                dv.Error = "Seleccioná una ubicación de la lista.";
+                dv.Formula.ExcelFormula = $"Diccionario_Ubicaciones!$B$2:$B${ubicaciones.Count + 1}";
+            }
+            if (unidades.Count > 0)
+            {
+                var dv = wsPlantilla.DataValidations.AddListValidation("I2:I10001");
+                dv.ShowErrorMessage = true;
+                dv.ErrorTitle = "Unidad de medida inválida";
+                dv.Error = "Seleccioná una unidad de medida de la lista.";
+                dv.Formula.ExcelFormula = $"Diccionario_Unidades!$B$2:$B${unidades.Count + 1}";
+            }
             wsPlantilla.Cells.AutoFitColumns();
 
             // ── Hoja 2: Diccionario_Categorias ────────────────────────────
@@ -462,18 +510,13 @@ namespace proyecto_venta_stock.Product.Services
             wsCat.Cells[1, 1].Value = "IdCategoria";
             wsCat.Cells[1, 2].Value = "Nombre";
             wsCat.Cells["A1:B1"].Style.Font.Bold = true;
-            try
+            int catRow = 2;
+            foreach (var cat in categorias)
             {
-                var categorias = await _categoryRepository.GetAll();
-                int row = 2;
-                foreach (var cat in categorias)
-                {
-                    wsCat.Cells[row, 1].Value = cat.IdCategoria;
-                    wsCat.Cells[row, 2].Value = cat.Categoria;
-                    row++;
-                }
+                wsCat.Cells[catRow, 1].Value = cat.IdCategoria;
+                wsCat.Cells[catRow, 2].Value = cat.Categoria;
+                catRow++;
             }
-            catch { /* si falla la consulta, la hoja queda solo con encabezados */ }
             wsCat.Cells.AutoFitColumns();
 
             // ── Hoja 3: Diccionario_Ubicaciones ───────────────────────────
@@ -481,18 +524,13 @@ namespace proyecto_venta_stock.Product.Services
             wsUbi.Cells[1, 1].Value = "IdUbicacion";
             wsUbi.Cells[1, 2].Value = "Detalle";
             wsUbi.Cells["A1:B1"].Style.Font.Bold = true;
-            try
+            int ubiRow = 2;
+            foreach (var u in ubicaciones)
             {
-                var ubicaciones = await _locationRepository.LocationsQueryable("", true).ToListAsync();
-                int row = 2;
-                foreach (var u in ubicaciones)
-                {
-                    wsUbi.Cells[row, 1].Value = u.IdUbicacion;
-                    wsUbi.Cells[row, 2].Value = $"Fila {u.Fila} - Sección {u.Seccion} - Nivel {u.Nivel}";
-                    row++;
-                }
+                wsUbi.Cells[ubiRow, 1].Value = u.IdUbicacion;
+                wsUbi.Cells[ubiRow, 2].Value = $"Fila {u.Fila} - Sección {u.Seccion} - Nivel {u.Nivel}";
+                ubiRow++;
             }
-            catch { }
             wsUbi.Cells.AutoFitColumns();
 
             // ── Hoja 4: Diccionario_Unidades ──────────────────────────────
@@ -501,19 +539,14 @@ namespace proyecto_venta_stock.Product.Services
             wsUm.Cells[1, 2].Value = "Nombre";
             wsUm.Cells[1, 3].Value = "Abreviatura";
             wsUm.Cells["A1:C1"].Style.Font.Bold = true;
-            try
+            int umRow = 2;
+            foreach (var u in unidades)
             {
-                var unidades = await _dbContext.UnidadMedidas.AsNoTracking().ToListAsync();
-                int row = 2;
-                foreach (var u in unidades)
-                {
-                    wsUm.Cells[row, 1].Value = u.IdUnidadMedida;
-                    wsUm.Cells[row, 2].Value = u.Nombre;
-                    wsUm.Cells[row, 3].Value = u.Abreviatura;
-                    row++;
-                }
+                wsUm.Cells[umRow, 1].Value = u.IdUnidadMedida;
+                wsUm.Cells[umRow, 2].Value = u.Nombre;
+                wsUm.Cells[umRow, 3].Value = u.Abreviatura;
+                umRow++;
             }
-            catch { }
             wsUm.Cells.AutoFitColumns();
 
             return await package.GetAsByteArrayAsync();
@@ -535,13 +568,13 @@ namespace proyecto_venta_stock.Product.Services
                 using var package = new ExcelPackage();
                 var ws = package.Workbook.Worksheets.Add("Precios");
 
-                // Header
-                ws.Cells[1, 1].Value = "CodigoBarra";
-                ws.Cells[1, 2].Value = "NombreProducto";
-                ws.Cells[1, 3].Value = "CostoNeto";
-                ws.Cells[1, 4].Value = "MargenGanancia";
+                ws.Cells[1, 1].Value = "IdProducto";
+                ws.Cells[1, 2].Value = "CodigoBarra";
+                ws.Cells[1, 3].Value = "NombreProducto";
+                ws.Cells[1, 4].Value = "CostoNeto";
+                ws.Cells[1, 5].Value = "MargenGanancia";
 
-                using (var headerRange = ws.Cells[1, 1, 1, 4])
+                using (var headerRange = ws.Cells[1, 1, 1, 5])
                 {
                     headerRange.Style.Font.Bold = true;
                     headerRange.Style.Fill.PatternType = OfficeOpenXml.Style.ExcelFillStyle.Solid;
@@ -556,15 +589,15 @@ namespace proyecto_venta_stock.Product.Services
                         ?? p.CodigoBarras.FirstOrDefault()?.Codigo
                         ?? string.Empty;
 
-                    ws.Cells[row, 1].Value = codigoPrincipal;
-                    ws.Cells[row, 2].Value = p.Nombre;
-                    ws.Cells[row, 3].Value = p.Costo;
-                    ws.Cells[row, 4].Value = p.PorcentajeGanancia;
+                    ws.Cells[row, 1].Value = p.IdProducto;
+                    ws.Cells[row, 2].Value = codigoPrincipal;
+                    ws.Cells[row, 3].Value = p.Nombre;
+                    ws.Cells[row, 4].Value = p.Costo;
+                    ws.Cells[row, 5].Value = p.PorcentajeGanancia;
                     row++;
                 }
 
-                if (ws.Dimension != null)
-                    ws.Cells[ws.Dimension.Address].AutoFitColumns();
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
 
                 return Result<byte[]>.Success(package.GetAsByteArray());
             }
@@ -657,24 +690,13 @@ namespace proyecto_venta_stock.Product.Services
 
                 foreach (var row in rows)
                 {
-                    var idProducto = await _dbContext.CodigoBarras
-                        .Where(cb => cb.Codigo == row.CodigoBarra && cb.Activo == true)
-                        .Select(cb => cb.IdProducto)
-                        .FirstOrDefaultAsync();
-
-                    if (idProducto == 0)
-                    {
-                        resultado.CodigosIgnorados.Add(row.CodigoBarra);
-                        continue;
-                    }
-
                     var producto = await _dbContext.Productos
-                        .Where(p => p.IdProducto == idProducto && p.Activo)
+                        .Where(p => p.IdProducto == row.IdProducto && p.Activo)
                         .FirstOrDefaultAsync();
 
                     if (producto == null)
                     {
-                        resultado.CodigosIgnorados.Add(row.CodigoBarra);
+                        resultado.Ignorados.Add(row.IdProducto);
                         continue;
                     }
 
@@ -723,7 +745,7 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
-        private record PrecioImportRow(string CodigoBarra, decimal CostoNeto, decimal? Margen);
+        private record PrecioImportRow(int IdProducto, decimal CostoNeto, decimal? Margen);
 
         private List<PrecioImportRow> ParsePreciosExcel(IFormFile file)
         {
@@ -738,22 +760,25 @@ namespace proyecto_venta_stock.Product.Services
 
             for (int row = 2; row <= ws.Dimension.Rows; row++)
             {
-                var codigo = ws.Cells[row, 1].Text.Trim();
-                if (string.IsNullOrWhiteSpace(codigo)) continue;
+                // col 1 = IdProducto
+                var idText = ws.Cells[row, 1].Text.Trim();
+                if (!int.TryParse(idText, out var idProducto) || idProducto <= 0) continue;
 
-                // col 2 = NombreProducto — ignorar
-                var costoText = ws.Cells[row, 3].Text.Trim();
+                // col 2 = CodigoBarra — ignorar
+                // col 3 = NombreProducto — ignorar
+
+                var costoText = ws.Cells[row, 4].Text.Trim();
                 if (!decimal.TryParse(costoText, System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var costo)) continue;
 
                 decimal? margen = null;
-                var margenText = ws.Cells[row, 4].Text.Trim();
+                var margenText = ws.Cells[row, 5].Text.Trim();
                 if (!string.IsNullOrWhiteSpace(margenText) &&
                     decimal.TryParse(margenText, System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var m))
                     margen = m;
 
-                rows.Add(new PrecioImportRow(codigo, costo, margen));
+                rows.Add(new PrecioImportRow(idProducto, costo, margen));
             }
 
             return rows;
@@ -777,14 +802,15 @@ namespace proyecto_venta_stock.Product.Services
 
                 rows.Add(new ProductImportRowDTO
                 {
-                    CodigoBarra = cols[0],
-                    Nombre = cols[1],
-                    Marca = cols[2],
-                    Precio = decimal.TryParse(cols[3], out var p) ? p : null,
-                    IdCategoria = int.TryParse(cols[4], out var c) ? c : null,
-                    IdUbicacion = int.TryParse(cols[5], out var u) ? u : null,
-                    Stock = cols.Length > 6 && decimal.TryParse(cols[6], out var s) ? s : null,
-                    IdUnidadMedida = cols.Length > 7 && int.TryParse(cols[7], out var um) ? um : null,
+                    CodigoBarra    = cols[0],
+                    Nombre         = cols[1],
+                    Marca          = cols[2],
+                    Costo          = cols.Length > 3 && decimal.TryParse(cols[3], out var costo) ? costo : null,
+                    MargenGanancia = cols.Length > 4 && decimal.TryParse(cols[4], out var margen) ? margen : null,
+                    Categoria      = cols.Length > 5 ? cols[5].Trim() : null,
+                    Ubicacion      = cols.Length > 6 ? cols[6].Trim() : null,
+                    Stock          = cols.Length > 7 && decimal.TryParse(cols[7], out var s) ? s : null,
+                    UnidadMedida   = cols.Length > 8 ? cols[8].Trim() : null,
                 });
             }
 
@@ -808,14 +834,15 @@ namespace proyecto_venta_stock.Product.Services
                 int cols = ws.Dimension.Columns;
                 rows.Add(new ProductImportRowDTO
                 {
-                    CodigoBarra = codigoBarra,
-                    Nombre = ws.Cells[row, 2].Text,
-                    Marca = ws.Cells[row, 3].Text,
-                    Precio = decimal.TryParse(ws.Cells[row, 4].Text, out var price) ? price : null,
-                    IdCategoria = cols >= 5 && int.TryParse(ws.Cells[row, 5].Text, out var cat) ? cat : null,
-                    IdUbicacion = cols >= 6 && int.TryParse(ws.Cells[row, 6].Text, out var ubi) ? ubi : null,
-                    Stock = cols >= 7 && decimal.TryParse(ws.Cells[row, 7].Text, out var stk) ? stk : null,
-                    IdUnidadMedida = cols >= 8 && int.TryParse(ws.Cells[row, 8].Text, out var um) ? um : null,
+                    CodigoBarra    = codigoBarra,
+                    Nombre         = ws.Cells[row, 2].Text,
+                    Marca          = ws.Cells[row, 3].Text,
+                    Costo          = cols >= 4 && decimal.TryParse(ws.Cells[row, 4].Text, out var costo) ? costo : null,
+                    MargenGanancia = cols >= 5 && decimal.TryParse(ws.Cells[row, 5].Text, out var margen) ? margen : null,
+                    Categoria      = cols >= 6 ? ws.Cells[row, 6].Text.Trim() : null,
+                    Ubicacion      = cols >= 7 ? ws.Cells[row, 7].Text.Trim() : null,
+                    Stock          = cols >= 8 && decimal.TryParse(ws.Cells[row, 8].Text, out var stk) ? stk : null,
+                    UnidadMedida   = cols >= 9 ? ws.Cells[row, 9].Text.Trim() : null,
                 });
             }
 
@@ -843,6 +870,25 @@ namespace proyecto_venta_stock.Product.Services
 
                 int lineNumber = 2; // comienza después del encabezado
 
+                // Precargar tablas de referencia para resolver nombres → IDs
+                var allCategorias  = (await _categoryRepository.GetAll()).ToList();
+                var allUbicaciones = await _locationRepository.LocationsQueryable("", true).ToListAsync();
+                var allUnidades    = await _dbContext.UnidadMedidas.AsNoTracking().ToListAsync();
+
+                string FmtUbi(Ubicacion u) => $"Fila {u.Fila} - Sección {u.Seccion} - Nivel {u.Nivel}";
+
+                int? ResolveCategoria(string? nombre) =>
+                    string.IsNullOrWhiteSpace(nombre) ? null :
+                    allCategorias.FirstOrDefault(c => string.Equals(c.Categoria, nombre, StringComparison.OrdinalIgnoreCase))?.IdCategoria;
+
+                int? ResolveUbicacion(string? detalle) =>
+                    string.IsNullOrWhiteSpace(detalle) ? null :
+                    allUbicaciones.FirstOrDefault(u => string.Equals(FmtUbi(u), detalle, StringComparison.OrdinalIgnoreCase))?.IdUbicacion;
+
+                int? ResolveUnidad(string? nombre) =>
+                    string.IsNullOrWhiteSpace(nombre) ? null :
+                    allUnidades.FirstOrDefault(u => string.Equals(u.Nombre, nombre, StringComparison.OrdinalIgnoreCase))?.IdUnidadMedida;
+
                 // set_config para auditoría del trigger de producto
                 await _dbContext.Database.SetAuditContextAsync(idUsuario);
 
@@ -869,13 +915,18 @@ namespace proyecto_venta_stock.Product.Services
                     if (existing != null)
                     {
                         // UPDATE
-                        existing.Precio = row.Precio ?? existing.Precio;
-                        existing.Nombre = string.IsNullOrWhiteSpace(row.Nombre) ? existing.Nombre : row.Nombre;
-                        existing.Marca = string.IsNullOrWhiteSpace(row.Marca) ? existing.Marca : row.Marca;
-                        existing.IdCategoria = row.IdCategoria ?? existing.IdCategoria;
-                        existing.IdUbicacion = row.IdUbicacion ?? existing.IdUbicacion;
-                        if (row.IdUnidadMedida.HasValue)
-                            existing.IdUnidadMedida = row.IdUnidadMedida.Value;
+                        existing.Nombre      = string.IsNullOrWhiteSpace(row.Nombre) ? existing.Nombre : row.Nombre;
+                        existing.Marca       = string.IsNullOrWhiteSpace(row.Marca) ? existing.Marca : row.Marca;
+                        existing.IdCategoria = ResolveCategoria(row.Categoria) ?? existing.IdCategoria;
+                        existing.IdUbicacion = ResolveUbicacion(row.Ubicacion) ?? existing.IdUbicacion;
+                        var resolvedUnidad   = ResolveUnidad(row.UnidadMedida);
+                        if (resolvedUnidad.HasValue)
+                            existing.IdUnidadMedida = resolvedUnidad.Value;
+                        if (row.Costo.HasValue)
+                            existing.Costo = row.Costo.Value;
+                        if (row.MargenGanancia.HasValue)
+                            existing.PorcentajeGanancia = row.MargenGanancia.Value;
+                        existing.Precio = existing.Costo * (1 + existing.PorcentajeGanancia / 100m);
 
                         await _productRepository.Update(existing);
                         result.ProductosActualizados++;
@@ -912,16 +963,22 @@ namespace proyecto_venta_stock.Product.Services
                         // INSERT (alta masiva)
                         var defaults = _defaultsOptions.Value;
 
+                        decimal costo  = row.Costo ?? 0m;
+                        decimal margen = row.MargenGanancia ?? 30m;
+                        decimal precio = costo * (1 + margen / 100m);
+
                         var nuevo = new Producto
                         {
-                            Nombre = row.Nombre,
-                            Marca = row.Marca,
-                            Precio = row.Precio!.Value,
-                            IdCategoria = row.IdCategoria ?? defaults.DefaultCategoryId,
-                            IdUbicacion = row.IdUbicacion ?? defaults.DefaultLocationId,
-                            IdUnidadMedida = row.IdUnidadMedida ?? 1,
-                            Activo = true,
-                            CodigoBarras = new List<CodigoBarra>
+                            Nombre             = row.Nombre,
+                            Marca              = row.Marca,
+                            Costo              = costo,
+                            PorcentajeGanancia = margen,
+                            Precio             = precio,
+                            IdCategoria        = ResolveCategoria(row.Categoria) ?? defaults.DefaultCategoryId,
+                            IdUbicacion        = ResolveUbicacion(row.Ubicacion) ?? defaults.DefaultLocationId,
+                            IdUnidadMedida     = ResolveUnidad(row.UnidadMedida) ?? 1,
+                            Activo             = true,
+                            CodigoBarras       = new List<CodigoBarra>
                             {
                                 new CodigoBarra { Codigo = row.CodigoBarra }
                             }

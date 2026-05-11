@@ -8,6 +8,5 @@ public partial class Proveedor
     public string? Telefono { get; set; }
     public bool Activo { get; set; }
     public DateTime? FechaBaja { get; set; }
-    public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
     public virtual ICollection<ListaPrecio> ListaPrecios { get; set; } = new List<ListaPrecio>();
 }

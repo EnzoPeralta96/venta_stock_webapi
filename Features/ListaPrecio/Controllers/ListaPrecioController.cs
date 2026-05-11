@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
 using proyecto_venta_stock.ListaPrecio.DTO;
 using proyecto_venta_stock.ListaPrecio.Services;
 using proyecto_venta_stock.Message;
@@ -11,7 +11,7 @@ namespace proyecto_venta_stock.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Authorize]
-public class ListaPrecioController : ControllerBase
+public class ListaPrecioController : BaseController
 {
     private readonly IListaPrecioServices _listaPrecioServices;
 
@@ -56,9 +56,7 @@ public class ListaPrecioController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] ListaPrecioCreateDTO dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuario))
-            return Unauthorized();
+        if (!TryGetUserId(out int idUsuario)) return Unauthorized();
 
         var result = await _listaPrecioServices.CreateAsync(dto, idUsuario);
 

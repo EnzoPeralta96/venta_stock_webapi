@@ -10,7 +10,6 @@ namespace venta_stock_webapi.Sale.DTO
         [Required(ErrorMessage = "El medio de pago es obligatorio.")]
         public int idMedioPago { get; set; }
 
-        [Required(ErrorMessage = "El usuario vendedor es obligatorio.")]
         public int idUsuarioVendedor { get; set; }
 
         [Required(ErrorMessage = "Debe agregar al menos un producto a la venta.")]

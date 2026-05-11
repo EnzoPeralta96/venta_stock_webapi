@@ -153,7 +153,7 @@ namespace venta_stock_webapi.Client.Services
                     await LogAsync("CC_CREADA", "CLIENTE",
                         $"Cuenta corriente habilitada: '{nombreCC}' | Límite: ${clienteDTO.LimiteCuenta!.Value:N2} | Saldo inicial: ${clienteDTO.SaldoInicial ?? 0:N2}",
                         null,
-                        new { LimiteCuenta = clienteDTO.LimiteCuenta!.Value, SaldoInicial = clienteDTO.SaldoInicial ?? 0 });
+                        new { cliente = nombreCC, limiteCredito = clienteDTO.LimiteCuenta!.Value, saldoInicial = clienteDTO.SaldoInicial ?? 0 });
                 }
 
                 // Obtener el cliente recién creado con sus relaciones

@@ -9,13 +9,14 @@ namespace proyecto_venta_stock.Product.DTO
     public class ProductImportRowDTO : IValidatableObject
     {
         public string CodigoBarra { get; set; }
-        public string Nombre { get; set; }       // Obligatorio si es nuevo
-        public string Marca { get; set; }        // Obligatorio si es nuevo
-        public decimal? Precio { get; set; }     // Siempre obligatorio
-        public decimal? Stock { get; set; }      // Solo para INSERTs nuevos; se ignora en UPDATEs
-        public int? IdCategoria { get; set; }
-        public int? IdUbicacion { get; set; }
-        public int? IdUnidadMedida { get; set; }
+        public string Nombre { get; set; }
+        public string Marca { get; set; }
+        public decimal? Costo { get; set; }
+        public decimal? MargenGanancia { get; set; }
+        public decimal? Stock { get; set; }
+        public string? Categoria { get; set; }
+        public string? Ubicacion { get; set; }
+        public string? UnidadMedida { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext context)
         {
@@ -24,14 +25,6 @@ namespace proyecto_venta_stock.Product.DTO
                 yield return new ValidationResult(
                     "El Código de Barra es obligatorio.",
                     new[] { nameof(CodigoBarra) }
-                );
-            }
-
-            if (Precio == null || Precio <= 0)
-            {
-                yield return new ValidationResult(
-                    "El Precio es obligatorio y debe ser mayor a 0.",
-                    new[] { nameof(Precio) }
                 );
             }
 

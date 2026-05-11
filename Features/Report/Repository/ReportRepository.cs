@@ -213,7 +213,7 @@ namespace proyecto_venta_stock.Report.Repository
             if (!lineasVenta.Any())
                 return new MargenUtilidadDTO { FechaDesde = fechaDesde, FechaHasta = fechaHasta };
 
-            // Cargar historial de compras solo para los productos involucrados
+            // Cargar historial de compras y costo actual para los productos involucrados
             var productIds = lineasVenta.Select(x => x.IdProducto).Distinct().ToList();
 
             var compras = await (
@@ -228,15 +228,24 @@ namespace proyecto_venta_stock.Report.Repository
                 }
             ).ToListAsync();
 
-            // Para cada línea de venta, buscar el último costo de compra anterior o igual a la fecha de la venta
+            // Costo actual del producto como fallback si no hay historial de compras
+            var costoActual = await _dbContext.Productos
+                .AsNoTracking()
+                .Where(p => productIds.Contains(p.IdProducto))
+                .Select(p => new { p.IdProducto, p.Costo })
+                .ToDictionaryAsync(p => p.IdProducto, p => p.Costo);
+
+            // Para cada línea de venta, buscar el último costo de compra anterior o igual a la fecha de la venta.
+            // Si no hay historial de compra, se usa Producto.Costo como fallback.
             decimal totalCostos = 0;
             foreach (var linea in lineasVenta)
             {
-                var fechaVenta = DateOnly.FromDateTime(linea.VentaFecha);
+                var fechaVenta  = DateOnly.FromDateTime(linea.VentaFecha);
                 var ultimoCosto = compras
                     .Where(c => c.IdProducto == linea.IdProducto && c.Fecha <= fechaVenta)
                     .OrderByDescending(c => c.Fecha)
-                    .FirstOrDefault()?.PrecioUnitario ?? 0m;
+                    .FirstOrDefault()?.PrecioUnitario
+                    ?? costoActual.GetValueOrDefault(linea.IdProducto, 0m);
 
                 totalCostos += linea.Cantidad * ultimoCosto;
             }

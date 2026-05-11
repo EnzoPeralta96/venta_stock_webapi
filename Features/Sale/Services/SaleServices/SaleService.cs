@@ -103,8 +103,10 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
-        public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO)
+        public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO, int idUsuarioVendedor)
         {
+            createSaleDTO.idUsuarioVendedor = idUsuarioVendedor;
+
             await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
@@ -143,7 +145,7 @@ namespace venta_stock_webapi.Sale.Services
                     Total = total,
                     IdMedioPago = createSaleDTO.idMedioPago,
                     IdCliente = createSaleDTO.idCliente,
-                    IdUsuario = createSaleDTO.idUsuarioVendedor,
+                    IdUsuario = idUsuarioVendedor,
                     IdEstado = 2 // Completada
                 };
 
@@ -233,7 +235,7 @@ namespace venta_stock_webapi.Sale.Services
                         Importe = total,
                         Detalle = $"Venta {ventaCreada.CodigoVenta}",
                         IdVenta = ventaCreada.IdVenta,
-                        IdUsuarioRegistra = createSaleDTO.idUsuarioVendedor
+                        IdUsuarioRegistra = idUsuarioVendedor
                     });
 
                     if (!movementResult.IsSuccess)
@@ -260,7 +262,7 @@ namespace venta_stock_webapi.Sale.Services
                         TipoMovimientoStockEnum.EgresoVenta,
                         -(detalle.Cantidad ?? 0),
                         $"VENTA:{ventaCreada.CodigoVenta}",
-                        createSaleDTO.idUsuarioVendedor);
+                        idUsuarioVendedor);
 
                 await transaction.CommitAsync();
 
@@ -470,14 +472,14 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
-        public async Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto)
+        public async Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto, int idUsuarioRegistra)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 // Requerido por el trigger de auditoría (fn_auditoria_generica).
                 // ExecuteUpdateAsync bypasea SaveChanges, por lo que el interceptor no actúa.
-                await _context.Database.SetAuditContextAsync(dto.IdUsuarioRegistra);
+                await _context.Database.SetAuditContextAsync(idUsuarioRegistra);
 
                 // 1. Obtener la venta con detalle y tracking
                 var venta = await _saleRepository.GetSaleWithDetailsAsync(idVenta);
@@ -512,7 +514,7 @@ namespace venta_stock_webapi.Sale.Services
                             TipoMovimientoStockEnum.ReingresoAnulacionVenta,
                             cantidad,
                             $"ANULACION-VENTA:{venta.CodigoVenta}",
-                            dto.IdUsuarioRegistra);
+                            idUsuarioRegistra);
                 }
 
                 // 7. Si la venta fue con CC → crear NC y recomputar MontoPagado
@@ -543,7 +545,7 @@ namespace venta_stock_webapi.Sale.Services
                             Detalle           = detalle,
                             IdEstado          = 2,
                             IdTipoMovimiento  = (int)TypeMovement.NOTA_CREDITO,
-                            IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                            IdUsuarioRegistra = idUsuarioRegistra,
                             IdVenta           = idVenta,
                             SaldoActual       = calc.NewBalance,
                             LimiteCuenta      = calc.NewLimit,

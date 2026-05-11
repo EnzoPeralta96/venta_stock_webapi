@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Message;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService;
+using venta_stock_webapi.Shared.Controllers;
 using venta_stock_webapi.Shared.MessageProvider;
 
 namespace venta_stock_webapi.CurrentAccount.Controllers
@@ -10,7 +11,7 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CurrentAccountController : ControllerBase
+    public class CurrentAccountController : BaseController
     {
         private readonly ICurrentAccountService _currentAccountService;
 
@@ -65,6 +66,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("create-account")]
         public async Task<IActionResult> AddCurrentAccountToClient([FromBody] CreateCurrentAccountDTO accountMovementDTO)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            accountMovementDTO.IdUsuarioRegistra = idUsuario;
+
             var result = await _currentAccountService.CreateAccountMovement(accountMovementDTO);
 
             if (!result.IsSuccess)
@@ -97,6 +101,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("register-movement")]
         public async Task<IActionResult> RegisterMovement([FromBody] AddMovementDTO MovementDTO)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            MovementDTO.IdUsuarioRegistra = idUsuario;
+
             var result = await _currentAccountService.RegisterMovement(MovementDTO);
 
             if (!result.IsSuccess)
@@ -130,6 +137,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("annul-payment")]
         public async Task<IActionResult> AnnulPayment([FromBody] AnnulPaymentDTO dto)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            dto.IdUsuarioRegistra = idUsuario;
+
             var result = await _currentAccountService.AnnulPayment(dto);
 
             if (!result.IsSuccess)
@@ -162,6 +172,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPost("register-debit-note")]
         public async Task<IActionResult> RegisterDebitNote([FromBody] RegisterDebitNoteDTO dto)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            dto.IdUsuarioRegistra = idUsuario;
+
             var result = await _currentAccountService.RegisterDebitNote(dto);
 
             if (!result.IsSuccess)
@@ -192,9 +205,10 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 
         [Authorize(Policy = "PERM:CC_MANAGE")]
         [HttpPost("apply-interest/{clientId}")]
-        public async Task<IActionResult> ApplyInterestToClient(int clientId, [FromBody] ApplyInterestDTO dto)
+        public async Task<IActionResult> ApplyInterestToClient(int clientId)
         {
-            var result = await _currentAccountService.ApplyInterestToClient(clientId, dto.IdUsuarioRegistra);
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            var result = await _currentAccountService.ApplyInterestToClient(clientId, idUsuario);
             if (!result.IsSuccess)
             {
                 var code = (CurrentAccountCode)result.ErrorCode;
@@ -208,6 +222,9 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
         [HttpPut("update-limit")]
         public async Task<IActionResult> UpdateAccountLimit([FromBody] UpdateAccountLimitDTO dto)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            dto.IdUsuarioRegistra = idUsuario;
+
             var result = await _currentAccountService.UpdateAccountLimitAsync(dto);
 
             if (!result.IsSuccess)
@@ -222,9 +239,10 @@ namespace venta_stock_webapi.CurrentAccount.Controllers
 
         [Authorize(Policy = "PERM:CC_MANAGE")]
         [HttpPost("apply-interest/bulk")]
-        public async Task<IActionResult> ApplyInterestToAll([FromBody] ApplyInterestDTO dto)
+        public async Task<IActionResult> ApplyInterestToAll()
         {
-            var result = await _currentAccountService.ApplyInterestToAll(dto.IdUsuarioRegistra);
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            var result = await _currentAccountService.ApplyInterestToAll(idUsuario);
 
             if (!result.IsSuccess)
             {

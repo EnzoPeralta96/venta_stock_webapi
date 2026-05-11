@@ -61,12 +61,12 @@ namespace venta_stock_webapi.Features.Ferreteria.Services
                     return Result<bool>.Failure(FerreteriaErrorCode.ferreteria_not_found);
                 }
 
-                ferreteria.Nombre = ferreteriaDTO.Nombre;
+                ferreteria.Nombre    = ferreteriaDTO.Nombre;
                 ferreteria.Direccion = ferreteriaDTO.Direccion;
-                ferreteria.Telefono = ferreteriaDTO.Telefono;
-                ferreteria.Email = ferreteriaDTO.Email;
-                ferreteria.Cuit = ferreteriaDTO.Cuit;
-                ferreteria.LogoUrl = ferreteriaDTO.LogoUrl;
+                ferreteria.Telefono  = ferreteriaDTO.Telefono;
+                ferreteria.Email     = ferreteriaDTO.Email;
+                ferreteria.Cuit      = ferreteriaDTO.Cuit;
+                ferreteria.LogoUrl   = ferreteriaDTO.LogoUrl;
 
                 await _ferreteriaRepository.UpdateAsync(ferreteria);
 

@@ -308,6 +308,7 @@ namespace venta_stock_webapi.Sale.Services
 
                         await _context.DetalleVenta.AddAsync(detalle);
                     }
+                    
                     await _context.SaveChangesAsync();
 
                     _logger.LogDebug("Detalles de venta creados: {count} items",
@@ -390,7 +391,6 @@ namespace venta_stock_webapi.Sale.Services
                         Mensaje = $"Venta aprobada y procesada exitosamente. Se generó la venta {venta.CodigoVenta}."
                     });
                 }
-                
                 // 4. Si RECHAZAR
                 else
                 {

@@ -168,8 +168,8 @@ public class StockMovementService : IStockMovementService
             }
 
             await LogAsync(accionAudit, "PRODUCTO", detalleAudit,
-                new { Producto = nombreProducto, Stock = stockAnterior },
-                new { Producto = nombreProducto, Stock = nuevoStock });
+                new { producto = nombreProducto, stockAnterior },
+                new { producto = nombreProducto, cantidad = Math.Abs(cantidad), stockNuevo = nuevoStock });
 
             return Result<bool>.Success(true);
         }

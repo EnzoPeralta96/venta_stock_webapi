@@ -75,6 +75,7 @@ namespace proyecto_venta_stock.Category.Services
             try
             {
                 var category = await _categoryRepo.GetById(idCategoria);
+
                 if (category == null)
                 {
                     return Result<CategoryDetailDTO>.Failure(CategoryErrorCode.category_not_found);

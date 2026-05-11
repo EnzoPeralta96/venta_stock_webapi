@@ -1,6 +1,7 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
 using venta_stock_webapi.Client.DTO;
 using venta_stock_webapi.Client.Message;
 using venta_stock_webapi.Client.Services;
@@ -11,7 +12,7 @@ namespace venta_stock_webapi.Client.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class ClienteController : ControllerBase
+    public class ClienteController : BaseController
     {
         private readonly IClientService _clienteService;
 
@@ -24,6 +25,9 @@ namespace venta_stock_webapi.Client.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateCliente([FromBody] ClientCreateDTO clienteDTO)
         {
+            if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+            clienteDTO.idUsuarioRegistra = idUsuario;
+
             var result = await _clienteService.CreateClienteAsync(clienteDTO);
 
             if (!result.IsSuccess)

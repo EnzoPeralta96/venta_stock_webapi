@@ -9,7 +9,4 @@ public class AnnulSaleDTO
 
     /// <summary>Detalle adicional opcional.</summary>
     public string? DetalleAdicional { get; set; }
-
-    [Required(ErrorMessage = "El ID del usuario que registra es obligatorio.")]
-    public int IdUsuarioRegistra { get; set; }
 }

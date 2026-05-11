@@ -1,7 +1,7 @@
-using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
 using proyecto_venta_stock.Product.Services;
 using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Message;
@@ -13,7 +13,7 @@ namespace proyecto_venta_stock.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Authorize]
-public class ProductController : ControllerBase
+public class ProductController : BaseController
 {
     private readonly IProductServices _productServices;
     public ProductController(IProductServices productServices)
@@ -208,9 +208,7 @@ public class ProductController : ControllerBase
         if (file == null || file.Length == 0)
             return BadRequest("Debe subir un archivo CSV o Excel válido.");
 
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuario))
-            return Unauthorized();
+        if (!TryGetUserId(out int idUsuario)) return Unauthorized();
 
         var result = await _productServices.ImportarProductosAsync(file, idUsuario);
 

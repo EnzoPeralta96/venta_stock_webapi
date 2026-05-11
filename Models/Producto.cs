@@ -29,9 +29,6 @@ public partial class Producto
     public decimal PorcentajeGanancia { get; set; } = 30;
 
     public virtual ICollection<CodigoBarra> CodigoBarras { get; set; } = new List<CodigoBarra>();
-
-    public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
-
     public virtual ICollection<DetalleVentum> DetalleVenta { get; set; } = new List<DetalleVentum>();
 
     public virtual Categorium IdCategoriaNavigation { get; set; }

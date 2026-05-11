@@ -20,8 +20,6 @@ public partial class Usuario
     public string Rol { get; set; }
     public bool Root { get; set; } = false;
 
-    public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
-
     public virtual ICollection<ListaPrecio> ListaPrecios { get; set; } = new List<ListaPrecio>();
 
     public virtual ICollection<MovimientoCc> MovimientoCcIdUsuarioAutorizaNavigations { get; set; } = new List<MovimientoCc>();

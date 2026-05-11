@@ -23,7 +23,7 @@ namespace proyecto_venta_stock.Features.Ferreteria.Repository
 
         public async Task UpdateAsync(Models.Ferreteria ferreteria)
         {
-            ferreteria.FechaActualizacion = DateTime.UtcNow;
+            ferreteria.FechaActualizacion = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
             _context.Ferreterias.Update(ferreteria);
             await _context.SaveChangesAsync();
         }

@@ -231,6 +231,7 @@ namespace proyecto_venta_stock.Proveedor.Services
                 if (existing is null)
                     return Result<bool>.Failure(ProveedorErrorCode.proveedor_not_found);
 
+                bool eraActivo = existing.Activo;
                 existing.Activo = !existing.Activo;
 
                 if (existing.Activo) existing.FechaBaja = null;
@@ -240,6 +241,12 @@ namespace proyecto_venta_stock.Proveedor.Services
                 await _dbContext.SaveChangesAsync();
 
                 await transaction.CommitAsync();
+
+                string accion = eraActivo ? "BAJA" : "REACTIVACION";
+                await LogAsync(accion, "PROVEEDOR",
+                    $"Proveedor {(eraActivo ? "dado de baja" : "reactivado")}: '{existing.Proveedor1}'",
+                    new { activo = eraActivo },
+                    new { activo = !eraActivo });
 
                 return Result<bool>.Success();
             }

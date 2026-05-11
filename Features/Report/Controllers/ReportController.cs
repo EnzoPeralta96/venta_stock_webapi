@@ -69,8 +69,9 @@ namespace proyecto_venta_stock.Report.Controllers
             if (!result.IsSuccess)
             {
                 var code    = (ReportErrorCode)result.ErrorCode;
+                if (code == ReportErrorCode.sin_datos) return Ok(null);
                 var message = MessageProvider.Get(ReportErrorDictionary.Messages, code);
-                return code == ReportErrorCode.sin_datos ? NotFound(message) : BadRequest(message);
+                return BadRequest(message);
             }
 
             return Ok(result.Value);

@@ -20,7 +20,7 @@ namespace venta_stock_webapi.CurrentAccount.DTO.MovementDTO
         public int? IdVenta { get; set; }
 
         [Required (ErrorMessage = "El IdUsuarioRegistra es obligatorio.")]
-        public int IdUsuarioRegistra { get; set; } = 1;
+        public int IdUsuarioRegistra { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

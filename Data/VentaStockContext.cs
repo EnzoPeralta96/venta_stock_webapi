@@ -19,9 +19,6 @@ public partial class VentaStockContext : DbContext
     public virtual DbSet<Cliente> Clientes { get; set; }
 
     public virtual DbSet<CodigoBarra> CodigoBarras { get; set; }
-
-    public virtual DbSet<Compra> Compras { get; set; }
-
     public virtual DbSet<DetalleVentum> DetalleVenta { get; set; }
 
     public virtual DbSet<Estado> Estados { get; set; }

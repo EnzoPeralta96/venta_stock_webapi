@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
 using proyecto_venta_stock.CompraProveedor.DTO;
 using proyecto_venta_stock.CompraProveedor.Message;
 using proyecto_venta_stock.CompraProveedor.Services;
@@ -10,7 +11,7 @@ namespace proyecto_venta_stock.CompraProveedor.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Authorize]
-public class CompraProveedorController : ControllerBase
+public class CompraProveedorController : BaseController
 {
     private readonly ICompraProveedorServices _compraProveedorServices;
 
@@ -23,6 +24,9 @@ public class CompraProveedorController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CompraProveedorCreateDTO dto)
     {
+        if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+        dto.IdUsuario = idUsuario;
+
         var result = await _compraProveedorServices.Create(dto);
 
         if (!result.IsSuccess)

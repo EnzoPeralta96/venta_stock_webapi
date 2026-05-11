@@ -1,6 +1,6 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
 using proyecto_venta_stock.Models;
 using venta_stock_webapi.Features.StockMovement.DTO;
 using venta_stock_webapi.Features.StockMovement.Messages;
@@ -12,7 +12,7 @@ namespace venta_stock_webapi.Features.StockMovement.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class StockMovementController : ControllerBase
+public class StockMovementController : BaseController
 {
     private readonly IStockMovementService _stockMovementService;
 
@@ -30,9 +30,7 @@ public class StockMovementController : ControllerBase
     [Authorize(Policy = "PERM:PROD_UPDATE")]
     public async Task<IActionResult> RegistrarAjuste([FromBody] AjusteStockDTO dto)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuario))
-            return Unauthorized();
+        if (!TryGetUserId(out int idUsuario)) return Unauthorized();
 
         var tipo = await _stockMovementService.GetTipoByIdAsync(dto.IdTipoMovimiento);
 

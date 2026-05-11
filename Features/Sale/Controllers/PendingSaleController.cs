@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using venta_stock_webapi.Shared.Controllers;
 using venta_stock_webapi.Sale.DTO;
 using venta_stock_webapi.Sale.Message;
 using venta_stock_webapi.Sale.Services;
@@ -14,7 +14,7 @@ namespace venta_stock_webapi.Sale.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class PendingSaleController : ControllerBase
+    public class PendingSaleController : BaseController
     {
         private readonly IPendingSaleService _pendingSaleService;
         private readonly IPdfService _pdfService;
@@ -92,10 +92,7 @@ namespace venta_stock_webapi.Sale.Controllers
             int id,
             [FromBody] ApproveRejectDTO dto)
         {
-            // Obtener ID del usuario desde el token JWT
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuarioAutoriza))
+            if (!TryGetUserId(out int idUsuarioAutoriza))
             {
                 _logger.LogWarning("No se pudo obtener ID del usuario desde token");
                 return Unauthorized("No se pudo obtener el ID del usuario autenticado");
@@ -154,10 +151,7 @@ namespace venta_stock_webapi.Sale.Controllers
                 return BadRequest("Las observaciones son obligatorias al rechazar una venta");
             }
 
-            // Obtener ID del usuario desde el token JWT
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int idUsuarioAutoriza))
+            if (!TryGetUserId(out int idUsuarioAutoriza))
             {
                 _logger.LogWarning("No se pudo obtener ID del usuario desde token");
                 return Unauthorized("No se pudo obtener el ID del usuario autenticado");
