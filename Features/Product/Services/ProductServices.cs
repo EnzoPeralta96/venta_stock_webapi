@@ -1,7 +1,6 @@
 using AutoMapper;
 using proyecto_venta_stock.Message;
 using proyecto_venta_stock.Models;
-using proyecto_venta_stock.Services;
 using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.Product.DTO;
 using proyecto_venta_stock.Product.ProductRepository;
@@ -72,33 +71,48 @@ namespace proyecto_venta_stock.Product.Services
                 _logger.LogWarning(ex, "No se pudo registrar auditoría.");
             }
         }
+        private async Task<(bool flowControl, Result<bool> value)> ValidateCreate(ProductDTO dto)
+        {
+            if (await _productRepository.Exists(dto.Nombre, dto.Marca))
+                return (false, Result<bool>.Failure(ProductErrorCode.product_name_in_use));
+
+            foreach (var cb in dto.CodigoBarras)
+                if (await _productRepository.CodigoBarraExists(cb))
+                    return (false, Result<bool>.Failure(ProductErrorCode.barcode_in_use));
+
+            if (dto.IdCategoria == null || !await _categoryRepository.ExistsById(dto.IdCategoria.Value))
+                return (false, Result<bool>.Failure(ProductErrorCode.categoria_invalida));
+
+            var ubic = dto.IdUbicacion == null
+                ? null
+                : await _locationRepository.GetByIdAsync(dto.IdUbicacion.Value);
+
+            if (ubic == null)
+                return (false, Result<bool>.Failure(ProductErrorCode.ubicacion_invalida));
+
+            return (true, null);
+        }
+
+        private async Task LogCreateAsync(Producto product, decimal stockInicial)
+        {
+            await LogAsync("CREACION", "PRODUCTO",
+                $"Producto creado: '{product.Nombre} {product.Marca}' | Precio: ${product.Precio:N2} | Stock inicial: {stockInicial}",
+                null,
+                new { Nombre = product.Nombre, Marca = product.Marca, Precio = product.Precio, StockInicial = stockInicial });
+        }
+
         public async Task<Result<bool>> Create(ProductDTO productDTO)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
+                (bool flowControl, Result<bool> value) = await ValidateCreate(productDTO);
 
-
-                if (productExists) return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
-
-                foreach (var cb in productDTO.CodigoBarras)
-                    if (await _productRepository.CodigoBarraExists(cb))
-                        return Result<bool>.Failure(ProductErrorCode.barcode_in_use);
-
-                if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
-                    return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
-
-                var ubic = productDTO.IdUbicacion == null
-                ? null
-                
-                : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
-
-                if (ubic == null)
-                    return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
+                if (!flowControl) return value;
 
                 var product = _mapper.Map<Producto>(productDTO);
-                product.Stock = 0; // el movimiento de alta lo lleva al stock inicial correcto
+
+                product.Stock = 0;
 
                 await _productRepository.Create(product);
 
@@ -117,10 +131,7 @@ namespace proyecto_venta_stock.Product.Services
 
                 await transaction.CommitAsync();
 
-                await LogAsync("CREACION", "PRODUCTO",
-                    $"Producto creado: '{product.Nombre} {product.Marca}' | Precio: ${product.Precio:N2} | Stock inicial: {productDTO.Stock}",
-                    null,
-                    new { Nombre = product.Nombre, Marca = product.Marca, Precio = product.Precio, StockInicial = productDTO.Stock });
+                await LogCreateAsync(product, productDTO.Stock);
 
                 return Result<bool>.Success();
             }
@@ -132,101 +143,116 @@ namespace proyecto_venta_stock.Product.Services
             }
         }
 
+        private async Task<(bool flowControl, Result<bool> value)> ValidateUpdate(ProductDTO dto, Producto existing)
+        {
+            bool productExists = await _productRepository.Exists(dto.Nombre, dto.Marca);
+
+            if (productExists && (existing.Nombre != dto.Nombre || existing.Marca != dto.Marca))
+                return (false, Result<bool>.Failure(ProductErrorCode.product_name_in_use));
+
+            var codigosNuevos = dto.CodigoBarras
+                .Where(cb => !existing.CodigoBarras.Any(e => e.Codigo == cb.Codigo))
+                .ToList();
+
+            foreach (var cb in codigosNuevos)
+                if (await _productRepository.CodigoBarraExists(cb))
+                    return (false, Result<bool>.Failure(ProductErrorCode.barcode_in_use));
+
+            if (dto.IdCategoria == null || !await _categoryRepository.ExistsById(dto.IdCategoria.Value))
+                return (false, Result<bool>.Failure(ProductErrorCode.categoria_invalida));
+
+            var ubic = dto.IdUbicacion == null
+                ? null
+                : await _locationRepository.GetByIdAsync(dto.IdUbicacion.Value);
+            if (ubic == null)
+                return (false, Result<bool>.Failure(ProductErrorCode.ubicacion_invalida));
+
+            return (true, null);
+        }
+
+        private (Dictionary<string, object?> anterior, Dictionary<string, object?> nuevo) ApplyAndTrackChangesProduct(Producto existing, ProductDTO dto)
+        {
+            var anterior = new Dictionary<string, object?>();
+            var nuevo    = new Dictionary<string, object?>();
+
+            void Track(string campo, object? old, object? newVal)
+            {
+                if (!Equals(old, newVal)) { anterior[campo] = old; nuevo[campo] = newVal; }
+            }
+
+            Track("Nombre",        existing.Nombre,        dto.Nombre);
+            Track("Marca",         existing.Marca,          dto.Marca);
+            Track("Precio",        existing.Precio,         dto.Precio);
+            Track("IdCategoria",   existing.IdCategoria,    dto.IdCategoria);
+            Track("IdUbicacion",   existing.IdUbicacion,    dto.IdUbicacion);
+            Track("StockMinimo",   existing.StockMinimo,    dto.StockMinimo);
+            Track("VentaSinStock", existing.VentaSinStock,  dto.VentaSinStock);
+
+            existing.Nombre             = dto.Nombre;
+            existing.Marca              = dto.Marca;
+            existing.Descripcion        = dto.Descripcion;
+            existing.Precio             = dto.Precio;
+            existing.StockMinimo        = dto.StockMinimo;
+            existing.IdCategoria        = dto.IdCategoria;
+            existing.IdUbicacion        = dto.IdUbicacion;
+            existing.VentaSinStock      = dto.VentaSinStock;
+            existing.IdUnidadMedida     = dto.IdUnidadMedida;
+            existing.Costo              = dto.Costo;
+            existing.PorcentajeGanancia = dto.PorcentajeGanancia;
+
+            var codigosAgregar = dto.CodigoBarras
+                .Where(d => !existing.CodigoBarras.Any(e => e.Codigo == d.Codigo))
+                .ToList();
+            var codigosEliminar = existing.CodigoBarras
+                .Where(e => !dto.CodigoBarras.Any(d => d.Codigo == e.Codigo))
+                .ToList();
+
+            foreach (var c in codigosEliminar)
+                existing.CodigoBarras.Remove(c);
+            foreach (var c in codigosAgregar)
+                existing.CodigoBarras.Add(new CodigoBarra { Codigo = c.Codigo, IdProducto = existing.IdProducto });
+
+            return (anterior, nuevo);
+        }
+
+        private async Task LogUpdateAsync(ProductDTO dto, Dictionary<string, object?> anterior, Dictionary<string, object?> nuevo)
+        {
+            string accion = anterior.ContainsKey("Precio") ? "PRECIO_ACTUALIZADO"
+                : anterior.ContainsKey("Nombre") ? "NOMBRE_ACTUALIZADO"
+                : "ACTUALIZACION";
+
+            string detalle = $"Producto actualizado: '{dto.Nombre} {dto.Marca}'";
+            if (anterior.Count > 0)
+                detalle += " | " + string.Join(" | ", anterior.Keys.Select(k =>
+                    k == "Precio"
+                        ? $"Precio: ${anterior[k]:N2} → ${nuevo[k]:N2}"
+                        : $"{k}: '{anterior[k]}' → '{nuevo[k]}'"));
+
+            await LogAsync(accion, "PRODUCTO", detalle,
+                anterior.Count > 0 ? anterior : null,
+                nuevo.Count    > 0 ? nuevo    : null);
+        }
+
         public async Task<Result<bool>> Update(ProductDTO productDTO)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // Verificar si el producto existe
                 var existingProduct = await _productRepository.GetById(productDTO.IdProducto);
+
                 if (existingProduct == null) return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
+                (bool flowControl, Result<bool> value) = await ValidateUpdate(productDTO, existingProduct);
 
-                // Verificar si el nuevo nombre y marca ya están en uso por otro producto
-                bool productExists = await _productRepository.Exists(productDTO.Nombre, productDTO.Marca);
-                if (productExists && (existingProduct.Nombre != productDTO.Nombre || existingProduct.Marca != productDTO.Marca))
-                    return Result<bool>.Failure(ProductErrorCode.product_name_in_use);
+                if (!flowControl) return value;
 
-                // Validar barcodes nuevos (que no pertenecen ya a este mismo producto)
-                var codigosNuevos = productDTO.CodigoBarras
-                    .Where(cb => !existingProduct.CodigoBarras.Any(e => e.Codigo == cb.Codigo))
-                    .ToList();
-                foreach (var cb in codigosNuevos)
-                    if (await _productRepository.CodigoBarraExists(cb))
-                        return Result<bool>.Failure(ProductErrorCode.barcode_in_use);
-
-                if (productDTO.IdCategoria == null || !await _categoryRepository.ExistsById(productDTO.IdCategoria.Value))
-                    return Result<bool>.Failure(ProductErrorCode.categoria_invalida);
-
-                var ubic = productDTO.IdUbicacion == null
-                   ? null
-                   : await _locationRepository.GetByIdAsync(productDTO.IdUbicacion.Value);
-                if (ubic == null)
-                    return Result<bool>.Failure(ProductErrorCode.ubicacion_invalida);
-
-                // Capturar valores anteriores ANTES de sobreescribir
-                var precioAnterior    = existingProduct.Precio;
-                var nombreAnterior    = existingProduct.Nombre;
-                var marcaAnterior     = existingProduct.Marca;
-                var categoriaAnterior = existingProduct.IdCategoria;
-                var ubicAnterior      = existingProduct.IdUbicacion;
-                var stockMinAnterior  = existingProduct.StockMinimo;
-                var vssAnterior       = existingProduct.VentaSinStock;
-
-                existingProduct.Nombre = productDTO.Nombre;
-                existingProduct.Marca = productDTO.Marca;
-                existingProduct.Descripcion = productDTO.Descripcion;
-                existingProduct.Precio = productDTO.Precio;
-                existingProduct.StockMinimo = productDTO.StockMinimo;
-                existingProduct.IdCategoria = productDTO.IdCategoria;
-                existingProduct.IdUbicacion = productDTO.IdUbicacion;
-                existingProduct.VentaSinStock = productDTO.VentaSinStock;
-                existingProduct.IdUnidadMedida = productDTO.IdUnidadMedida;
-                existingProduct.Costo = productDTO.Costo;
-                existingProduct.PorcentajeGanancia = productDTO.PorcentajeGanancia;
-
-                // Manejar códigos de barras manualmente
-                var codigosNuevos2 = productDTO.CodigoBarras
-                    .Where(dto2 => !existingProduct.CodigoBarras.Any(existing2 => existing2.Codigo == dto2.Codigo))
-                    .ToList();
-
-                var codigosAEliminar2 = existingProduct.CodigoBarras
-                    .Where(existing2 => !productDTO.CodigoBarras.Any(dto2 => dto2.Codigo == existing2.Codigo))
-                    .ToList();
-
-                foreach (var codigoEliminar in codigosAEliminar2)
-                    existingProduct.CodigoBarras.Remove(codigoEliminar);
-
-                foreach (var codigoNuevo in codigosNuevos2)
-                    existingProduct.CodigoBarras.Add(new CodigoBarra { Codigo = codigoNuevo.Codigo, IdProducto = existingProduct.IdProducto });
+                var (anterior, nuevo) = ApplyAndTrackChangesProduct(existingProduct, productDTO);
 
                 await _productRepository.Update(existingProduct);
+
                 await transaction.CommitAsync();
 
-                // Auditoría: registrar TODOS los campos modificados
-                var cambios = new List<string>();
-                var anteriorDict = new Dictionary<string, object?>();
-                var nuevoDict    = new Dictionary<string, object?>();
-
-                if (nombreAnterior    != productDTO.Nombre)        { cambios.Add($"Nombre: '{nombreAnterior}' → '{productDTO.Nombre}'");              anteriorDict["Nombre"]         = nombreAnterior;          nuevoDict["Nombre"]         = productDTO.Nombre; }
-                if (marcaAnterior     != productDTO.Marca)         { cambios.Add($"Marca: '{marcaAnterior}' → '{productDTO.Marca}'");                  anteriorDict["Marca"]          = marcaAnterior;           nuevoDict["Marca"]          = productDTO.Marca; }
-                if (precioAnterior    != productDTO.Precio)        { cambios.Add($"Precio: ${precioAnterior:N2} → ${productDTO.Precio:N2}");           anteriorDict["Precio"]         = precioAnterior;          nuevoDict["Precio"]         = productDTO.Precio; }
-                if (categoriaAnterior != productDTO.IdCategoria)   { cambios.Add($"Categoría: {categoriaAnterior} → {productDTO.IdCategoria}");        anteriorDict["IdCategoria"]    = categoriaAnterior;       nuevoDict["IdCategoria"]    = productDTO.IdCategoria; }
-                if (ubicAnterior      != productDTO.IdUbicacion)   { cambios.Add($"Ubicación: {ubicAnterior} → {productDTO.IdUbicacion}");             anteriorDict["IdUbicacion"]    = ubicAnterior;            nuevoDict["IdUbicacion"]    = productDTO.IdUbicacion; }
-                if (stockMinAnterior  != productDTO.StockMinimo)   { cambios.Add($"Stock mínimo: {stockMinAnterior} → {productDTO.StockMinimo}");      anteriorDict["StockMinimo"]    = stockMinAnterior;        nuevoDict["StockMinimo"]    = productDTO.StockMinimo; }
-                if (vssAnterior       != productDTO.VentaSinStock) { cambios.Add($"Venta sin stock: {vssAnterior} → {productDTO.VentaSinStock}");      anteriorDict["VentaSinStock"]  = vssAnterior;             nuevoDict["VentaSinStock"]  = productDTO.VentaSinStock; }
-
-                string accionProducto = precioAnterior != productDTO.Precio ? "PRECIO_ACTUALIZADO"
-                    : nombreAnterior != productDTO.Nombre ? "NOMBRE_ACTUALIZADO"
-                    : "ACTUALIZACION";
-
-                string detalleProducto = $"Producto actualizado: '{productDTO.Nombre} {productDTO.Marca}'";
-                if (cambios.Count > 0)
-                    detalleProducto += " | " + string.Join(" | ", cambios);
-
-                await LogAsync(accionProducto, "PRODUCTO", detalleProducto,
-                    anteriorDict.Count > 0 ? anteriorDict : null,
-                    nuevoDict.Count    > 0 ? nuevoDict    : null);
+                await LogUpdateAsync(productDTO, anterior, nuevo);
 
                 return Result<bool>.Success();
             }
@@ -310,12 +336,25 @@ namespace proyecto_venta_stock.Product.Services
                 return Result<bool>.Failure(ProductErrorCode.error_inesperado);
             }
         }
+        private async Task LogToggleEstadoAsync(Producto product, bool eraActivo)
+        {
+            if (eraActivo)
+                await LogAsync("BAJA", "PRODUCTO",
+                    $"Producto desactivado: '{product.Nombre} {product.Marca}'",
+                    new { Activo = true }, new { Activo = false });
+            else
+                await LogAsync("REACTIVACION", "PRODUCTO",
+                    $"Producto reactivado: '{product.Nombre} {product.Marca}'",
+                    new { Activo = false }, new { Activo = true });
+        }
+
         public async Task<Result<bool>> ToggleEstado(int idProducto)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var existing = await _productRepository.GetById(idProducto);
+                
                 if (existing == null)
                     return Result<bool>.Failure(ProductErrorCode.product_not_found);
 
@@ -324,14 +363,7 @@ namespace proyecto_venta_stock.Product.Services
                 await _productRepository.Update(existing);
                 await transaction.CommitAsync();
 
-                if (eraActivo)
-                    await LogAsync("BAJA", "PRODUCTO",
-                        $"Producto desactivado: '{existing.Nombre} {existing.Marca}'",
-                        new { Activo = true }, new { Activo = false });
-                else
-                    await LogAsync("REACTIVACION", "PRODUCTO",
-                        $"Producto reactivado: '{existing.Nombre} {existing.Marca}'",
-                        new { Activo = false }, new { Activo = true });
+                await LogToggleEstadoAsync(existing, eraActivo);
 
                 return Result<bool>.Success(true);
             }

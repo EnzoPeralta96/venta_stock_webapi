@@ -103,14 +103,101 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
+        private async Task<Result<List<(Producto producto, decimal cantidad)>>> ValidateAndLoadProductsAsync(List<SaleItemDTO> items)
+        {
+            var result = new List<(Producto producto, decimal cantidad)>();
+            foreach (var item in items)
+            {
+                var producto = await _productRepository.GetById(item.IdProducto);
+                if (producto == null)
+                    return Result<List<(Producto producto, decimal cantidad)>>.Failure(SaleErrorCode.product_not_found);
+                if (!producto.Activo)
+                    return Result<List<(Producto producto, decimal cantidad)>>.Failure(SaleErrorCode.product_inactive);
+                if (!producto.VentaSinStock.GetValueOrDefault() && producto.Stock < item.Cantidad)
+                    return Result<List<(Producto producto, decimal cantidad)>>.Failure(SaleErrorCode.insufficient_stock);
+                result.Add((producto, item.Cantidad));
+            }
+            return Result<List<(Producto producto, decimal cantidad)>>.Success(result);
+        }
+
+        private static Ventum BuildVentaEntity(CreateSaleDTO dto, string codigoVenta, decimal total, int idUsuario)
+        {
+            return new Ventum
+            {
+                CodigoVenta = codigoVenta,
+                Fecha       = DateTime.Now,
+                Total       = total,
+                IdMedioPago = dto.idMedioPago,
+                IdCliente   = dto.idCliente,
+                IdUsuario   = idUsuario,
+                IdEstado    = 2
+            };
+        }
+
+        private static List<DetalleVentum> BuildDetalles(List<(Producto producto, decimal cantidad)> productosValidados)
+        {
+            return productosValidados.Select(pv => new DetalleVentum
+            {
+                IdProducto  = pv.producto.IdProducto,
+                Cantidad    = pv.cantidad,
+                PrecioVenta = pv.producto.Precio ?? 0,
+                SubTotal    = (pv.producto.Precio ?? 0) * pv.cantidad
+            }).ToList();
+        }
+
+        private async Task<bool> RegisterCCMovementAsync(CreateSaleDTO dto, Ventum ventaCreada, decimal total, int idUsuario)
+        {
+            var movementResult = await _currentAccountService.RegisterMovement(new AddMovementDTO
+            {
+                IdCliente         = dto.idCliente,
+                IdTipoMovimiento  = (int)TypeMovement.MOVIMIENTO_CC,
+                Importe           = total,
+                Detalle           = $"Venta {ventaCreada.CodigoVenta}",
+                IdVenta           = ventaCreada.IdVenta,
+                IdUsuarioRegistra = idUsuario
+            });
+
+            if (!movementResult.IsSuccess)
+            {
+                _logger.LogError(
+                    "No se pudo registrar el movimiento de cuenta corriente para la venta {CodigoVenta} (cliente {ClienteId})",
+                    ventaCreada.CodigoVenta, dto.idCliente);
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Movimiento CC registrado - Venta: {CodigoVenta}, Cliente: {ClienteId}",
+                ventaCreada.CodigoVenta, dto.idCliente);
+            return true;
+        }
+
+        private async Task UpdateStockAfterSaleAsync(List<DetalleVentum> detalles, string codigoVenta, int idUsuario)
+        {
+            foreach (var detalle in detalles)
+                await _stockMovementService.RegistrarMovimientoAsync(
+                    detalle.IdProducto,
+                    TipoMovimientoStockEnum.EgresoVenta,
+                    -(detalle.Cantidad ?? 0),
+                    $"VENTA:{codigoVenta}",
+                    idUsuario);
+        }
+
+        private async Task LogCreateSaleAsync(string codigoVenta, string clienteNombre, decimal total, string medioPago)
+        {
+            await LogAsync("VENTA_REGISTRADA", "VENTA",
+                $"Venta: {codigoVenta} | Cliente: '{clienteNombre}' | Total: ${total:N2} | Pago: {medioPago}",
+                null,
+                new { Codigo = codigoVenta, Cliente = clienteNombre, Total = total, MedioPago = medioPago, Estado = "Completada" });
+        }
+
         public async Task<Result<SaleResponseDTO>> CreateSaleAsync(CreateSaleDTO createSaleDTO, int idUsuarioVendedor)
         {
             createSaleDTO.idUsuarioVendedor = idUsuarioVendedor;
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
+
             try
             {
-                // ===== VALIDACIONES GENERALES =====
                 var client = await _clientRepository.GetByIdAsync(createSaleDTO.idCliente);
                 if (client == null)
                     return Result<SaleResponseDTO>.Failure(SaleErrorCode.client_not_found);
@@ -118,61 +205,33 @@ namespace venta_stock_webapi.Sale.Services
                 if (createSaleDTO.items == null || !createSaleDTO.items.Any())
                     return Result<SaleResponseDTO>.Failure(SaleErrorCode.empty_cart);
 
-                var productosValidados = new List<(Producto producto, decimal cantidad)>();
-                foreach (var item in createSaleDTO.items)
-                {
-                    var producto = await _productRepository.GetById(item.IdProducto);
-                    if (producto == null)
-                        return Result<SaleResponseDTO>.Failure(SaleErrorCode.product_not_found);
+                var productosResult = await ValidateAndLoadProductsAsync(createSaleDTO.items);
 
-                    if (!producto.Activo)
-                        return Result<SaleResponseDTO>.Failure(SaleErrorCode.product_inactive);
+                if (!productosResult.IsSuccess)
+                    return Result<SaleResponseDTO>.Failure(productosResult.ErrorCode);
 
-                    if (!producto.VentaSinStock.GetValueOrDefault() && producto.Stock < item.Cantidad)
-                        return Result<SaleResponseDTO>.Failure(SaleErrorCode.insufficient_stock);
+                var productosValidados = productosResult.Value!;
 
-                    productosValidados.Add((producto, item.Cantidad));
-                }
-
-                // ===== PREPARAR VENTA =====
                 var codigoVenta = await _saleRepository.GenerateSaleCodeAsync();
-                decimal total = productosValidados.Sum(pv => (pv.producto.Precio ?? 0) * pv.cantidad);
 
-                var venta = new Ventum
-                {
-                    CodigoVenta = codigoVenta,
-                    Fecha = DateTime.Now,
-                    Total = total,
-                    IdMedioPago = createSaleDTO.idMedioPago,
-                    IdCliente = createSaleDTO.idCliente,
-                    IdUsuario = idUsuarioVendedor,
-                    IdEstado = 2 // Completada
-                };
+                decimal total   = productosValidados.Sum(pv => (pv.producto.Precio ?? 0) * pv.cantidad);
 
-                var detalles = productosValidados.Select(pv => new DetalleVentum
-                {
-                    IdProducto = pv.producto.IdProducto,
-                    Cantidad = pv.cantidad,
-                    PrecioVenta = pv.producto.Precio ?? 0,
-                    SubTotal = (pv.producto.Precio ?? 0) * pv.cantidad
-                }).ToList();
+                var venta    = BuildVentaEntity(createSaleDTO, codigoVenta, total, idUsuarioVendedor);
 
-                // ===== PROCESAR ESTRATEGIA =====
-                var strategy = _strategyFactory.GetStrategy(createSaleDTO.idMedioPago);
-                var strategyResult = await strategy.ProcessSaleAsync(createSaleDTO, venta, detalles);
+                var detalles = BuildDetalles(productosValidados);
+
+                var strategyResult = await _strategyFactory.GetStrategy(createSaleDTO.idMedioPago)
+                    .ProcessSaleAsync(createSaleDTO, venta, detalles);
 
                 if (!strategyResult.IsSuccess)
                 {
-                    // Caso especial: excede límite -> ya se creó venta pendiente dentro de la transacción
                     if ((SaleErrorCode)strategyResult.ErrorCode == SaleErrorCode.credit_limit_exceeded)
                     {
-                        await transaction.CommitAsync(); // conservar venta pendiente
+                        await transaction.CommitAsync();
                         _logger.LogWarning(
                             "Venta excede límite de crédito - Cliente: {Cliente}, Código: {Codigo}",
-                            createSaleDTO.idCliente, codigoVenta
-                        );
+                            createSaleDTO.idCliente, codigoVenta);
 
-                        // Obtener la venta pendiente recién creada
                         var ventaPendiente = await _context.VentaPendiente
                             .Where(vp => vp.IdCliente == createSaleDTO.idCliente)
                             .OrderByDescending(vp => vp.FechaRegistro)
@@ -181,9 +240,11 @@ namespace venta_stock_webapi.Sale.Services
                         string nombreClientePendiente = !string.IsNullOrWhiteSpace(client.RazonSocial)
                             ? client.RazonSocial
                             : $"{client.Nombre} {client.Apellido}".Trim();
+
                         if (string.IsNullOrWhiteSpace(nombreClientePendiente)) nombreClientePendiente = "N/A";
 
                         string codigoPendiente = ventaPendiente?.CodigoVenta ?? "PENDING";
+
                         await LogAsync("VENTA_PENDIENTE", "VENTA",
                             $"Venta pendiente de autorización: {codigoPendiente} | Cliente: '{nombreClientePendiente}' | Total: ${total:N2} | Excedente CC",
                             null,
@@ -191,94 +252,69 @@ namespace venta_stock_webapi.Sale.Services
 
                         return Result<SaleResponseDTO>.Success(new SaleResponseDTO
                         {
-                            IdVenta = 0,
+                            IdVenta          = 0,
                             IdVentaPendiente = ventaPendiente?.IdVentaPendiente,
-                            CodigoVenta = codigoPendiente,
-                            Fecha = DateTime.Now,
-                            Total = total,
-                            Cliente = nombreClientePendiente,
-                            ClienteDni = client.Dni ?? client.Cuit ?? "N/A",
-                            ClienteTelefono = client.Telefono ?? "N/A",
-                            VendedorNombre = "N/A",
-                            MedioPago = "Cuenta Corriente",
-                            Estado = "Pendiente de Autorización",
-                            Items = detalles.Select(d => new SaleItemDetailDTO
+                            CodigoVenta      = codigoPendiente,
+                            Fecha            = DateTime.Now,
+                            Total            = total,
+                            Cliente          = nombreClientePendiente,
+                            ClienteDni       = client.Dni ?? client.Cuit ?? "N/A",
+                            ClienteTelefono  = client.Telefono ?? "N/A",
+                            VendedorNombre   = "N/A",
+                            MedioPago        = "Cuenta Corriente",
+                            Estado           = "Pendiente de Autorización",
+                            Items            = detalles.Select(d => new SaleItemDetailDTO
                             {
-                                IdProducto = d.IdProducto,
+                                IdProducto     = d.IdProducto,
                                 NombreProducto = productosValidados.First(pv => pv.producto.IdProducto == d.IdProducto).producto.Nombre ?? "N/A",
-                                MarcaProducto = productosValidados.First(pv => pv.producto.IdProducto == d.IdProducto).producto.Marca ?? "N/A",
-                                Cantidad = d.Cantidad ?? 0,
+                                MarcaProducto  = productosValidados.First(pv => pv.producto.IdProducto == d.IdProducto).producto.Marca ?? "N/A",
+                                Cantidad       = d.Cantidad ?? 0,
                                 PrecioUnitario = d.PrecioVenta ?? 0,
-                                Subtotal = d.SubTotal ?? 0
+                                Subtotal       = d.SubTotal ?? 0
                             }).ToList()
                         });
                     }
 
                     await transaction.RollbackAsync();
+
                     return Result<SaleResponseDTO>.Failure(strategyResult.ErrorCode);
                 }
 
-                // ===== GUARDAR VENTA DEFINITIVA =====
                 var ventaCreada = await _saleRepository.CreateSaleAsync(venta);
+
                 foreach (var detalle in detalles)
                     detalle.IdVenta = ventaCreada.IdVenta;
 
                 await _saleRepository.AddSaleItemsAsync(detalles);
 
-                // ===== CREAR MOVIMIENTO CC SI ES VENTA A CUENTA CORRIENTE =====
-                if (createSaleDTO.idMedioPago == 2) // 2 = Cuenta Corriente
+                if (createSaleDTO.idMedioPago == 2)
                 {
-                    var movementResult = await _currentAccountService.RegisterMovement(new AddMovementDTO
-                    {
-                        IdCliente = createSaleDTO.idCliente,
-                        IdTipoMovimiento = (int)TypeMovement.MOVIMIENTO_CC, // 5
-                        Importe = total,
-                        Detalle = $"Venta {ventaCreada.CodigoVenta}",
-                        IdVenta = ventaCreada.IdVenta,
-                        IdUsuarioRegistra = idUsuarioVendedor
-                    });
+                    bool ccOk = await RegisterCCMovementAsync(createSaleDTO, ventaCreada, total, idUsuarioVendedor);
 
-                    if (!movementResult.IsSuccess)
+                    if (!ccOk)
                     {
-                        // Si falla el movimiento, no debe quedar la venta creada sin impacto en CC
                         await transaction.RollbackAsync();
-                        _logger.LogError(
-                            "No se pudo registrar el movimiento de cuenta corriente para la venta {CodigoVenta} (cliente {ClienteId})",
-                            ventaCreada.CodigoVenta, createSaleDTO.idCliente
-                        );
                         return Result<SaleResponseDTO>.Failure(SaleErrorCode.unexpected_error);
                     }
-
-                    _logger.LogInformation(
-                        "Movimiento CC registrado por servicio - Venta: {CodigoVenta}, Cliente: {ClienteId}",
-                        ventaCreada.CodigoVenta, createSaleDTO.idCliente
-                    );
                 }
 
-                // ===== ACTUALIZAR STOCK (Ledger) =====
-                foreach (var detalle in detalles)
-                    await _stockMovementService.RegistrarMovimientoAsync(
-                        detalle.IdProducto,
-                        TipoMovimientoStockEnum.EgresoVenta,
-                        -(detalle.Cantidad ?? 0),
-                        $"VENTA:{ventaCreada.CodigoVenta}",
-                        idUsuarioVendedor);
+                await UpdateStockAfterSaleAsync(detalles, ventaCreada.CodigoVenta, idUsuarioVendedor);
 
                 await transaction.CommitAsync();
 
                 var ventaCompleta = await _saleRepository.GetSaleByIdAsync(ventaCreada.IdVenta);
+
                 var response = _mapper.Map<SaleResponseDTO>(ventaCompleta);
 
                 string clienteNombre = !string.IsNullOrWhiteSpace(client.RazonSocial)
                     ? client.RazonSocial
                     : $"{client.Nombre} {client.Apellido}".Trim();
+
                 if (string.IsNullOrWhiteSpace(clienteNombre)) clienteNombre = "N/A";
 
                 string medioPagoNombre = createSaleDTO.idMedioPago == 2 ? "Cuenta Corriente" : "Contado";
-                await LogAsync("VENTA_REGISTRADA", "VENTA",
-                    $"Venta: {ventaCreada.CodigoVenta} | Cliente: '{clienteNombre}' | Total: ${total:N2} | Pago: {medioPagoNombre}",
-                    null,
-                    new { Codigo = ventaCreada.CodigoVenta, Cliente = clienteNombre, Total = total, MedioPago = medioPagoNombre, Estado = "Completada" });
+
+                await LogCreateSaleAsync(ventaCreada.CodigoVenta, clienteNombre, total, medioPagoNombre);
 
                 return Result<SaleResponseDTO>.Success(response);
             }
@@ -412,12 +448,14 @@ namespace venta_stock_webapi.Sale.Services
                 if (!string.IsNullOrWhiteSpace(clienteFilter))
                 {
                     var lowerFilter = clienteFilter.ToLower();
+
                     queryRechazadas = queryRechazadas.Where(vp =>
                         (vp.IdClienteNavigation.Nombre != null &&
                          vp.IdClienteNavigation.Nombre.ToLower().Contains(lowerFilter)) ||
                         (vp.IdClienteNavigation.RazonSocial != null &&
                          vp.IdClienteNavigation.RazonSocial.ToLower().Contains(lowerFilter))
                     );
+
                 }
 
                 if (fechaDesde.HasValue)
@@ -472,105 +510,118 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
+        private async Task RestituirStockAsync(ICollection<DetalleVentum> detalles, string codigoVenta, int idUsuario)
+        {
+            foreach (var item in detalles)
+            {
+                decimal cantidad = item.Cantidad ?? 0;
+
+                if (cantidad > 0)
+                    await _stockMovementService.RegistrarMovimientoAsync(
+                        item.IdProducto,
+                        TipoMovimientoStockEnum.ReingresoAnulacionVenta,
+                        cantidad,
+                        $"ANULACION-VENTA:{codigoVenta}",
+                        idUsuario);
+            }
+        }
+
+        private static MovimientoCc BuildNotaCreditoMovimiento(
+            int clientId, Ventum venta, AnnulSaleDTO dto, MotivoNotaCredito motivo, CalculationResult calc, int idUsuario)
+        {
+            string detalle = motivo.Nombre;
+
+            if (!string.IsNullOrWhiteSpace(dto.DetalleAdicional))
+                detalle += $" — {dto.DetalleAdicional}";
+
+            detalle += $" — Venta {venta.CodigoVenta}";
+
+            return new MovimientoCc
+            {
+                IdCliente         = clientId,
+                Importe           = venta.Total ?? 0,
+                Detalle           = detalle,
+                IdEstado          = 2,
+                IdTipoMovimiento  = (int)TypeMovement.NOTA_CREDITO,
+                IdUsuarioRegistra = idUsuario,
+                IdVenta           = venta.IdVenta,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit,
+                Fecha             = DateTime.Now,
+                IdMotivoNc        = dto.IdMotivo
+            };
+        }
+
+        private async Task<int?> CreateNotaCreditoAsync(Ventum venta, AnnulSaleDTO dto, MotivoNotaCredito motivo, int idUsuario)
+        {
+            int clientId = venta.IdCliente ?? 0;
+
+            var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
+            if (lastMovement is null) return null;
+
+            decimal importeNc = venta.Total ?? 0;
+
+            var calc = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_CREDITO)
+                .Calculate(lastMovement.SaldoActual ?? 0, lastMovement.LimiteCuenta ?? 0, importeNc);
+
+            var movimientoNc = BuildNotaCreditoMovimiento(clientId, venta, dto, motivo, calc, idUsuario);
+
+            await _accountMovementRepository.CreateMovement(movimientoNc);
+
+            await _currentAccountService.RecomputeMontoPagadoPublic(clientId);
+
+            return movimientoNc.IdMovimiento;
+        }
+
+        private async Task LogAnnulSaleAsync(Ventum venta, string nombreCliente)
+        {
+            await LogAsync("VENTA_ANULADA", "VENTA",
+                $"Venta anulada: {venta.CodigoVenta} | Cliente: '{nombreCliente}' | Total: ${venta.Total:N2}",
+                new { Codigo = venta.CodigoVenta, Cliente = nombreCliente, Total = venta.Total, Estado = "Completada" },
+                new { Estado = "Anulada" });
+        }
+
         public async Task<Result<AnnulSaleResponseDTO>> AnnulSaleAsync(int idVenta, AnnulSaleDTO dto, int idUsuarioRegistra)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Requerido por el trigger de auditoría (fn_auditoria_generica).
-                // ExecuteUpdateAsync bypasea SaveChanges, por lo que el interceptor no actúa.
                 await _context.Database.SetAuditContextAsync(idUsuarioRegistra);
 
-                // 1. Obtener la venta con detalle y tracking
                 var venta = await _saleRepository.GetSaleWithDetailsAsync(idVenta);
-                
+
                 if (venta is null)
                     return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.sale_not_found);
 
-                // 2. Validar que no esté ya anulada
                 if (venta.IdEstadoNavigation?.Estado1?.ToLower().Contains("anulad") == true)
                     return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.sale_already_annulled);
 
-                // 3. Validar que el motivo de NC existe y está activo
                 var motivo = await _creditNoteReasonRepository.GetByIdAsync(dto.IdMotivo);
                 if (motivo is null)
                     return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.credit_note_reason_not_found);
                 if (!motivo.Activo)
                     return Result<AnnulSaleResponseDTO>.Failure(SaleErrorCode.credit_note_reason_inactive);
 
-            
-                const int idEstadoAnulada = 5; // Estado "Anulada" en tabla estado
-
-                // 5. Cambiar estado de la venta → Anulada y guardar el motivo NC y detalle
+                const int idEstadoAnulada = 5;
                 await _saleRepository.AnnulSaleInDbAsync(idVenta, idEstadoAnulada, dto.IdMotivo, dto.DetalleAdicional);
 
-                // 6. Restituir stock de cada producto del detalle (Ledger)
-                foreach (var item in venta.DetalleVenta)
-                {
-                    decimal cantidad = item.Cantidad ?? 0;
-                    if (cantidad > 0)
-                        await _stockMovementService.RegistrarMovimientoAsync(
-                            item.IdProducto,
-                            TipoMovimientoStockEnum.ReingresoAnulacionVenta,
-                            cantidad,
-                            $"ANULACION-VENTA:{venta.CodigoVenta}",
-                            idUsuarioRegistra);
-                }
+                await RestituirStockAsync(venta.DetalleVenta, venta.CodigoVenta, idUsuarioRegistra);
 
-                // 7. Si la venta fue con CC → crear NC y recomputar MontoPagado
                 int? idMovimientoNc = null;
                 if (venta.IdMedioPago == 2)
-                {
-                    int clientId = venta.IdCliente ?? 0;
-
-                    var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
-                    if (lastMovement is not null)
-                    {
-                        decimal importeNc = venta.Total ?? 0;
-                        decimal balanceBase = lastMovement.SaldoActual ?? 0;
-                        decimal limitBase = lastMovement.LimiteCuenta ?? 0;
-
-                        var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_CREDITO);
-                        var calc = strategy.Calculate(balanceBase, limitBase, importeNc);
-
-                        string detalle = motivo.Nombre;
-                        if (!string.IsNullOrWhiteSpace(dto.DetalleAdicional))
-                            detalle += $" — {dto.DetalleAdicional}";
-                        detalle += $" — Venta {venta.CodigoVenta}";
-
-                        var movimientoNc = new MovimientoCc
-                        {
-                            IdCliente         = clientId,
-                            Importe           = importeNc,
-                            Detalle           = detalle,
-                            IdEstado          = 2,
-                            IdTipoMovimiento  = (int)TypeMovement.NOTA_CREDITO,
-                            IdUsuarioRegistra = idUsuarioRegistra,
-                            IdVenta           = idVenta,
-                            SaldoActual       = calc.NewBalance,
-                            LimiteCuenta      = calc.NewLimit,
-                            Fecha             = DateTime.Now,
-                            IdMotivoNc        = dto.IdMotivo
-                        };
-
-                        await _accountMovementRepository.CreateMovement(movimientoNc);
-                        idMovimientoNc = movimientoNc.IdMovimiento;
-
-                        await _currentAccountService.RecomputeMontoPagadoPublic(clientId);
-                    }
-                }
+                    idMovimientoNc = await CreateNotaCreditoAsync(venta, dto, motivo, idUsuarioRegistra);
 
                 await transaction.CommitAsync();
 
                 var clienteAnulacion = await _clientRepository.GetByIdAsync(venta.IdCliente ?? 0);
-                string nombreClienteAnulacion = !string.IsNullOrWhiteSpace(clienteAnulacion?.RazonSocial)
+
+                string nombreCliente = !string.IsNullOrWhiteSpace(clienteAnulacion?.RazonSocial)
                     ? clienteAnulacion.RazonSocial
                     : $"{clienteAnulacion?.Nombre} {clienteAnulacion?.Apellido}".Trim();
-                if (string.IsNullOrWhiteSpace(nombreClienteAnulacion)) nombreClienteAnulacion = "N/A";
-                await LogAsync("VENTA_ANULADA", "VENTA",
-                    $"Venta anulada: {venta.CodigoVenta} | Cliente: '{nombreClienteAnulacion}' | Total: ${venta.Total:N2}",
-                    new { Codigo = venta.CodigoVenta, Cliente = nombreClienteAnulacion, Total = venta.Total, Estado = "Completada" },
-                    new { Estado = "Anulada" });
+
+                if (string.IsNullOrWhiteSpace(nombreCliente)) nombreCliente = "N/A";
+
+                await LogAnnulSaleAsync(venta, nombreCliente);
 
                 return Result<AnnulSaleResponseDTO>.Success(new AnnulSaleResponseDTO
                 {
@@ -579,6 +630,7 @@ namespace venta_stock_webapi.Sale.Services
                     Estado         = "Anulada",
                     IdMovimientoNc = idMovimientoNc
                 });
+
             }
             catch (Exception ex)
             {

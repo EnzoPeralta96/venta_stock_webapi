@@ -29,7 +29,10 @@
       "Bash(grep -E \"\\\\.\\(cs|dto|entity\\)$\")",
       "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff --name-only)",
       "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal diff --name-only)",
-      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff src/components/Proveedores/ListaDetailsPage.jsx)"
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff src/components/Proveedores/ListaDetailsPage.jsx)",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\InterestConfigRepository\\\\IInterestConfigRepository.cs\" -Pattern \"GetCurrentAsync\")",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\DebitNoteReasonRepository\\\\IDebitNoteReasonRepository.cs\" -Pattern \"GetByIdAsync\")",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\AccountConfigRepository\\\\IAccountConfigRepository.cs\" -Pattern \"GetAccountConfigByIdAsync\")"
     ]
   }
 }

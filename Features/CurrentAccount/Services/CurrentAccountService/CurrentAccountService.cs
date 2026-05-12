@@ -1,7 +1,6 @@
 using proyecto_venta_stock.Data;
 using proyecto_venta_stock.Models;
 using proyecto_venta_stock.Shared.ResultPattern;
-using venta_stock_webapi.Client.Message;
 using venta_stock_webapi.Client.Repository;
 using venta_stock_webapi.CurrentAccount.DTO.MovementDTO;
 using venta_stock_webapi.CurrentAccount.Message;
@@ -10,7 +9,6 @@ using venta_stock_webapi.CurrentAccount.Repository;
 using venta_stock_webapi.CurrentAccount.Services.CurrentAccountService.StrategyCurrentAccount;
 using proyecto_venta_stock.Features.Ferreteria.Repository;
 using QuestPDF.Fluent;
-using venta_stock_webapi.CurrentAccount.Services.InterestConfigService;
 using venta_stock_webapi.Shared.Paged;
 using venta_stock_webapi.Shared.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -180,6 +178,49 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             }
         }
 
+        private async Task<CalculationResult> CapearLimitePagoAsync(TypeMovement type, int clientId, CalculationResult result)
+        {
+            if (type != TypeMovement.PAGO_GLOBAL && type != TypeMovement.PAGO_FACTURA && type != TypeMovement.PAGO_PARCIAL)
+                return result;
+
+            decimal originalLimit = await _accountMovementRepository.GetOriginalLimitAsync(clientId);
+            return new CalculationResult(result.NewBalance, Math.Min(result.NewLimit, originalLimit));
+        }
+
+        private static decimal? CalcularMontoPagadoInicial(TypeMovement type, decimal balanceBase, decimal importe)
+        {
+            if (type != TypeMovement.MOVIMIENTO_CC || balanceBase >= 0)
+                return null;
+
+            return Math.Min(Math.Abs(balanceBase), importe);
+        }
+
+        private static MovimientoCc BuildMovementEntity(AddMovementDTO dto, CalculationResult calc, decimal? montoPagadoInicial)
+        {
+            return new MovimientoCc
+            {
+                IdCliente         = dto.IdCliente,
+                Importe           = dto.Importe,
+                Detalle           = dto.Detalle,
+                IdEstado          = 2,
+                IdTipoMovimiento  = dto.IdTipoMovimiento,
+                IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                IdVenta           = (dto.IdVenta == 0) ? null : dto.IdVenta,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit,
+                Fecha             = DateTime.Now,
+                MontoPagado       = montoPagadoInicial
+            };
+        }
+
+        private async Task AllocarPagosAsync(TypeMovement type, AddMovementDTO dto)
+        {
+            if (type == TypeMovement.PAGO_FACTURA && dto.IdVenta.HasValue)
+                await AllocarPagoFactura(dto.IdVenta.Value, dto.Importe);
+            else if (type == TypeMovement.PAGO_GLOBAL || type == TypeMovement.PAGO_PARCIAL)
+                await AllocarPagoGlobal(dto.IdCliente, dto.Importe);
+        }
+
         public async Task<Result<int>> RegisterMovement(AddMovementDTO addMovementDTO)
         {
             bool ownTransaction = _context.Database.CurrentTransaction == null;
@@ -189,69 +230,27 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             try
             {
                 var lastMovement = await _accountMovementRepository.GetLastMovement(addMovementDTO.IdCliente);
-
                 if (lastMovement is null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
                 decimal balanceBase = lastMovement.SaldoActual ?? 0;
-                decimal limitBase = lastMovement.LimiteCuenta ?? 0;
+                decimal limitBase   = lastMovement.LimiteCuenta ?? 0;
+                var typeMovement    = (TypeMovement)addMovementDTO.IdTipoMovimiento;
 
-                var typeMovement = (TypeMovement)addMovementDTO.IdTipoMovimiento;
-
-                // PAGO_GLOBAL solo se permite cuando el importe cubre la deuda total
                 if (typeMovement == TypeMovement.PAGO_GLOBAL && addMovementDTO.Importe < balanceBase)
                     return Result<int>.Failure(CurrentAccountCode.global_payment_must_cover_full_debt);
 
-                IMovementStrategy movementStrategy = _movementStrategyFactory.GetStrategy(typeMovement);
-                CalculationResult calculationResult = movementStrategy.Calculate(balanceBase, limitBase, addMovementDTO.Importe);
+                var calc = _movementStrategyFactory.GetStrategy(typeMovement).Calculate(balanceBase, limitBase, addMovementDTO.Importe);
+                calc = await CapearLimitePagoAsync(typeMovement, addMovementDTO.IdCliente, calc);
 
-                // Capear limite_cuenta al máximo asignado para tipos de pago
-                if (typeMovement == TypeMovement.PAGO_GLOBAL ||
-                    typeMovement == TypeMovement.PAGO_FACTURA ||
-                    typeMovement == TypeMovement.PAGO_PARCIAL)
-                {
-                    decimal originalLimit = await _accountMovementRepository.GetOriginalLimitAsync(addMovementDTO.IdCliente);
-                    calculationResult = new CalculationResult(
-                        calculationResult.NewBalance,
-                        Math.Min(calculationResult.NewLimit, originalLimit));
-                }
+                decimal? montoPagadoInicial = CalcularMontoPagadoInicial(typeMovement, balanceBase, addMovementDTO.Importe);
 
-                // Si había saldo a favor, inicializar MontoPagado con lo absorbido implícitamente
-                decimal? montoPagadoInicial = null;
-                if (typeMovement == TypeMovement.MOVIMIENTO_CC && balanceBase < 0)
-                {
-                    decimal absorcion = Math.Min(Math.Abs(balanceBase), addMovementDTO.Importe);
-                    montoPagadoInicial = absorcion;
-                }
-
-                var newMovement = new MovimientoCc
-                {
-                    IdCliente = addMovementDTO.IdCliente,
-                    Importe = addMovementDTO.Importe,
-                    Detalle = addMovementDTO.Detalle,
-                    IdEstado = 2,
-                    IdTipoMovimiento = addMovementDTO.IdTipoMovimiento,
-                    IdUsuarioRegistra = addMovementDTO.IdUsuarioRegistra,
-                    IdVenta = (addMovementDTO.IdVenta == 0) ? null : addMovementDTO.IdVenta,
-                    SaldoActual = calculationResult.NewBalance,
-                    LimiteCuenta = calculationResult.NewLimit,
-                    Fecha = DateTime.Now,
-                    MontoPagado = montoPagadoInicial
-                };
+                var newMovement = BuildMovementEntity(addMovementDTO, calc, montoPagadoInicial);
 
                 await _accountMovementRepository.CreateMovement(newMovement);
-
-                if (typeMovement == TypeMovement.PAGO_FACTURA && addMovementDTO.IdVenta.HasValue)
-                {
-                    await AllocarPagoFactura(addMovementDTO.IdVenta.Value, addMovementDTO.Importe);
-                }
-                else if (typeMovement == TypeMovement.PAGO_GLOBAL || typeMovement == TypeMovement.PAGO_PARCIAL)
-                {
-                    await AllocarPagoGlobal(addMovementDTO.IdCliente, addMovementDTO.Importe);
-                }
+                await AllocarPagosAsync(typeMovement, addMovementDTO);
 
                 if (ownTransaction) await transaction!.CommitAsync();
-
                 return Result<int>.Success(newMovement.IdMovimiento);
             }
             catch (Exception ex)
@@ -369,59 +368,52 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             }
         }
 
+        private static MovimientoCc BuildContraMovimiento(int clientId, AnnulPaymentDTO dto, decimal importePago, int? idVenta, CalculationResult calc)
+        {
+            return new MovimientoCc
+            {
+                IdCliente         = clientId,
+                Importe           = importePago,
+                Detalle           = $"Anulación de pago #{dto.IdMovimientoPago}: {dto.Motivo}",
+                IdEstado          = 2,
+                IdTipoMovimiento  = (int)TypeMovement.ANULACION_PAGO,
+                IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                IdVenta           = idVenta,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit,
+                Fecha             = DateTime.Now
+            };
+        }
+
         public async Task<Result<int>> AnnulPayment(AnnulPaymentDTO dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // 1. Obtener el pago a anular con tracking
                 var pagoAAnular = await _accountMovementRepository.GetPaymentMovementById(dto.IdMovimientoPago);
-
                 if (pagoAAnular is null)
                     return Result<int>.Failure(CurrentAccountCode.movement_not_found);
-
-                // 2. Validar que no esté ya anulado
                 if (pagoAAnular.EsAnulado)
                     return Result<int>.Failure(CurrentAccountCode.payment_already_annulled);
 
                 int clientId = pagoAAnular.IdCliente ?? 0;
                 var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
-
                 if (lastMovement is null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
                 decimal balanceBase = lastMovement.SaldoActual ?? 0;
-                decimal limitBase = lastMovement.LimiteCuenta ?? 0;
+                decimal limitBase   = lastMovement.LimiteCuenta ?? 0;
                 decimal importePago = pagoAAnular.Importe ?? 0;
 
-                // 3. Calcular nuevo saldo/límite (revertir el pago = sumar deuda de vuelta)
-                var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.ANULACION_PAGO);
-                var calculationResult = strategy.Calculate(balanceBase, limitBase, importePago);
+                var calc = _movementStrategyFactory.GetStrategy(TypeMovement.ANULACION_PAGO)
+                    .Calculate(balanceBase, limitBase, importePago);
 
-                // 4. Crear el contra-movimiento de anulación
-                var contraMovimiento = new MovimientoCc
-                {
-                    IdCliente = clientId,
-                    Importe = importePago,
-                    Detalle = $"Anulación de pago #{dto.IdMovimientoPago}: {dto.Motivo}",
-                    IdEstado = 2,
-                    IdTipoMovimiento = (int)TypeMovement.ANULACION_PAGO,
-                    IdUsuarioRegistra = dto.IdUsuarioRegistra,
-                    IdVenta = pagoAAnular.IdVenta,
-                    SaldoActual = calculationResult.NewBalance,
-                    LimiteCuenta = calculationResult.NewLimit,
-                    Fecha = DateTime.Now
-                };
+                var contraMovimiento = BuildContraMovimiento(clientId, dto, importePago, pagoAAnular.IdVenta, calc);
 
                 await _accountMovementRepository.CreateMovement(contraMovimiento);
-
-                // 5. Marcar el pago original como anulado
                 pagoAAnular.EsAnulado = true;
                 await _accountMovementRepository.UpdateMovimientos(new List<MovimientoCc> { pagoAAnular });
-
-                // 6. Recomputar MontoPagado de todos los consumos del cliente
                 await RecomputeMontoPagado(clientId);
-
                 await transaction.CommitAsync();
 
                 return Result<int>.Success(contraMovimiento.IdMovimiento);
@@ -533,62 +525,54 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             await _accountMovementRepository.UpdateMovimientos(new List<MovimientoCc> { consumo });
         }
 
+        private static MovimientoCc BuildDebitNoteMovement(RegisterDebitNoteDTO dto, MotivoNotaDebito motivo, CalculationResult calc)
+        {
+            string detalle = motivo.Nombre;
+            if (!string.IsNullOrWhiteSpace(dto.DetalleAdicional))
+                detalle += $" — {dto.DetalleAdicional}";
+
+            return new MovimientoCc
+            {
+                IdCliente         = dto.IdCliente,
+                Importe           = dto.Importe,
+                Detalle           = detalle,
+                IdEstado          = 2,
+                IdTipoMovimiento  = (int)TypeMovement.NOTA_DEBITO,
+                IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                IdVenta           = dto.IdVenta,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit,
+                Fecha             = DateTime.Now,
+                IdMotivoNd        = dto.IdMotivo
+            };
+        }
+
         public async Task<Result<int>> RegisterDebitNote(RegisterDebitNoteDTO dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // 1. Verificar que el cliente tiene cuenta corriente
                 var lastMovement = await _accountMovementRepository.GetLastMovement(dto.IdCliente);
-
                 if (lastMovement is null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
-                // 2. Verificar que el motivo de ND existe y está activo
                 var motivo = await _debitNoteReasonRepository.GetByIdAsync(dto.IdMotivo);
-
                 if (motivo is null)
                     return Result<int>.Failure(CurrentAccountCode.debit_note_reason_not_found);
-
                 if (!motivo.Activo)
                     return Result<int>.Failure(CurrentAccountCode.debit_note_reason_inactive);
 
-                // 3. Si viene IdVenta, validar que la venta exista y pertenezca al cliente
                 if (dto.IdVenta.HasValue)
                 {
-                    var venta = await _accountMovementRepository
-                        .GetSaleByIdAndClient(dto.IdVenta.Value, dto.IdCliente);
+                    var venta = await _accountMovementRepository.GetSaleByIdAndClient(dto.IdVenta.Value, dto.IdCliente);
                     if (venta is null)
                         return Result<int>.Failure(CurrentAccountCode.sale_not_found);
                 }
 
-                // 4. Calcular nuevo saldo/límite usando DebitNoteStrategy
-                decimal balanceBase = lastMovement.SaldoActual ?? 0;
-                decimal limitBase = lastMovement.LimiteCuenta ?? 0;
+                var calc = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_DEBITO)
+                    .Calculate(lastMovement.SaldoActual ?? 0, lastMovement.LimiteCuenta ?? 0, dto.Importe);
 
-                var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_DEBITO);
-                var calculationResult = strategy.Calculate(balanceBase, limitBase, dto.Importe);
-
-                // 5. Construir el detalle del movimiento
-                string detalle = motivo.Nombre;
-                if (!string.IsNullOrWhiteSpace(dto.DetalleAdicional))
-                    detalle += $" — {dto.DetalleAdicional}";
-
-                // 6. Crear el movimiento tipo ND
-                var newMovement = new MovimientoCc
-                {
-                    IdCliente = dto.IdCliente,
-                    Importe = dto.Importe,
-                    Detalle = detalle,
-                    IdEstado = 2,  // Aprobado
-                    IdTipoMovimiento = (int)TypeMovement.NOTA_DEBITO,
-                    IdUsuarioRegistra = dto.IdUsuarioRegistra,
-                    IdVenta = dto.IdVenta,
-                    SaldoActual = calculationResult.NewBalance,
-                    LimiteCuenta = calculationResult.NewLimit,
-                    Fecha = DateTime.Now,
-                    IdMotivoNd = dto.IdMotivo
-                };
+                var newMovement = BuildDebitNoteMovement(dto, motivo, calc);
 
                 await _accountMovementRepository.CreateMovement(newMovement);
                 await transaction.CommitAsync();
@@ -603,6 +587,36 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             }
         }
 
+        private async Task<OverdueClientDTO?> TryBuildOverdueClientAsync(
+            int idCliente, decimal saldoDeudor, ConfiguracionInteres config, DateTime dueDateThisMonth)
+        {
+            var openingDate = await _accountMovementRepository.GetAccountOpeningDateAsync(idCliente);
+            if (openingDate.HasValue && openingDate.Value.Date >= dueDateThisMonth.Date)
+                return null;
+
+            if (await _accountMovementRepository.HasInterestAppliedThisMonth(idCliente))
+                return null;
+
+            var cliente = await _clientRepository.GetByIdAsync(idCliente);
+            if (cliente is null) return null;
+
+            string nombreCliente = !string.IsNullOrEmpty(cliente.Nombre)
+                ? $"{cliente.Nombre} {cliente.Apellido}"
+                : (cliente.RazonSocial ?? "N/A");
+
+            return new OverdueClientDTO
+            {
+                IdCliente         = idCliente,
+                NombreCliente     = nombreCliente,
+                Dni               = cliente.Dni,
+                Cuit              = cliente.Cuit,
+                SaldoDeudor       = saldoDeudor,
+                ImporteInteres    = Math.Round(saldoDeudor * (config.PorcentajeInteres / 100), 2),
+                PorcentajeInteres = config.PorcentajeInteres,
+                DiaVencimiento    = config.DiaVencimiento
+            };
+        }
+
         public async Task<Result<List<OverdueClientDTO>>> GetOverdueClients()
         {
             try
@@ -612,48 +626,21 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                     return Result<List<OverdueClientDTO>>.Failure(CurrentAccountCode.no_active_config);
 
                 var now = DateTime.Now;
-
-                // Antes del vencimiento → no hay morosos
                 int daysInMonth = DateTime.DaysInMonth(now.Year, now.Month);
                 int diaVenc = Math.Min(config.DiaVencimiento, daysInMonth);
+
                 if (now.Day <= diaVenc)
                     return Result<List<OverdueClientDTO>>.Success(new List<OverdueClientDTO>());
 
-                // Fecha de vencimiento del mes actual (para comparar con fecha de apertura por cliente)
-                var dueDateThisMonth = new DateTime(now.Year, now.Month, diaVenc);
-
-                var clientsWithDebt = await _accountMovementRepository.GetClientsWithDebt();
-                var overdueClients = new List<OverdueClientDTO>();
+                var dueDateThisMonth  = new DateTime(now.Year, now.Month, diaVenc);
+                var clientsWithDebt   = await _accountMovementRepository.GetClientsWithDebt();
+                var overdueClients    = new List<OverdueClientDTO>();
 
                 foreach (var (idCliente, saldoDeudor) in clientsWithDebt)
                 {
-                    // Si la CC abrió en o después del vencimiento de este mes, el primer vencimiento
-                    // es el del mes siguiente → no está en mora todavía
-                    var openingDate = await _accountMovementRepository.GetAccountOpeningDateAsync(idCliente);
-                    if (openingDate.HasValue && openingDate.Value.Date >= dueDateThisMonth.Date)
-                        continue;
-
-                    if (await _accountMovementRepository.HasInterestAppliedThisMonth(idCliente))
-                        continue;
-
-                    var cliente = await _clientRepository.GetByIdAsync(idCliente);
-                    if (cliente is null) continue;
-
-                    var nombreCliente = !string.IsNullOrEmpty(cliente.Nombre)
-                        ? $"{cliente.Nombre} {cliente.Apellido}"
-                        : (cliente.RazonSocial ?? "N/A");
-
-                    overdueClients.Add(new OverdueClientDTO
-                    {
-                        IdCliente = idCliente,
-                        NombreCliente = nombreCliente,
-                        Dni = cliente.Dni,
-                        Cuit = cliente.Cuit,
-                        SaldoDeudor = saldoDeudor,
-                        ImporteInteres = Math.Round(saldoDeudor * (config.PorcentajeInteres / 100), 2),
-                        PorcentajeInteres = config.PorcentajeInteres,
-                        DiaVencimiento = config.DiaVencimiento
-                    });
+                    var dto = await TryBuildOverdueClientAsync(idCliente, saldoDeudor, config, dueDateThisMonth);
+                    if (dto is not null)
+                        overdueClients.Add(dto);
                 }
 
                 return Result<List<OverdueClientDTO>>.Success(overdueClients);
@@ -665,18 +652,34 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
             }
         }
 
+        private static MovimientoCc BuildInterestMovement(
+            int clientId, decimal importe, ConfiguracionInteres config, int idUsuarioRegistra, CalculationResult calc, int? idMotivoInteres)
+        {
+            return new MovimientoCc
+            {
+                IdCliente         = clientId,
+                Importe           = importe,
+                Detalle           = $"Interés por mora — {config.PorcentajeInteres}% — {config.Nombre}",
+                IdEstado          = 2,
+                IdTipoMovimiento  = (int)TypeMovement.NOTA_DEBITO,
+                IdUsuarioRegistra = idUsuarioRegistra,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit,
+                Fecha             = DateTime.Now,
+                IdMotivoNd        = idMotivoInteres
+            };
+        }
+
         public async Task<Result<string>> ApplyInterestToClient(int clientId, int idUsuarioRegistra)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var config = await _interestConfigRepository.GetCurrentAsync();
-
                 if (config is null)
                     return Result<string>.Failure(CurrentAccountCode.no_active_config);
 
                 var lastMovement = await _accountMovementRepository.GetLastMovement(clientId);
-
                 if (lastMovement is null || (lastMovement.SaldoActual ?? 0) <= 0)
                     return Result<string>.Failure(CurrentAccountCode.client_has_no_debt);
 
@@ -689,28 +692,13 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 if (importe <= 0)
                     return Result<string>.Success("Sin interés a aplicar (importe calculado es 0).");
 
-                var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_DEBITO);
-                var calculationResult = strategy.Calculate(saldoDeudor, lastMovement.LimiteCuenta ?? 0, importe);
+                var calc = _movementStrategyFactory.GetStrategy(TypeMovement.NOTA_DEBITO)
+                    .Calculate(saldoDeudor, lastMovement.LimiteCuenta ?? 0, importe);
 
-                // Buscar el motivo "Interés por mora" si existe
                 var motivos = await _debitNoteReasonRepository.GetAllAsync(activo: true);
                 var motivoInteres = motivos.FirstOrDefault(m => m.Nombre == "Interés por mora");
 
-                var detalle = $"Interés por mora — {config.PorcentajeInteres}% — {config.Nombre}";
-
-                var newMovement = new MovimientoCc
-                {
-                    IdCliente = clientId,
-                    Importe = importe,
-                    Detalle = detalle,
-                    IdEstado = 2,
-                    IdTipoMovimiento = (int)TypeMovement.NOTA_DEBITO,
-                    IdUsuarioRegistra = idUsuarioRegistra,
-                    SaldoActual = calculationResult.NewBalance,
-                    LimiteCuenta = calculationResult.NewLimit,
-                    Fecha = DateTime.Now,
-                    IdMotivoNd = motivoInteres?.IdMotivo
-                };
+                var newMovement = BuildInterestMovement(clientId, importe, config, idUsuarioRegistra, calc, motivoInteres?.IdMotivo);
 
                 await _accountMovementRepository.CreateMovement(newMovement);
                 await transaction.CommitAsync();
@@ -968,13 +956,28 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 : $"{cliente.Nombre} {cliente.Apellido}".Trim();
         }
 
+        private static MovimientoCc BuildLimitMovement(UpdateAccountLimitDTO dto, CalculationResult calc)
+        {
+            return new MovimientoCc
+            {
+                IdCliente         = dto.IdCliente,
+                IdUsuarioRegistra = dto.IdUsuarioRegistra,
+                IdTipoMovimiento  = (int)TypeMovement.MODIFICACION_LIMITE,
+                Fecha             = DateTime.Now,
+                Importe           = 0,
+                Detalle           = dto.Motivo,
+                IdEstado          = 2,
+                SaldoActual       = calc.NewBalance,
+                LimiteCuenta      = calc.NewLimit
+            };
+        }
+
         public async Task<Result<int>> UpdateAccountLimitAsync(UpdateAccountLimitDTO dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                var clientExists = await _clientRepository.ExistsByIdAsync(dto.IdCliente);
-                if (!clientExists)
+                if (!await _clientRepository.ExistsByIdAsync(dto.IdCliente))
                 {
                     _logger.LogWarning("Client with ID {ClientId} not found", dto.IdCliente);
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
@@ -984,37 +987,20 @@ namespace venta_stock_webapi.CurrentAccount.Services.CurrentAccountService
                 if (configuracion == null || !configuracion.Activo)
                     return Result<int>.Failure(CurrentAccountCode.configuracion_cc_not_found);
 
-                var nuevoLimite = configuracion.MontoLimite;
-
                 var ultimoMovimiento = await _accountMovementRepository.GetLastMovement(dto.IdCliente);
                 if (ultimoMovimiento == null)
                     return Result<int>.Failure(CurrentAccountCode.account_not_found);
 
-                var limiteActual = await _accountMovementRepository.GetOriginalLimitAsync(dto.IdCliente);
-                if (nuevoLimite == limiteActual)
+                var nuevoLimite = configuracion.MontoLimite;
+                if (nuevoLimite == await _accountMovementRepository.GetOriginalLimitAsync(dto.IdCliente))
                     return Result<int>.Failure(CurrentAccountCode.limit_already_set);
 
-                var strategy = _movementStrategyFactory.GetStrategy(TypeMovement.MODIFICACION_LIMITE);
-                var calcResult = strategy.Calculate(
-                    ultimoMovimiento.SaldoActual ?? 0,
-                    ultimoMovimiento.LimiteCuenta ?? 0,
-                    nuevoLimite);
+                var calc = _movementStrategyFactory.GetStrategy(TypeMovement.MODIFICACION_LIMITE)
+                    .Calculate(ultimoMovimiento.SaldoActual ?? 0, ultimoMovimiento.LimiteCuenta ?? 0, nuevoLimite);
 
-                var mov = new MovimientoCc
-                {
-                    IdCliente = dto.IdCliente,
-                    IdUsuarioRegistra = dto.IdUsuarioRegistra,
-                    IdTipoMovimiento = (int)TypeMovement.MODIFICACION_LIMITE,
-                    Fecha = DateTime.Now,
-                    Importe = 0,
-                    Detalle = dto.Motivo,
-                    IdEstado = 2,
-                    SaldoActual = calcResult.NewBalance,
-                    LimiteCuenta = calcResult.NewLimit
-                };
+                var mov = BuildLimitMovement(dto, calc);
 
                 await _accountMovementRepository.CreateMovement(mov);
-
                 await transaction.CommitAsync();
                 return Result<int>.Success(mov.IdMovimiento);
             }

@@ -102,125 +102,138 @@ public class CompraProveedorServices : ICompraProveedorServices
         return (subtotal, descuento, iva, baseIva + iva);
     }
 
-    /// <summary>
-    /// Crea una nueva compra de proveedor.
-    /// </summary>
-    /// <param name="dto">Datos de la compra a crear.</param>
-    /// <returns>Resultado de la operación.</returns>
+    private async Task<(bool flowControl, Result<CompraProveedorResponseDTO> value)> ValidateCreate(CompraProveedorCreateDTO dto)
+    {
+        if (dto.Detalles == null || dto.Detalles.Count == 0)
+            return (false, Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.sin_detalles));
+
+        if (!await _proveedorRepo.Exists(dto.IdProveedor))
+            return (false, Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.proveedor_not_found));
+
+        if (dto.IdUsuario > 0 && !await _userRepository.ExistsActive(dto.IdUsuario))
+            return (false, Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.usuario_not_found));
+
+        if (!string.IsNullOrWhiteSpace(dto.NumeroComprobante) &&
+            await _compraRepo.ExistsByNumeroComprobanteAsync(dto.NumeroComprobante, dto.IdProveedor))
+            return (false, Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.numero_comprobante_duplicado));
+
+        var idsProducto = dto.Detalles.Select(d => d.IdProducto).Distinct().ToList();
+        if (await _productRepository.QuantityExistsAndActive(idsProducto) != idsProducto.Count)
+            return (false, Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.producto_not_found));
+
+        return (true, null);
+    }
+
+    private Models.CompraProveedor BuildCompraEntity(CompraProveedorCreateDTO dto)
+    {
+        decimal subtotal = 0, descuento = 0, iva = 0;
+        var detalles = new List<CompraProveedorDetalle>();
+
+        foreach (var d in dto.Detalles)
+        {
+            var (sub, desc, ivaLine, tot) = CalcLinea(d.Cantidad, d.PrecioUnitario, d.DescuentoPorcentaje, d.IvaPorcentaje);
+            subtotal  += sub;
+            descuento += desc;
+            iva       += ivaLine;
+
+            detalles.Add(new CompraProveedorDetalle
+            {
+                IdProducto          = d.IdProducto,
+                Cantidad            = d.Cantidad,
+                PrecioUnitario      = d.PrecioUnitario,
+                DescuentoPorcentaje = d.DescuentoPorcentaje,
+                IvaPorcentaje       = d.IvaPorcentaje,
+                Subtotal            = sub,
+                Total               = tot
+            });
+        }
+
+        return new Models.CompraProveedor
+        {
+            IdProveedor             = dto.IdProveedor,
+            Fecha                   = dto.Fecha,
+            FechaVencimiento        = dto.FechaVencimiento,
+            TipoComprobante         = dto.TipoComprobante,
+            NumeroComprobante       = dto.NumeroComprobante,
+            Observacion             = dto.Observacion,
+            IdUsuario               = dto.IdUsuario,
+            Subtotal                = subtotal,
+            DescuentoTotal          = descuento,
+            IvaTotal                = iva,
+            Total                   = subtotal - descuento + iva,
+            Activo                  = true,
+            CompraProveedorDetalles = detalles
+        };
+    }
+
+    private async Task ActualizarCostosProductosAsync(List<CompraProveedorDetalleCreateDTO> detalles)
+    {
+        var idsProducto = detalles.Select(d => d.IdProducto).Distinct().ToList();
+        var productos = await _context.Productos
+            .Where(p => idsProducto.Contains(p.IdProducto))
+            .ToListAsync();
+
+        foreach (var d in detalles)
+        {
+            var producto = productos.FirstOrDefault(p => p.IdProducto == d.IdProducto);
+            if (producto == null) continue;
+
+            decimal costoReal = d.PrecioUnitario
+                * (1 - d.DescuentoPorcentaje / 100m)
+                * (1 + d.IvaPorcentaje       / 100m);
+
+            bool margenCambiado = d.MargenAplicado.HasValue;
+            bool costoCrecio    = costoReal > producto.Costo;
+
+            if (margenCambiado)
+                producto.PorcentajeGanancia = d.MargenAplicado!.Value;
+
+            if (costoCrecio || margenCambiado)
+            {
+                producto.Costo  = costoReal;
+                producto.Precio = producto.Costo * (1 + producto.PorcentajeGanancia / 100m);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
+    private async Task LogCreateAsync(CompraProveedorCreateDTO dto, Models.CompraProveedor compra, CompraProveedorResponseDTO responseDTO)
+    {
+        string comprobante = string.IsNullOrWhiteSpace(dto.NumeroComprobante)
+            ? "(sin número)"
+            : $"{dto.TipoComprobante} {dto.NumeroComprobante}".Trim();
+
+        await LogAsync("COMPRA_REGISTRADA", "COMPRA",
+            $"Compra registrada: {comprobante} | Proveedor: '{responseDTO.NombreProveedor}' | Total: ${compra.Total:N2} | Ítems: {dto.Detalles.Count}",
+            null,
+            new
+            {
+                Comprobante   = comprobante,
+                Proveedor     = responseDTO.NombreProveedor,
+                Subtotal      = compra.Subtotal,
+                Descuento     = compra.DescuentoTotal,
+                IVA           = compra.IvaTotal,
+                Total         = compra.Total,
+                CantidadItems = dto.Detalles.Count
+            });
+    }
+
     public async Task<Result<CompraProveedorResponseDTO>> Create(CompraProveedorCreateDTO dto)
     {
         using var transaction = await _context.Database.BeginTransactionAsync();
-        
         try
         {
-            if (dto.Detalles == null || dto.Detalles.Count == 0)
-                return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.sin_detalles);
+            (bool flowControl, Result<CompraProveedorResponseDTO> value) = await ValidateCreate(dto);
 
-            // Validar proveedor
-            var proveedorExiste = await _proveedorRepo.Exists(dto.IdProveedor);
+            if (!flowControl) return value;
 
-            if (!proveedorExiste)
-                return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.proveedor_not_found);
+            var compra = BuildCompraEntity(dto);
 
-            // Validar usuario
-            if (dto.IdUsuario > 0)
-            {
-                var usuarioExiste = await _userRepository.ExistsActive(dto.IdUsuario);
-
-                if (!usuarioExiste)
-                    return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.usuario_not_found);
-            }
-
-            // Validar número de comprobante duplicado
-            if (!string.IsNullOrWhiteSpace(dto.NumeroComprobante))
-            {
-                var duplicado = await _compraRepo.ExistsByNumeroComprobanteAsync(dto.NumeroComprobante, dto.IdProveedor);
-
-                if (duplicado)
-                    return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.numero_comprobante_duplicado);
-            }
-
-            // Validar que los productos existan y estén activos
-            var idsProducto = dto.Detalles.Select(d => d.IdProducto).Distinct().ToList();
-
-            var productosExistentes = await _productRepository.QuantityExistsAndActive(idsProducto);
-
-            if (productosExistentes != idsProducto.Count)
-                return Result<CompraProveedorResponseDTO>.Failure(CompraProveedorErrorCode.producto_not_found);
-
-            // Construir detalles y calcular totales
-            decimal subtotalTotal = 0, descuentoTotal = 0, ivaTotal = 0;
-
-            var detalles = new List<CompraProveedorDetalle>();
-
-            foreach (var d in dto.Detalles)
-            {
-                var (sub, desc, iva, tot) = CalcLinea(d.Cantidad, d.PrecioUnitario, d.DescuentoPorcentaje, d.IvaPorcentaje);
-                subtotalTotal += sub;
-                descuentoTotal += desc;
-                ivaTotal += iva;
-
-                detalles.Add(new CompraProveedorDetalle
-                {
-                    IdProducto = d.IdProducto,
-                    Cantidad = d.Cantidad,
-                    PrecioUnitario = d.PrecioUnitario,
-                    DescuentoPorcentaje = d.DescuentoPorcentaje,
-                    IvaPorcentaje = d.IvaPorcentaje,
-                    Subtotal = sub,
-                    Total = tot
-                });
-            }
-
-            var compra = new Models.CompraProveedor
-            {
-                IdProveedor = dto.IdProveedor,
-                Fecha = dto.Fecha,
-                FechaVencimiento = dto.FechaVencimiento,
-                TipoComprobante = dto.TipoComprobante,
-                NumeroComprobante = dto.NumeroComprobante,
-                Observacion = dto.Observacion,
-                IdUsuario = dto.IdUsuario,
-                Subtotal = subtotalTotal,
-                DescuentoTotal = descuentoTotal,
-                IvaTotal = ivaTotal,
-                Total = subtotalTotal - descuentoTotal + ivaTotal,
-                Activo = true,
-                CompraProveedorDetalles = detalles
-            };
-
-            // Guardar la compra (el repo llama a SaveChangesAsync internamente)
             await _compraRepo.CreateAsync(compra);
 
-            // Actualizar Costo y PorcentajeGanancia de cada producto
-            var productosParaActualizar = await _context.Productos
-                .Where(p => idsProducto.Contains(p.IdProducto))
-                .ToListAsync();
+            await ActualizarCostosProductosAsync(dto.Detalles);
 
-            foreach (var d in dto.Detalles)
-            {
-                var producto = productosParaActualizar.FirstOrDefault(p => p.IdProducto == d.IdProducto);
-                if (producto == null) continue;
-
-                decimal costoReal = d.PrecioUnitario
-                    * (1 - d.DescuentoPorcentaje / 100m)
-                    * (1 + d.IvaPorcentaje / 100m);
-
-                bool margenCambiado = d.MargenAplicado.HasValue;
-                bool costoCrecio = costoReal > producto.Costo;
-
-                if (margenCambiado)
-                    producto.PorcentajeGanancia = d.MargenAplicado!.Value;
-
-                if (costoCrecio || margenCambiado)
-                {
-                    producto.Costo = costoReal;
-                    producto.Precio = producto.Costo * (1 + producto.PorcentajeGanancia / 100m);
-                }
-            }
-            await _context.SaveChangesAsync();
-
-            // Registrar ingresos de stock en el ledger
             await RegistrarMovimientosStockAsync(
                 dto.Detalles.Select(d => (d.IdProducto, d.Cantidad)),
                 TipoMovimientoStockEnum.IngresoCompra,
@@ -231,25 +244,9 @@ public class CompraProveedorServices : ICompraProveedorServices
 
             var compraCreada = await _compraRepo.GetByIdAsync(compra.IdCompraProveedor);
 
-            var responseDTO = _mapper.Map<CompraProveedorResponseDTO>(compraCreada);
+            var responseDTO  = _mapper.Map<CompraProveedorResponseDTO>(compraCreada);
 
-            string comprobanteCreada = string.IsNullOrWhiteSpace(dto.NumeroComprobante)
-                ? "(sin número)"
-                : $"{dto.TipoComprobante} {dto.NumeroComprobante}".Trim();
-
-            await LogAsync("COMPRA_REGISTRADA", "COMPRA",
-                $"Compra registrada: {comprobanteCreada} | Proveedor: '{responseDTO.NombreProveedor}' | Total: ${compra.Total:N2} | Ítems: {dto.Detalles.Count}",
-                null,
-                new
-                {
-                    Comprobante   = comprobanteCreada,
-                    Proveedor     = responseDTO.NombreProveedor,
-                    Subtotal      = compra.Subtotal,
-                    Descuento     = compra.DescuentoTotal,
-                    IVA           = compra.IvaTotal,
-                    Total         = compra.Total,
-                    CantidadItems = dto.Detalles.Count
-                });
+            await LogCreateAsync(dto, compra, responseDTO);
 
             return Result<CompraProveedorResponseDTO>.Success(responseDTO);
         }
@@ -322,7 +319,24 @@ public class CompraProveedorServices : ICompraProveedorServices
         }
     }
 
-    //ANULAR (soft delete con motivo obligatorio + revertir stock) 
+    private (bool flowControl, Result<bool> value) ValidateAnular(Models.CompraProveedor? compra)
+    {
+        if (compra is null)
+            return (false, Result<bool>.Failure(CompraProveedorErrorCode.compra_not_found));
+
+        if (!compra.Activo)
+            return (false, Result<bool>.Failure(CompraProveedorErrorCode.compra_ya_inactiva));
+
+        return (true, null);
+    }
+
+    private async Task LogAnulacionAsync(string comprobante, string nombreProveedor, decimal total, string motivo)
+    {
+        await LogAsync("COMPRA_ANULADA", "COMPRA",
+            $"Compra anulada: {comprobante} | Proveedor: '{nombreProveedor}' | Total: ${total:N2} | Motivo: {motivo}",
+            new { Comprobante = comprobante, Proveedor = nombreProveedor, Total = total, Activo = true },
+            new { Activo = false, Motivo = motivo });
+    }
 
     public async Task<Result<bool>> Anular(int idCompraProveedor, AnulacionCompraDTO dto)
     {
@@ -333,42 +347,35 @@ public class CompraProveedorServices : ICompraProveedorServices
 
             var compra = await _compraRepo.GetByIdForUpdateAsync(idCompraProveedor);
 
-            if (compra is null)
-                return Result<bool>.Failure(CompraProveedorErrorCode.compra_not_found);
+            (bool flowControl, Result<bool> value) = ValidateAnular(compra);
 
-            if (!compra.Activo)
-                return Result<bool>.Failure(CompraProveedorErrorCode.compra_ya_inactiva);
+            if (!flowControl) return value;
 
-            // Capturar datos para auditoría antes de modificar
-            var proveedor = await _proveedorRepo.GetById(compra.IdProveedor);
-            string nombreProveedorAnulacion = proveedor?.Proveedor1 ?? $"Proveedor #{compra.IdProveedor}";
-            string comprobanteAnulacion = string.IsNullOrWhiteSpace(compra.NumeroComprobante)
+            var proveedor      = await _proveedorRepo.GetById(compra!.IdProveedor);
+
+            string nombreProveedor = proveedor?.Proveedor1 ?? $"Proveedor #{compra.IdProveedor}";
+
+            string comprobante = string.IsNullOrWhiteSpace(compra.NumeroComprobante)
                 ? "(sin número)"
                 : $"{compra.TipoComprobante} {compra.NumeroComprobante}".Trim();
-            decimal totalAnulacion = compra.Total;
 
-            // Revertir stock de cada línea
+
             await RegistrarMovimientosStockAsync(
                 compra.CompraProveedorDetalles.Select(d => (d.IdProducto, -d.Cantidad)),
                 TipoMovimientoStockEnum.EgresoAnulacionCompra,
                 $"ANULACION:COMPRA:{idCompraProveedor}",
                 _userContext.UserId);
 
-            // Registrar motivo en Observacion
             compra.Observacion = string.IsNullOrWhiteSpace(compra.Observacion)
                 ? $"ANULADO: {dto.Motivo}"
                 : $"{compra.Observacion} - ANULADO: {dto.Motivo}";
-
+                
             compra.Activo = false;
 
             await _compraRepo.SaveChangesAsync();
-
             await transaction.CommitAsync();
 
-            await LogAsync("COMPRA_ANULADA", "COMPRA",
-                $"Compra anulada: {comprobanteAnulacion} | Proveedor: '{nombreProveedorAnulacion}' | Total: ${totalAnulacion:N2} | Motivo: {dto.Motivo}",
-                new { Comprobante = comprobanteAnulacion, Proveedor = nombreProveedorAnulacion, Total = totalAnulacion, Activo = true },
-                new { Activo = false, Motivo = dto.Motivo });
+            await LogAnulacionAsync(comprobante, nombreProveedor, compra.Total, dto.Motivo);
 
             return Result<bool>.Success(true);
         }

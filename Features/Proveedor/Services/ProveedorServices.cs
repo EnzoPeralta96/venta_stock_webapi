@@ -1,5 +1,4 @@
 using AutoMapper;
-using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using proyecto_venta_stock.Data;
@@ -221,6 +220,15 @@ namespace proyecto_venta_stock.Proveedor.Services
             }
         }
 
+        private async Task LogToggleEstadoAsync(Models.Proveedor proveedor, bool eraActivo)
+        {
+            string accion = eraActivo ? "BAJA" : "REACTIVACION";
+            await LogAsync(accion, "PROVEEDOR",
+                $"Proveedor {(eraActivo ? "dado de baja" : "reactivado")}: '{proveedor.Proveedor1}'",
+                new { activo = eraActivo },
+                new { activo = !eraActivo });
+        }
+
         public async Task<Result<bool>> ToggleEstado(int idProveedor)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -239,14 +247,9 @@ namespace proyecto_venta_stock.Proveedor.Services
                 _proveedorRepository.Update(existing);
 
                 await _dbContext.SaveChangesAsync();
-
                 await transaction.CommitAsync();
 
-                string accion = eraActivo ? "BAJA" : "REACTIVACION";
-                await LogAsync(accion, "PROVEEDOR",
-                    $"Proveedor {(eraActivo ? "dado de baja" : "reactivado")}: '{existing.Proveedor1}'",
-                    new { activo = eraActivo },
-                    new { activo = !eraActivo });
+                await LogToggleEstadoAsync(existing, eraActivo);
 
                 return Result<bool>.Success();
             }

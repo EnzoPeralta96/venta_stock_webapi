@@ -23,7 +23,7 @@ public class LocationController : ControllerBase
         _logger = logger;
     }
 
-    // 🔍 GET api/Location/search?pageIndex=1&pageSize=10&searchTerm=a&activos=true
+    //GET api/Location/search?pageIndex=1&pageSize=10&searchTerm=a&activos=true
     [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("search")]
     public async Task<IActionResult> Search(
@@ -44,7 +44,7 @@ public class LocationController : ControllerBase
         return Ok(result.Value);
     }
 
-    // 🔎 GET api/Location/{id}
+    //GET api/Location/{id}
     [Authorize(Policy = "PERM:PROD_READ")]
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
@@ -61,7 +61,7 @@ public class LocationController : ControllerBase
         return Ok(result.Value);
     }
 
-    // ➕ POST api/Location/create
+    //POST api/Location/create
     [Authorize(Policy = "PERM:PROD_CREATE")]
     [HttpPost("create")]
     public async Task<IActionResult> Create([FromBody] LocationCreateUpdateDTO dto)
@@ -82,7 +82,7 @@ public class LocationController : ControllerBase
         return Ok(result.Value);
     }
 
-    // ✏️ PUT api/Location/update/{id}
+    //PUT api/Location/update/{id}
     [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPut("update/{id:int}")]
     public async Task<IActionResult> Update(int id, [FromBody] LocationCreateUpdateDTO dto)
@@ -129,7 +129,7 @@ public class LocationController : ControllerBase
         return Ok(new { message = "Ubicación eliminada correctamente" });
     }
 
-    // 🔄 PATCH api/Location/toggle/{id}
+    //PATCH api/Location/toggle/{id}
     [Authorize(Policy = "PERM:PROD_UPDATE")]
     [HttpPatch("toggle/{id:int}")]
     public async Task<IActionResult> ToggleActivo(int id)

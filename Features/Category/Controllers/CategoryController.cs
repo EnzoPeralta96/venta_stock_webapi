@@ -10,7 +10,6 @@ namespace proyecto_venta_stock.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Authorize]
-
 public class CategoryController : ControllerBase
 {
     private readonly ICategoryServices _categoryServices;
@@ -99,10 +98,9 @@ public class CategoryController : ControllerBase
                 CategoryErrorCode.category_not_found => NotFound(message),
                 CategoryErrorCode.category_in_use => Conflict(message),
                 _ => BadRequest(message),
-            };
-            
+            };   
         }
-
-        return NoContent(); // <- no devolver false/true al front
+        
+        return NoContent();
     }
 }

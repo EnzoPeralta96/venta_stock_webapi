@@ -39,7 +39,6 @@ namespace proyecto_venta_stock.Location.Services
             }
         }
 
-        // 🔎 Obtener ubicación por ID
         public async Task<Result<LocationDTO>> GetByIdAsync(int id)
         {
             try
@@ -58,7 +57,7 @@ namespace proyecto_venta_stock.Location.Services
             }
         }
 
-        // ➕ Crear ubicación
+  
         public async Task<Result<LocationDTO>> CreateAsync(LocationCreateUpdateDTO dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -85,7 +84,7 @@ namespace proyecto_venta_stock.Location.Services
             }
         }
 
-        // ✏️ Actualizar ubicación
+
         public async Task<Result<LocationDTO>> UpdateAsync(int id, LocationCreateUpdateDTO dto)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -118,7 +117,7 @@ namespace proyecto_venta_stock.Location.Services
             }
         }
 
-        // 🗑️ Eliminado lógico
+        //Eliminado lógico
         public async Task<Result<bool>> DeleteAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -144,7 +143,6 @@ namespace proyecto_venta_stock.Location.Services
             }
         }
 
-        // 🔄 Cambiar estado (activo/inactivo)
         public async Task<Result<bool>> ToggleActivoAsync(int id)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();

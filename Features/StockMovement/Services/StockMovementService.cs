@@ -71,15 +71,74 @@ public class StockMovementService : IStockMovementService
         }
     }
 
-    /// <summary>
-    /// Registra un movimiento de stock para el producto indicado.
-    /// Actualiza el caché Producto.Stock y persiste el movimiento en la tabla movimiento_stock.
-    /// Si se llama dentro de una transacción existente, participa en ella.
-    /// </summary>
-    /// <param name="cantidad">
-    /// Positivo para ingresos, negativo para egresos.
-    /// El llamador es responsable de enviar el signo correcto según el tipo de movimiento.
-    /// </param>
+    private async Task<(bool flowControl, Result<bool> value)> ValidateRegistrarMovimiento(int idUsuario, Producto? producto)
+    {
+        if (!await _userRepository.Exists(idUsuario))
+            return (false, Result<bool>.Failure(UserErrorCode.user_not_found));
+
+        if (producto is null)
+            return (false, Result<bool>.Failure(StockMovementErrorCode.producto_not_found));
+
+        return (true, null);
+    }
+
+    private static MovimientoStock BuildMovimientoStockEntity(
+        int idProducto, TipoMovimientoStockEnum tipo, decimal cantidad,
+        decimal stockResultante, int idUsuario, string? referencia)
+    {
+        return new MovimientoStock
+        {
+            IdProducto            = idProducto,
+            IdTipoMovimientoStock = (int)tipo,
+            Cantidad              = cantidad,
+            StockResultante       = stockResultante,
+            Fecha                 = DateTime.UtcNow,
+            IdUsuario             = idUsuario,
+            Referencia            = referencia
+        };
+    }
+
+    private async Task LogMovimientoStockAsync(
+        TipoMovimientoStockEnum tipo, decimal cantidad, string nombreProducto,
+        decimal stockAnterior, decimal nuevoStock, string? referencia)
+    {
+        string accion;
+        string detalle;
+
+        switch (tipo)
+        {
+            case TipoMovimientoStockEnum.IngresoCompra:
+                accion  = "STOCK_INGRESO";
+                detalle = $"Ingreso de stock por compra: +{cantidad} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                break;
+            case TipoMovimientoStockEnum.EgresoVenta:
+                accion  = "STOCK_EGRESO";
+                detalle = $"Egreso de stock por venta: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                break;
+            case TipoMovimientoStockEnum.ReingresoAnulacionVenta:
+                accion  = "STOCK_INGRESO";
+                detalle = $"Reingreso de stock por anulación de venta: +{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                break;
+            case TipoMovimientoStockEnum.EgresoAnulacionCompra:
+                accion  = "STOCK_EGRESO";
+                detalle = $"Egreso de stock por anulación de compra: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                break;
+            case TipoMovimientoStockEnum.AjustePositivoManual:
+            case TipoMovimientoStockEnum.AjusteNegativoManual:
+            case TipoMovimientoStockEnum.ConsumoInternoDueno:
+            default:
+                accion  = "AJUSTE_STOCK";
+                detalle = $"Ajuste de stock: {(cantidad >= 0 ? "+" : "")}{cantidad} | Producto: '{nombreProducto}' | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
+                if (!string.IsNullOrWhiteSpace(referencia))
+                    detalle += $" | Ref: {referencia}";
+                break;
+        }
+
+        await LogAsync(accion, "PRODUCTO", detalle,
+            new { producto = nombreProducto, stockAnterior },
+            new { producto = nombreProducto, cantidad = Math.Abs(cantidad), stockNuevo = nuevoStock });
+    }
+
     public async Task<Result<bool>> RegistrarMovimientoAsync(
         int idProducto,
         TipoMovimientoStockEnum tipoMovimiento,
@@ -87,89 +146,32 @@ public class StockMovementService : IStockMovementService
         string? referencia,
         int idUsuario)
     {
-        // Si ya hay una transacción activa (ej: llamado desde SaleService), participamos en ella.
-        // Si no hay ninguna (ej: ajuste-manual directo), abrimos una propia para que
-        // el set_config y el SaveChanges queden dentro del mismo transaction scope,
-        // garantizando que el trigger de auditoría reciba app.user_id correctamente.
         var ownTransaction = _dbContext.Database.CurrentTransaction == null;
-
         try
         {
             if (ownTransaction)
                 await _dbContext.Database.BeginTransactionAsync();
 
-            var user = await _userRepository.Exists(idUsuario);
-            if (!user) return Result<bool>.Failure(UserErrorCode.user_not_found);
-
             var producto = await _productRepository.GetById(idProducto);
-            if (producto is null)
-                return Result<bool>.Failure(StockMovementErrorCode.producto_not_found);
 
-            // Requerido por el trigger de auditoría para el UPDATE en producto.
+            (bool flowControl, Result<bool> value) = await ValidateRegistrarMovimiento(idUsuario, producto);
+            if (!flowControl) return value;
+
             await _dbContext.Database.SetAuditContextAsync(idUsuario);
 
-            var stockAnterior = producto.Stock ?? 0;
-            var nuevoStock = stockAnterior + cantidad;
-            producto.Stock = nuevoStock;
+            decimal stockAnterior = producto.Stock ?? 0;
+            decimal nuevoStock    = stockAnterior + cantidad;
+            producto.Stock        = nuevoStock;
 
-            var movimientoStock = new MovimientoStock
-            {
-                IdProducto = idProducto,
-                IdTipoMovimientoStock = (int)tipoMovimiento,
-                Cantidad = cantidad,
-                StockResultante = nuevoStock,
-                Fecha = DateTime.UtcNow,
-                IdUsuario = idUsuario,
-                Referencia = referencia
-            };
-
-            _movimientoStockRepository.Add(movimientoStock);
+            var movimiento = BuildMovimientoStockEntity(idProducto, tipoMovimiento, cantidad, nuevoStock, idUsuario, referencia);
+            _movimientoStockRepository.Add(movimiento);
             await _movimientoStockRepository.SaveChangesAsync();
 
             if (ownTransaction)
                 await _dbContext.Database.CurrentTransaction!.CommitAsync();
 
-            // Determinar acción y detalle según tipo de movimiento
-            string accionAudit;
-            string detalleAudit;
             string nombreProducto = $"{producto.Nombre} {producto.Marca}";
-
-            switch (tipoMovimiento)
-            {
-                case TipoMovimientoStockEnum.IngresoCompra:
-                    accionAudit  = "STOCK_INGRESO";
-                    detalleAudit = $"Ingreso de stock por compra: +{cantidad} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
-                    break;
-
-                case TipoMovimientoStockEnum.EgresoVenta:
-                    accionAudit  = "STOCK_EGRESO";
-                    detalleAudit = $"Egreso de stock por venta: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
-                    break;
-
-                case TipoMovimientoStockEnum.ReingresoAnulacionVenta:
-                    accionAudit  = "STOCK_INGRESO";
-                    detalleAudit = $"Reingreso de stock por anulación de venta: +{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
-                    break;
-
-                case TipoMovimientoStockEnum.EgresoAnulacionCompra:
-                    accionAudit  = "STOCK_EGRESO";
-                    detalleAudit = $"Egreso de stock por anulación de compra: -{Math.Abs(cantidad)} | Producto: '{nombreProducto}' | Ref: {referencia} | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
-                    break;
-
-                case TipoMovimientoStockEnum.AjustePositivoManual:
-                case TipoMovimientoStockEnum.AjusteNegativoManual:
-                case TipoMovimientoStockEnum.ConsumoInternoDueno:
-                default:
-                    accionAudit  = "AJUSTE_STOCK";
-                    detalleAudit = $"Ajuste de stock: {(cantidad >= 0 ? "+" : "")}{cantidad} | Producto: '{nombreProducto}' | Stock anterior: {stockAnterior} → Stock nuevo: {nuevoStock}";
-                    if (!string.IsNullOrWhiteSpace(referencia))
-                        detalleAudit += $" | Ref: {referencia}";
-                    break;
-            }
-
-            await LogAsync(accionAudit, "PRODUCTO", detalleAudit,
-                new { producto = nombreProducto, stockAnterior },
-                new { producto = nombreProducto, cantidad = Math.Abs(cantidad), stockNuevo = nuevoStock });
+            await LogMovimientoStockAsync(tipoMovimiento, cantidad, nombreProducto, stockAnterior, nuevoStock, referencia);
 
             return Result<bool>.Success(true);
         }

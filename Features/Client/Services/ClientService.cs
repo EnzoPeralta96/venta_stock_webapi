@@ -49,14 +49,14 @@ namespace venta_stock_webapi.Client.Services
             {
                 await _auditRepository.LogAsync(new Auditoria
                 {
-                    FechaHora         = DateTimeOffset.UtcNow,
-                    IdUsuario         = _userContext.UserId,
-                    UsuarioNombre     = _userContext.UserName,
-                    Accion            = accion,
-                    EntidadTipo       = entidadTipo,
-                    Detalle           = detalle,
+                    FechaHora = DateTimeOffset.UtcNow,
+                    IdUsuario = _userContext.UserId,
+                    UsuarioNombre = _userContext.UserName,
+                    Accion = accion,
+                    EntidadTipo = entidadTipo,
+                    Detalle = detalle,
                     ValoresAnteriores = anterior != null ? JsonSerializer.Serialize(anterior) : null,
-                    ValoresNuevos     = nuevo    != null ? JsonSerializer.Serialize(nuevo)    : null,
+                    ValoresNuevos = nuevo != null ? JsonSerializer.Serialize(nuevo) : null,
                 });
             }
             catch (Exception ex)
@@ -65,41 +65,100 @@ namespace venta_stock_webapi.Client.Services
             }
         }
 
-        //Agregar validaciones de usuario.
+        private async Task LogCreationClientAsync(ClientCreateDTO clienteDTO)
+        {
+
+            string nombreCliente = clienteDTO.EsEmpresa
+                ? $"'{clienteDTO.RazonSocial}' | CUIT: {clienteDTO.Cuit}"
+                : $"'{clienteDTO.Nombre} {clienteDTO.Apellido}' | DNI: {clienteDTO.Dni}";
+
+            object nuevoClienteAudit = clienteDTO.EsEmpresa
+                ? (object)new { RazonSocial = clienteDTO.RazonSocial, CUIT = clienteDTO.Cuit, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail }
+                : new { Nombre = clienteDTO.Nombre, Apellido = clienteDTO.Apellido, DNI = clienteDTO.Dni, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail };
+
+            await LogAsync("CREACION", "CLIENTE", $"Cliente creado: {nombreCliente}", null, nuevoClienteAudit);
+
+            if (clienteDTO.TieneCuentaCorriente)
+            {
+                string nombreCC = clienteDTO.EsEmpresa
+                    ? clienteDTO.RazonSocial ?? "N/A"
+                    : $"{clienteDTO.Nombre} {clienteDTO.Apellido}";
+                await LogAsync("CC_CREADA", "CLIENTE",
+                    $"Cuenta corriente habilitada: '{nombreCC}' | Límite: ${clienteDTO.LimiteCuenta!.Value:N2} | Saldo inicial: ${clienteDTO.SaldoInicial ?? 0:N2}",
+                    null,
+                    new { cliente = nombreCC, limiteCredito = clienteDTO.LimiteCuenta!.Value, saldoInicial = clienteDTO.SaldoInicial ?? 0 });
+            }
+        }
+
+        private async Task CreateCurrentAccount(ClientCreateDTO clienteDTO, Cliente clienteCreado)
+        {
+            var movimientoCC = new MovimientoCc
+            {
+                IdTipoMovimiento = 2, // Alta cliente
+                IdEstado = 2, // Aprobado
+                Fecha = DateTime.Now,
+                Importe = 0,
+                Detalle = "Saldo inicial del cliente al registrarse",
+                LimiteCuenta = clienteDTO.LimiteCuenta!.Value,
+                SaldoActual = clienteDTO.SaldoInicial ?? 0,
+                IdUsuarioRegistra = clienteDTO.idUsuarioRegistra,
+                IdCliente = clienteCreado.IdCliente,
+                IdVenta = null,
+                IdUsuarioAutoriza = null,
+                FechaAutorizacion = null
+            };
+
+            await _accountMovementRepository.CreateMovement(movimientoCC);
+        }
+
+        private async Task<(bool flowControl, Result<ClientResponseDTO> value)> ValidateRulesCreate(ClientCreateDTO clienteDTO)
+        {
+            // Validar unicidad de Email (global para todos los clientes)
+            if (await _clienteRepository.EmailExistsAsync(clienteDTO.Mail))
+            {
+                return (flowControl: false, value: Result<ClientResponseDTO>.Failure(ClientErrorCode.email_in_use));
+            }
+
+            // Validaciones específicas según tipo de cliente
+            if (clienteDTO.EsEmpresa)
+            {
+                // EMPRESA: Validar RazonSocial única
+                if (await _clienteRepository.EnterpriseExistsAsync(clienteDTO.RazonSocial))
+                {
+                    return (flowControl: false, value: Result<ClientResponseDTO>.Failure(ClientErrorCode.empresa_in_use));
+                }
+                // CUIT NO se valida (puede repetirse)
+            }
+            else
+            {
+                // PERSONA FÍSICA: Validar DNI único
+                if (await _clienteRepository.DniExistsAsync(clienteDTO.Dni))
+                {
+                    return (flowControl: false, value: Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use));
+                }
+            }
+
+            // Validar que si tiene CC, debe venir el límite de cuenta
+            if (clienteDTO.TieneCuentaCorriente && !clienteDTO.LimiteCuenta.HasValue)
+            {
+                return (flowControl: false, value: Result<ClientResponseDTO>.Failure(ClientErrorCode.limite_cuenta_required));
+            }
+
+            return (flowControl: true, value: null);
+        }
+
+
         public async Task<Result<ClientResponseDTO>> CreateClienteAsync(ClientCreateDTO clienteDTO)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Validar unicidad de Email (global para todos los clientes)
-                if (await _clienteRepository.EmailExistsAsync(clienteDTO.Mail))
-                {
-                    return Result<ClientResponseDTO>.Failure(ClientErrorCode.email_in_use);
-                }
+                //Validar reglas de negocio y unicidad antes de crear el cliente
+                (bool flowControl, Result<ClientResponseDTO> value) = await ValidateRulesCreate(clienteDTO);
 
-                // Validaciones específicas según tipo de cliente
-                if (clienteDTO.EsEmpresa)
+                if (!flowControl)
                 {
-                    // EMPRESA: Validar RazonSocial única
-                    if (await _clienteRepository.EnterpriseExistsAsync(clienteDTO.RazonSocial))
-                    {
-                        return Result<ClientResponseDTO>.Failure(ClientErrorCode.empresa_in_use);
-                    }
-                    // CUIT NO se valida (puede repetirse)
-                }
-                else
-                {
-                    // PERSONA FÍSICA: Validar DNI único
-                    if (await _clienteRepository.DniExistsAsync(clienteDTO.Dni))
-                    {
-                        return Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use);
-                    }
-                }
-
-                // Validar que si tiene CC, debe venir el límite de cuenta
-                if (clienteDTO.TieneCuentaCorriente && !clienteDTO.LimiteCuenta.HasValue)
-                {
-                    return Result<ClientResponseDTO>.Failure(ClientErrorCode.limite_cuenta_required);
+                    return value;
                 }
 
                 // Crear el cliente
@@ -112,52 +171,17 @@ namespace venta_stock_webapi.Client.Services
                 // Si tiene cuenta corriente, crear el MovimientoCC inicial
                 if (clienteDTO.TieneCuentaCorriente)
                 {
-                    var movimientoCC = new MovimientoCc
-                    {
-                        IdTipoMovimiento = 2, // Alta cliente
-                        IdEstado = 2, // Aprobado
-                        Fecha = DateTime.Now,
-                        Importe = 0,
-                        Detalle = "Saldo inicial del cliente al registrarse",
-                        LimiteCuenta = clienteDTO.LimiteCuenta!.Value,
-                        SaldoActual = clienteDTO.SaldoInicial ?? 0,
-                        IdUsuarioRegistra = clienteDTO.idUsuarioRegistra,
-                        IdCliente = clienteCreado.IdCliente,
-                        IdVenta = null,
-                        IdUsuarioAutoriza = null,
-                        FechaAutorizacion = null
-                    };
-
-                    await _accountMovementRepository.CreateMovement(movimientoCC);
+                    await CreateCurrentAccount(clienteDTO, clienteCreado);
                 }
-
 
                 await transaction.CommitAsync();
 
                 // Auditoría de creación de cliente
-                string nombreCliente = clienteDTO.EsEmpresa
-                    ? $"'{clienteDTO.RazonSocial}' | CUIT: {clienteDTO.Cuit}"
-                    : $"'{clienteDTO.Nombre} {clienteDTO.Apellido}' | DNI: {clienteDTO.Dni}";
-
-                object nuevoClienteAudit = clienteDTO.EsEmpresa
-                    ? (object)new { RazonSocial = clienteDTO.RazonSocial, CUIT = clienteDTO.Cuit, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail }
-                    : new { Nombre = clienteDTO.Nombre, Apellido = clienteDTO.Apellido, DNI = clienteDTO.Dni, Telefono = clienteDTO.Telefono, Mail = clienteDTO.Mail };
-
-                await LogAsync("CREACION", "CLIENTE", $"Cliente creado: {nombreCliente}", null, nuevoClienteAudit);
-
-                if (clienteDTO.TieneCuentaCorriente)
-                {
-                    string nombreCC = clienteDTO.EsEmpresa
-                        ? clienteDTO.RazonSocial ?? "N/A"
-                        : $"{clienteDTO.Nombre} {clienteDTO.Apellido}";
-                    await LogAsync("CC_CREADA", "CLIENTE",
-                        $"Cuenta corriente habilitada: '{nombreCC}' | Límite: ${clienteDTO.LimiteCuenta!.Value:N2} | Saldo inicial: ${clienteDTO.SaldoInicial ?? 0:N2}",
-                        null,
-                        new { cliente = nombreCC, limiteCredito = clienteDTO.LimiteCuenta!.Value, saldoInicial = clienteDTO.SaldoInicial ?? 0 });
-                }
+                await LogCreationClientAsync(clienteDTO);
 
                 // Obtener el cliente recién creado con sus relaciones
                 var clienteCompleto = await _clienteRepository.GetByIdAsync(clienteCreado.IdCliente);
+
                 var responseDTO = _mapper.Map<ClientResponseDTO>(clienteCompleto);
 
                 return Result<ClientResponseDTO>.Success(responseDTO);
@@ -170,13 +194,14 @@ namespace venta_stock_webapi.Client.Services
             }
         }
 
+
         public async Task<Result<ClientResponseDTO>> GetClient(int id)
         {
             try
             {
                 var cliente = await _clienteRepository.GetByIdAsync(id);
 
-                if (cliente is null) 
+                if (cliente is null)
                     return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
 
                 var responseDTO = _mapper.Map<ClientResponseDTO>(cliente);
@@ -213,6 +238,66 @@ namespace venta_stock_webapi.Client.Services
             }
         }
 
+        private async Task<(bool flowControl, Result<ClientResponseDTO> value)> ValidateRulesUpdate(ClientUpdateDTO clienteDTO)
+        {
+            if (await _clienteRepository.EmailExistsForOtherClientAsync(clienteDTO.Mail, clienteDTO.IdCliente))
+                return (false, Result<ClientResponseDTO>.Failure(ClientErrorCode.email_in_use));
+
+            if (clienteDTO.EsEmpresa)
+            {
+                if (await _clienteRepository.EnterpriseExistsForOtherClientAsync(clienteDTO.RazonSocial, clienteDTO.IdCliente))
+                    return (false, Result<ClientResponseDTO>.Failure(ClientErrorCode.empresa_in_use));
+            }
+            else
+            {
+                if (await _clienteRepository.DniExistsForOtherClientAsync(clienteDTO.Dni, clienteDTO.IdCliente))
+                    return (false, Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use));
+            }
+
+            return (true, null);
+        }
+
+        private (Dictionary<string, object?> anterior, Dictionary<string, object?> nuevo) ApplyAndTrackChanges(Cliente existente, ClientUpdateDTO dto)
+        {
+            var anterior = new Dictionary<string, object?>();
+            var nuevo    = new Dictionary<string, object?>();
+
+            void Track(string campo, object? old, object? newVal)
+            {
+                if (!Equals(old, newVal)) { anterior[campo] = old; nuevo[campo] = newVal; }
+            }
+
+            Track("Nombre",      existente.Nombre,      dto.Nombre);
+            Track("Apellido",    existente.Apellido,    dto.Apellido);
+            Track("RazonSocial", existente.RazonSocial, dto.RazonSocial);
+            Track("DNI",         existente.Dni,         dto.Dni);
+            Track("CUIT",        existente.Cuit,        dto.Cuit);
+            Track("Telefono",    existente.Telefono,    dto.Telefono);
+            Track("Mail",        existente.Mail,        dto.Mail);
+
+            existente.Nombre      = dto.Nombre;
+            existente.Apellido    = dto.Apellido;
+            existente.RazonSocial = dto.RazonSocial;
+            existente.Dni         = dto.Dni;
+            existente.Cuit        = dto.Cuit;
+            existente.Telefono    = dto.Telefono;
+            existente.Mail        = dto.Mail;
+
+            return (anterior, nuevo);
+        }
+
+        private async Task LogUpdateClientAsync(ClientUpdateDTO clienteDTO, Dictionary<string, object?> anterior, Dictionary<string, object?> nuevo)
+        {
+            string nombreCliente = clienteDTO.EsEmpresa
+                ? clienteDTO.RazonSocial
+                : $"{clienteDTO.Nombre} {clienteDTO.Apellido}".Trim();
+
+            await LogAsync("ACTUALIZACION", "CLIENTE",
+                $"Cliente actualizado: '{nombreCliente}' | Tel: {clienteDTO.Telefono} | Mail: {clienteDTO.Mail}",
+                anterior.Count > 0 ? anterior : null,
+                nuevo.Count    > 0 ? nuevo    : null);
+        }
+
         public async Task<Result<ClientResponseDTO>> UpdateClient(ClientUpdateDTO clienteDTO)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -223,68 +308,22 @@ namespace venta_stock_webapi.Client.Services
                 if (clienteExistente is null)
                     return Result<ClientResponseDTO>.Failure(ClientErrorCode.cliente_not_found);
 
-                // Validar unicidad de Email (global para todos los clientes, excepto el actual)
-                if (await _clienteRepository.EmailExistsForOtherClientAsync(clienteDTO.Mail, clienteDTO.IdCliente))
-                    return Result<ClientResponseDTO>.Failure(ClientErrorCode.email_in_use);
-            
+                (bool flowControl, Result<ClientResponseDTO> value) = await ValidateRulesUpdate(clienteDTO);
 
-                // Validaciones específicas según tipo de cliente
-                if (clienteDTO.EsEmpresa)
-                {
-                    // EMPRESA: Validar RazonSocial única (excepto el cliente actual)
-                    if (await _clienteRepository.EnterpriseExistsForOtherClientAsync(clienteDTO.RazonSocial, clienteDTO.IdCliente))
-                        return Result<ClientResponseDTO>.Failure(ClientErrorCode.empresa_in_use);
-                    // CUIT NO se valida (puede repetirse)
-                }
-                else
-                {
-                    // PERSONA FÍSICA: Validar DNI único (excepto el cliente actual)
-                    if (await _clienteRepository.DniExistsForOtherClientAsync(clienteDTO.Dni, clienteDTO.IdCliente))
-                        return Result<ClientResponseDTO>.Failure(ClientErrorCode.dni_in_use);
-                }
+                if (!flowControl)
+                    return value;
 
-                // Capturar campos anteriores ANTES de sobrescribir
-                var anteriorClienteDict = new Dictionary<string, object?>();
-                var nuevoClienteDict    = new Dictionary<string, object?>();
-
-                void CompareField(string campo, object? old, object? newVal)
-                {
-                    if (!Equals(old, newVal)) { anteriorClienteDict[campo] = old; nuevoClienteDict[campo] = newVal; }
-                }
-
-                CompareField("Nombre",      clienteExistente.Nombre,      clienteDTO.Nombre);
-                CompareField("Apellido",    clienteExistente.Apellido,    clienteDTO.Apellido);
-                CompareField("RazonSocial", clienteExistente.RazonSocial, clienteDTO.RazonSocial);
-                CompareField("DNI",         clienteExistente.Dni,         clienteDTO.Dni);
-                CompareField("CUIT",        clienteExistente.Cuit,        clienteDTO.Cuit);
-                CompareField("Telefono",    clienteExistente.Telefono,    clienteDTO.Telefono);
-                CompareField("Mail",        clienteExistente.Mail,        clienteDTO.Mail);
-
-                clienteExistente.Nombre = clienteDTO.Nombre;
-                clienteExistente.Apellido = clienteDTO.Apellido;
-                clienteExistente.RazonSocial = clienteDTO.RazonSocial;
-                clienteExistente.Dni = clienteDTO.Dni;
-                clienteExistente.Cuit = clienteDTO.Cuit;
-                clienteExistente.Telefono = clienteDTO.Telefono;
-                clienteExistente.Mail = clienteDTO.Mail;
+                var (anterior, nuevo) = ApplyAndTrackChanges(clienteExistente, clienteDTO);
 
                 await _clienteRepository.UpdateAsync(clienteExistente);
 
                 await transaction.CommitAsync();
 
-                string nombreClienteUpdate = clienteDTO.EsEmpresa
-                    ? clienteDTO.RazonSocial
-                    : $"{clienteDTO.Nombre} {clienteDTO.Apellido}".Trim();
-                await LogAsync("ACTUALIZACION", "CLIENTE",
-                    $"Cliente actualizado: '{nombreClienteUpdate}' | Tel: {clienteDTO.Telefono} | Mail: {clienteDTO.Mail}",
-                    anteriorClienteDict.Count > 0 ? anteriorClienteDict : null,
-                    nuevoClienteDict.Count    > 0 ? nuevoClienteDict    : null);
+                await LogUpdateClientAsync(clienteDTO, anterior, nuevo);
 
                 var clienteActualizado = await _clienteRepository.GetByIdAsync(clienteDTO.IdCliente);
-
-                var responseDTO = _mapper.Map<ClientResponseDTO>(clienteActualizado);
-
-                return Result<ClientResponseDTO>.Success(responseDTO);
+                
+                return Result<ClientResponseDTO>.Success(_mapper.Map<ClientResponseDTO>(clienteActualizado));
             }
             catch (Exception ex)
             {
@@ -292,6 +331,27 @@ namespace venta_stock_webapi.Client.Services
                 _logger.LogError("Error inesperado al actualizar cliente: " + ex);
                 return Result<ClientResponseDTO>.Failure(ClientErrorCode.unexpected_error);
             }
+        }
+
+        private (bool flowControl, Result<string> value) ValidateRulesToggle(Cliente cliente, bool isActive)
+        {
+            if (!isActive && cliente.FechaBaja != null)
+                return (false, Result<string>.Failure(ClientErrorCode.cliente_already_inactive));
+
+            if (isActive && cliente.FechaBaja == null)
+                return (false, Result<string>.Failure(ClientErrorCode.cliente_already_active));
+
+            return (true, null);
+        }
+
+        private async Task LogToggleStatusAsync(string nombreCliente, bool isActive)
+        {
+            if (!isActive)
+                await LogAsync("BAJA", "CLIENTE", $"Cliente dado de baja: '{nombreCliente}'",
+                    new { Activo = true }, new { Activo = false });
+            else
+                await LogAsync("REACTIVACION", "CLIENTE", $"Cliente reactivado: '{nombreCliente}'",
+                    new { Activo = false }, new { Activo = true });
         }
 
         public async Task<Result<string>> ToggleStatus(ClientToggleStatusDTO dto)
@@ -302,40 +362,26 @@ namespace venta_stock_webapi.Client.Services
                 var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente);
 
                 if (cliente == null)
-                {
                     return Result<string>.Failure(ClientErrorCode.cliente_not_found);
-                }
 
-                string nombreToggle = !string.IsNullOrWhiteSpace(cliente.RazonSocial)
+                (bool flowControl, Result<string> value) = ValidateRulesToggle(cliente, dto.IsActive);
+
+                if (!flowControl)
+                    return value;
+
+                string nombreCliente = !string.IsNullOrWhiteSpace(cliente.RazonSocial)
                     ? cliente.RazonSocial
                     : $"{cliente.Nombre} {cliente.Apellido}";
 
-                if (!dto.IsActive)
-                {
-                    if (cliente.FechaBaja != null)
-                    {
-                        return Result<string>.Failure(ClientErrorCode.cliente_already_inactive);
-                    }
+                DateOnly? fechaBaja = dto.IsActive ? null : DateOnly.FromDateTime(DateTime.Now);
 
-                    await _clienteRepository.UpdateStatusAsync(dto.IdCliente, DateOnly.FromDateTime(DateTime.Now));
-                    await transaction.CommitAsync();
-                    await LogAsync("BAJA", "CLIENTE", $"Cliente dado de baja: '{nombreToggle}'",
-                        new { Activo = true }, new { Activo = false });
-                    return Result<string>.Success("Cliente dado de baja exitosamente.");
-                }
-                else
-                {
-                    if (cliente.FechaBaja == null)
-                    {
-                        return Result<string>.Failure(ClientErrorCode.cliente_already_active);
-                    }
+                await _clienteRepository.UpdateStatusAsync(dto.IdCliente, fechaBaja);
+                await transaction.CommitAsync();
 
-                    await _clienteRepository.UpdateStatusAsync(dto.IdCliente, null);
-                    await transaction.CommitAsync();
-                    await LogAsync("REACTIVACION", "CLIENTE", $"Cliente reactivado: '{nombreToggle}'",
-                        new { Activo = false }, new { Activo = true });
-                    return Result<string>.Success("Cliente reactivado exitosamente.");
-                }
+                await LogToggleStatusAsync(nombreCliente, dto.IsActive);
+
+                string mensaje = dto.IsActive ? "Cliente reactivado exitosamente." : "Cliente dado de baja exitosamente.";
+                return Result<string>.Success(mensaje);
             }
             catch (Exception ex)
             {

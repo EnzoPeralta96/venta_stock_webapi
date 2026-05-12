@@ -237,6 +237,54 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
 
     // ── Importación ───────────────────────────────────────────────────────────
 
+    private async Task ProcesarRowAsync(ImportRow row, int idLista, decimal ivaAplicacion, bool actualizarPrecioVenta, ImportListaPrecioResultDTO resultado)
+    {
+        resultado.TotalProcesados++;
+
+        var idProducto = await _repo.GetProductoIdByCodigoBarraAsync(row.CodigoBarra);
+        if (idProducto == null)
+        {
+            resultado.CodigosIgnorados.Add(row.CodigoBarra);
+            return;
+        }
+
+        bool existed     = await _repo.ItemExistsAsync(idLista, idProducto.Value);
+        decimal costoConIva = row.NuevoCosto * (1 + ivaAplicacion / 100m);
+
+        await _repo.UpsertItemNoSaveAsync(idLista, idProducto.Value, costoConIva, row.Margen);
+
+        if (existed) resultado.Actualizados++;
+        else         resultado.Insertados++;
+
+        if (row.Margen.HasValue)
+        {
+            decimal nuevoPrecio = costoConIva * (1 + row.Margen.Value / 100m);
+            await _repo.UpdateProductoCostoNoSaveAsync(idProducto.Value, costoConIva, row.Margen.Value, nuevoPrecio);
+        }
+        else if (actualizarPrecioVenta)
+        {
+            await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, costoConIva);
+        }
+    }
+
+    private async Task ProcesarRowsAsync(List<ImportRow> rows, int idLista, decimal ivaAplicacion, bool actualizarPrecioVenta, ImportListaPrecioResultDTO resultado)
+    {
+        await using var transaction = await _repo.BeginTransactionAsync();
+        try
+        {
+            foreach (var row in rows)
+                await ProcesarRowAsync(row, idLista, ivaAplicacion, actualizarPrecioVenta, resultado);
+
+            await _repo.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<Result<ImportListaPrecioResultDTO>> ImportarAsync(int idLista, IFormFile file, bool actualizarPrecioVenta, decimal ivaAplicacion = 0)
     {
         try
@@ -259,53 +307,7 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
                 return Result<ImportListaPrecioResultDTO>.Failure(ListaPrecioItemErrorCode.formato_no_soportado);
 
             var resultado = new ImportListaPrecioResultDTO();
-
-            await using var transaction = await _repo.BeginTransactionAsync();
-            try
-            {
-                foreach (var row in rows)
-                {
-                    resultado.TotalProcesados++;
-
-                    var idProducto = await _repo.GetProductoIdByCodigoBarraAsync(row.CodigoBarra);
-                    if (idProducto == null)
-                    {
-                        resultado.CodigosIgnorados.Add(row.CodigoBarra);
-                        continue;
-                    }
-
-                    bool existed = await _repo.ItemExistsAsync(idLista, idProducto.Value);
-
-                    // Calcular costo con IVA
-                    decimal costoConIva = row.NuevoCosto * (1 + ivaAplicacion / 100m);
-
-                    // Guardar costo con IVA en la pivot (reemplaza el precio neto)
-                    await _repo.UpsertItemNoSaveAsync(idLista, idProducto.Value, costoConIva, row.Margen);
-
-                    if (existed) resultado.Actualizados++;
-                    else resultado.Insertados++;
-
-                    // Actualizar Producto.Costo y recalcular Precio si hay margen
-                    if (row.Margen.HasValue)
-                    {
-                        decimal nuevoPrecio = costoConIva * (1 + row.Margen.Value / 100m);
-                        await _repo.UpdateProductoCostoNoSaveAsync(idProducto.Value, costoConIva, row.Margen.Value, nuevoPrecio);
-                    }
-                    else if (actualizarPrecioVenta)
-                    {
-                        // sin margen, solo actualizamos el precio con el costo+IVA como PVP directo
-                        await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, costoConIva);
-                    }
-                }
-
-                await _repo.SaveChangesAsync();
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            await ProcesarRowsAsync(rows, idLista, ivaAplicacion, actualizarPrecioVenta, resultado);
 
             return Result<ImportListaPrecioResultDTO>.Success(resultado);
         }

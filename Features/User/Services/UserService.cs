@@ -9,7 +9,6 @@ using proyecto_venta_stock.Shared.ResultPattern;
 using proyecto_venta_stock.User.DTO;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.UserRepository;
-using venta_stock_webapi.Data.Audit;
 using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.User.DTO.UserDTO;
 using venta_stock_webapi.Shared.Auth.PassService;
@@ -64,42 +63,58 @@ namespace proyecto_venta_stock.User.Services
             }
         }
 
+        private async Task<(bool flowControl, Result<bool> value)> ValidateCreate(UserCreateDTO dto)
+        {
+            if (await _userRepository.UserNameInUseAsync(dto.Nombre))
+                return (false, Result<bool>.Failure(UserErrorCode.user_name_in_use));
+
+            if (await _userRepository.MailInUseAsync(dto.Email))
+                return (false, Result<bool>.Failure(UserErrorCode.user_mail_in_use));
+
+            if (!await _permitRepository.ExistsAsync(dto.Permisos))
+                return (false, Result<bool>.Failure(UserErrorCode.permission_not_found));
+
+            return (true, null);
+        }
+
+        private static List<PermisoUsuario> BuildPermissionsForUser(int idUsuario, List<int> permisos)
+        {
+            return permisos.Select(id => new PermisoUsuario
+            {
+                IdUsuario       = idUsuario,
+                IdPermiso       = id,
+                FechaAsignacion = DateOnly.FromDateTime(DateTime.Now)
+            }).ToList();
+        }
+
+        private async Task LogCreateUserAsync(UserCreateDTO dto)
+        {
+            await LogAsync("CREACION", "USUARIO",
+                $"Usuario creado: '{dto.Usuario}' ({dto.Nombre} {dto.Apellido}) | Rol: {dto.Rol}",
+                null,
+                new { Usuario = dto.Usuario, Nombre = dto.Nombre, Apellido = dto.Apellido, Rol = dto.Rol, Email = dto.Email });
+        }
+
         public async Task<Result<bool>> CreateAsync(UserCreateDTO userDTO)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                bool userNameExists = await _userRepository.UserNameInUseAsync(userDTO.Nombre);
-                if (userNameExists) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
+                (bool flowControl, Result<bool> value) = await ValidateCreate(userDTO);
 
-                bool mailExists = await _userRepository.MailInUseAsync(userDTO.Email);
-                if (mailExists) return Result<bool>.Failure(UserErrorCode.user_mail_in_use);
-
-                bool permissions_exists = await _permitRepository.ExistsAsync(userDTO.Permisos);
-                if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
+                if (!flowControl) return value;
 
                 var user = _mapper.Map<Usuario>(userDTO);
                 user.FechaAlta = DateOnly.FromDateTime(DateTime.Now);
-
-                user.Password = _passwordService.HashPassword(user, userDTO.Password);
+                user.Password  = _passwordService.HashPassword(user, userDTO.Password);
 
                 await _userRepository.CreateAsync(user);
 
-                List<PermisoUsuario> permissionsUser = userDTO.Permisos.Select(id => new PermisoUsuario
-                {
-                    IdUsuario = user.IdUsuario,
-                    IdPermiso = id,
-                    FechaAsignacion = DateOnly.FromDateTime(DateTime.Now)
-                }).ToList();
-
-                await _permitRepository.AssingPermisionAsync(permissionsUser);
+                await _permitRepository.AssingPermisionAsync(BuildPermissionsForUser(user.IdUsuario, userDTO.Permisos));
 
                 await transaction.CommitAsync();
 
-                await LogAsync("CREACION", "USUARIO",
-                    $"Usuario creado: '{userDTO.Usuario}' ({userDTO.Nombre} {userDTO.Apellido}) | Rol: {userDTO.Rol}",
-                    null,
-                    new { Usuario = userDTO.Usuario, Nombre = userDTO.Nombre, Apellido = userDTO.Apellido, Rol = userDTO.Rol, Email = userDTO.Email });
+                await LogCreateUserAsync(userDTO);
 
                 return Result<bool>.Success();
             }
@@ -113,27 +128,55 @@ namespace proyecto_venta_stock.User.Services
 
 
 
+        private async Task<(bool flowControl, Result<bool> value)> ValidateUpdate(UserUpdateDTO dto)
+        {
+            if (!await _userRepository.ExistsActive(dto.IdUsuario))
+                return (false, Result<bool>.Failure(UserErrorCode.user_not_found));
+
+            if (await _userRepository.UserNameInUseAsync(dto.IdUsuario, dto.Usuario))
+                return (false, Result<bool>.Failure(UserErrorCode.user_name_in_use));
+
+            if (await _userRepository.MailInUseAsync(dto.IdUsuario, dto.Email))
+                return (false, Result<bool>.Failure(UserErrorCode.user_mail_in_use));
+
+            if (!await _permitRepository.ExistsAsync(dto.Permisos))
+                return (false, Result<bool>.Failure(UserErrorCode.permission_not_found));
+
+            return (true, null);
+        }
+
+        private async Task SyncPermissionsAsync(int idUsuario, List<int> newPermisos)
+        {
+            var currentPermissions = await _permitRepository.GetPermissionsUserAsync(idUsuario);
+            var toAdd    = newPermisos.Except(currentPermissions).ToList();
+            var toRemove = currentPermissions.Except(newPermisos).ToList();
+
+            if (toAdd.Any())
+                await _permitRepository.AssingPermisionAsync(BuildPermissionsForUser(idUsuario, toAdd));
+
+            if (toRemove.Any())
+                await _permitRepository.RemovePermissionsAsync(idUsuario, toRemove);
+        }
+
+        private async Task LogUpdateUserAsync(UserUpdateDTO dto)
+        {
+            await LogAsync("ACTUALIZACION", "USUARIO",
+                $"Usuario actualizado: '{dto.Usuario}' ({dto.Nombre} {dto.Apellido}) | Rol: {dto.Rol}",
+                null,
+                new { Usuario = dto.Usuario, Nombre = dto.Nombre, Apellido = dto.Apellido, Rol = dto.Rol, Email = dto.Email });
+        }
+
         public async Task<Result<bool>> UpdateAsync(UserUpdateDTO userDTO)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                bool exists = await _userRepository.ExistsActive(userDTO.IdUsuario);
-                if (!exists) return Result<bool>.Failure(UserErrorCode.user_not_found);
-
-                bool nameInUse = await _userRepository.UserNameInUseAsync(userDTO.IdUsuario, userDTO.Usuario);
-                if (nameInUse) return Result<bool>.Failure(UserErrorCode.user_name_in_use);
-
-                bool mailInUse = await _userRepository.MailInUseAsync(userDTO.IdUsuario, userDTO.Email);
-                if (mailInUse) return Result<bool>.Failure(UserErrorCode.user_mail_in_use);
-
-                bool permissions_exists = await _permitRepository.ExistsAsync(userDTO.Permisos);
-
-                if (!permissions_exists) return Result<bool>.Failure(UserErrorCode.permission_not_found);
+                (bool flowControl, Result<bool> value) = await ValidateUpdate(userDTO);
+                
+                if (!flowControl) return value;
 
                 var user = _mapper.Map<Usuario>(userDTO);
-
-                var row = await _userRepository.UpdateAsync(user);
+                var row  = await _userRepository.UpdateAsync(user);
 
                 if (row == 0)
                 {
@@ -141,34 +184,10 @@ namespace proyecto_venta_stock.User.Services
                     return Result<bool>.Failure(UserErrorCode.user_not_found);
                 }
 
-                var newPermissions = userDTO.Permisos;
-                var currentPermissions = await _permitRepository.GetPermissionsUserAsync(user.IdUsuario);
-
-                //Obtengo los permisos nuevos que no esten en los permisos actuales.
-                var toAdd = newPermissions.Except(currentPermissions).ToList();
-                //Obtengo los permisos viejos que no estan en los permisos actuales.
-                var toRemove = currentPermissions.Except(newPermissions).ToList();
-
-                if (toAdd.Any())
-                {
-                    List<PermisoUsuario> newPermissionsAdd = toAdd.Select(id => new PermisoUsuario
-                    {
-                        IdUsuario = user.IdUsuario,
-                        IdPermiso = id,
-                        FechaAsignacion = DateOnly.FromDateTime(DateTime.Now)
-                    }).ToList();
-
-                    await _permitRepository.AssingPermisionAsync(newPermissionsAdd);
-                }
-
-                if (toRemove.Any()) await _permitRepository.RemovePermissionsAsync(user.IdUsuario, toRemove);
-
+                await SyncPermissionsAsync(user.IdUsuario, userDTO.Permisos);
                 await transaction.CommitAsync();
 
-                await LogAsync("ACTUALIZACION", "USUARIO",
-                    $"Usuario actualizado: '{userDTO.Usuario}' ({userDTO.Nombre} {userDTO.Apellido}) | Rol: {userDTO.Rol}",
-                    null,
-                    new { Usuario = userDTO.Usuario, Nombre = userDTO.Nombre, Apellido = userDTO.Apellido, Rol = userDTO.Rol, Email = userDTO.Email });
+                await LogUpdateUserAsync(userDTO);
 
                 return Result<bool>.Success();
             }
@@ -212,25 +231,35 @@ namespace proyecto_venta_stock.User.Services
             }
         }
 
+        private async Task LogDeleteUserAsync(Usuario user)
+        {
+            await LogAsync("BAJA", "USUARIO",
+                $"Usuario dado de baja: '{user.Usuario1}' ({user.Nombre} {user.Apellido})",
+                new { Usuario = user.Usuario1, Nombre = user.Nombre, Apellido = user.Apellido, Activo = true },
+                new { Activo = false });
+        }
+
+        private async Task LogActivateUserAsync(Usuario user)
+        {
+            await LogAsync("REACTIVACION", "USUARIO",
+                $"Usuario reactivado: '{user.Usuario1}' ({user.Nombre} {user.Apellido})",
+                new { Activo = false },
+                new { Usuario = user.Usuario1, Nombre = user.Nombre, Apellido = user.Apellido, Activo = true });
+        }
+
         public async Task<Result<bool>> DeleteAsync(int id)
         {
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
                 var userToDelete = await _userRepository.GetActiveByIdAsync(id);
-
                 if (userToDelete is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
                 var row = await _userRepository.DeleteAsync(id);
-
                 if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
                 await transaction.CommitAsync();
-
-                await LogAsync("BAJA", "USUARIO",
-                    $"Usuario dado de baja: '{userToDelete.Usuario1}' ({userToDelete.Nombre} {userToDelete.Apellido})",
-                    new { Usuario = userToDelete.Usuario1, Nombre = userToDelete.Nombre, Apellido = userToDelete.Apellido, Activo = true },
-                    new { Activo = false });
+                await LogDeleteUserAsync(userToDelete);
 
                 return Result<bool>.Success();
             }
@@ -247,16 +276,13 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                // Cargar usuario (puede estar inactivo)
                 var userToActivate = await _dbContext.Usuarios
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.IdUsuario == id);
                 if (userToActivate is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
 
-                // Ya está activo?
                 if (userToActivate.FechaBaja == null) return Result<bool>.Failure(UserErrorCode.user_already_active);
 
-                // Activar (FechaBaja = null)
                 var row = await _userRepository.ActivateAsync(id);
                 if (row == 0)
                 {
@@ -265,11 +291,7 @@ namespace proyecto_venta_stock.User.Services
                 }
 
                 await transaction.CommitAsync();
-
-                await LogAsync("REACTIVACION", "USUARIO",
-                    $"Usuario reactivado: '{userToActivate.Usuario1}' ({userToActivate.Nombre} {userToActivate.Apellido})",
-                    new { Activo = false },
-                    new { Usuario = userToActivate.Usuario1, Nombre = userToActivate.Nombre, Apellido = userToActivate.Apellido, Activo = true });
+                await LogActivateUserAsync(userToActivate);
 
                 return Result<bool>.Success();
             }
@@ -304,20 +326,15 @@ namespace proyecto_venta_stock.User.Services
         {
             try
             {
-                // Base query desde el repositorio
                 var query = _userRepository.UsersQueryable(searchTerm);
 
-                // 🔹 Filtro por estado
                 if (estado.ToLower() == "activos")
                     query = query.Where(u => u.FechaBaja == null);
                 else if (estado.ToLower() == "eliminados")
                     query = query.Where(u => u.FechaBaja != null);
 
-                // 🔹 Proyección
                 var projected = _mapper.ProjectTo<UserDTO>(query);
-
-                // 🔹 Paginación
-                var paged = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
+                var paged     = await PagedList<UserDTO>.CreateAsync(projected, pageIndex, pageSize);
 
                 return Result<PagedList<UserDTO>>.Success(paged);
             }

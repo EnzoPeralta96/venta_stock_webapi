@@ -36,9 +36,92 @@ namespace venta_stock_webapi.Sale.Services
             _logger = logger;
         }
 
-        /// <summary>
-        /// Registra una venta como pendiente cuando excede el límite de crédito
-        /// </summary>
+        private async Task<decimal> CalcularTotalAsync(List<SaleItemDTO> items)
+        {
+            decimal total = 0;
+            foreach (var item in items)
+            {
+                var product = await _productRepository.GetById(item.IdProducto);
+                total += (product?.Precio ?? 0) * item.Cantidad;
+            }
+            return total;
+        }
+
+        private static VentaPendiente BuildVentaPendienteEntity(
+            CreateSaleDTO dto, string codigoVenta, decimal total, decimal saldoActual, decimal limiteCuenta)
+        {
+            decimal saldoDespuesVenta = saldoActual + total;
+            decimal excedente        = saldoDespuesVenta - limiteCuenta;
+
+            return new VentaPendiente
+            {
+                CodigoVenta       = codigoVenta,
+                IdCliente         = dto.idCliente,
+                IdUsuarioVendedor = dto.idUsuarioVendedor,
+                IdMedioPago       = dto.idMedioPago,
+                Total             = total,
+                SaldoActual       = saldoActual,
+                LimiteCuenta      = limiteCuenta,
+                SaldoDespuesVenta = saldoDespuesVenta,
+                Excedente         = excedente,
+                IdEstado          = 1,
+                FechaRegistro     = DateTime.Now
+            };
+        }
+
+        private async Task CrearDetallesVentaPendienteAsync(VentaPendiente ventaPendiente, List<SaleItemDTO> items)
+        {
+            foreach (var item in items)
+            {
+                var product = await _productRepository.GetById(item.IdProducto);
+                await _context.DetalleVentaPendiente.AddAsync(new DetalleVentaPendiente
+                {
+                    IdVentaPendiente = ventaPendiente.IdVentaPendiente,
+                    IdProducto       = item.IdProducto,
+                    Cantidad         = item.Cantidad,
+                    PrecioVenta      = product?.Precio ?? 0,
+                    Subtotal         = (product?.Precio ?? 0) * item.Cantidad
+                });
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        private static PendingSaleResponseDTO MapToPendingSaleResponseDTO(VentaPendiente venta)
+        {
+            return new PendingSaleResponseDTO
+            {
+                IdVentaPendiente  = venta.IdVentaPendiente,
+                CodigoVenta       = venta.CodigoVenta,
+                Total             = venta.Total,
+                Cliente           = !string.IsNullOrEmpty(venta.IdClienteNavigation.RazonSocial)
+                    ? venta.IdClienteNavigation.RazonSocial
+                    : (venta.IdClienteNavigation.Nombre + " " + venta.IdClienteNavigation.Apellido),
+                ClienteDni        = venta.IdClienteNavigation.Dni ?? venta.IdClienteNavigation.Cuit ?? "N/A",
+                ClienteTelefono   = venta.IdClienteNavigation.Telefono ?? "N/A",
+                Vendedor          = venta.IdUsuarioVendedorNavigation.Nombre + " " +
+                                    venta.IdUsuarioVendedorNavigation.Apellido,
+                MedioPago         = venta.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
+                Estado            = venta.IdEstadoNavigation.Estado1 ?? "N/A",
+                FechaRegistro     = venta.FechaRegistro,
+                SaldoActual       = venta.SaldoActual ?? 0,
+                LimiteCuenta      = venta.LimiteCuenta ?? 0,
+                SaldoDespuesVenta = venta.SaldoDespuesVenta ?? 0,
+                Excedente         = venta.Excedente ?? 0,
+                PorcentajeExcedente = (venta.LimiteCuenta ?? 0) > 0
+                    ? ((venta.Excedente ?? 0) / (venta.LimiteCuenta ?? 1)) * 100
+                    : 0,
+                Items = venta.DetalleVentaPendientes.Select(d => new SaleItemDetailDTO
+                {
+                    IdProducto     = d.IdProducto,
+                    NombreProducto = d.IdProductoNavigation.Nombre ?? "N/A",
+                    MarcaProducto  = d.IdProductoNavigation.Marca ?? "N/A",
+                    Cantidad       = d.Cantidad,
+                    PrecioUnitario = d.PrecioVenta,
+                    Subtotal       = d.Subtotal
+                }).ToList()
+            };
+        }
+
         public async Task<Result<PendingSaleResponseDTO>> CreatePendingSaleAsync(
             CreateSaleDTO saleDTO,
             decimal saldoActual,
@@ -48,109 +131,30 @@ namespace venta_stock_webapi.Sale.Services
             {
                 _logger.LogInformation(
                     "Creando venta pendiente - Cliente: {id}, Monto: {monto}, Límite: {limite}",
-                    saleDTO.idCliente, saleDTO.items.Sum(i => i.Cantidad), limiteCuenta
-                );
+                    saleDTO.idCliente, saleDTO.items.Sum(i => i.Cantidad), limiteCuenta);
 
-                // Generar código de venta
                 var codigoVenta = await GenerarCodigoVentaAsync();
+                decimal total   = await CalcularTotalAsync(saleDTO.items);
 
-                // Calcular total
-                decimal total = 0;
-                foreach (var item in saleDTO.items)
-                {
-                    var product = await _productRepository.GetById(item.IdProducto);
-                    total += (product.Precio ?? 0) * item.Cantidad;
-                }
-
-                var saldoDespuesVenta = saldoActual + total;
-                var excedente = saldoDespuesVenta - limiteCuenta;
-
-                // Crear venta pendiente
-                var ventaPendiente = new VentaPendiente
-                {
-                    CodigoVenta = codigoVenta,
-                    IdCliente = saleDTO.idCliente,
-                    IdUsuarioVendedor = saleDTO.idUsuarioVendedor,
-                    IdMedioPago = saleDTO.idMedioPago,
-                    Total = total,
-                    SaldoActual = saldoActual,
-                    LimiteCuenta = limiteCuenta,
-                    SaldoDespuesVenta = saldoDespuesVenta,
-                    Excedente = excedente,
-                    IdEstado = 1,  // 1 = Pendiente
-                    FechaRegistro = DateTime.Now
-                };
+                var ventaPendiente = BuildVentaPendienteEntity(saleDTO, codigoVenta, total, saldoActual, limiteCuenta);
 
                 await _context.VentaPendiente.AddAsync(ventaPendiente);
                 await _context.SaveChangesAsync();
 
-                // Crear detalles
-                foreach (var item in saleDTO.items)
-                {
-                    var product = await _productRepository.GetById(item.IdProducto);
+                await CrearDetallesVentaPendienteAsync(ventaPendiente, saleDTO.items);
 
-                    var detalle = new DetalleVentaPendiente
-                    {
-                        IdVentaPendiente = ventaPendiente.IdVentaPendiente,
-                        IdProducto = item.IdProducto,
-                        Cantidad = item.Cantidad,
-                        PrecioVenta = product.Precio ?? 0,
-                        Subtotal = (product.Precio ?? 0) * item.Cantidad
-                    };
-
-                    await _context.DetalleVentaPendiente.AddAsync(detalle);
-                }
-                await _context.SaveChangesAsync();
-
-                // Recargar con relaciones
                 var ventaCompleta = await _pendingSaleRepository.GetByIdAsync(ventaPendiente.IdVentaPendiente);
-
                 if (ventaCompleta == null)
                 {
                     _logger.LogError("No se pudo recargar la venta pendiente creada");
                     return Result<PendingSaleResponseDTO>.Failure(SaleErrorCode.unexpected_error);
                 }
 
-                // Mapear respuesta
-                var response = new PendingSaleResponseDTO
-                {
-                    IdVentaPendiente = ventaCompleta.IdVentaPendiente,
-                    CodigoVenta = ventaCompleta.CodigoVenta,
-                    Total = ventaCompleta.Total,
-                    Cliente = !string.IsNullOrEmpty(ventaCompleta.IdClienteNavigation.RazonSocial)
-                        ? ventaCompleta.IdClienteNavigation.RazonSocial
-                        : (ventaCompleta.IdClienteNavigation.Nombre + " " + ventaCompleta.IdClienteNavigation.Apellido),
-                    ClienteDni = ventaCompleta.IdClienteNavigation.Dni ?? ventaCompleta.IdClienteNavigation.Cuit ?? "N/A",
-                    ClienteTelefono = ventaCompleta.IdClienteNavigation.Telefono ?? "N/A",
-                    Vendedor = ventaCompleta.IdUsuarioVendedorNavigation.Nombre + " " +
-                              ventaCompleta.IdUsuarioVendedorNavigation.Apellido,
-                    MedioPago = ventaCompleta.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
-                    Estado = ventaCompleta.IdEstadoNavigation.Estado1 ?? "N/A",
-                    FechaRegistro = ventaCompleta.FechaRegistro,
-                    SaldoActual = ventaCompleta.SaldoActual ?? 0,
-                    LimiteCuenta = ventaCompleta.LimiteCuenta ?? 0,
-                    SaldoDespuesVenta = ventaCompleta.SaldoDespuesVenta ?? 0,
-                    Excedente = ventaCompleta.Excedente ?? 0,
-                    PorcentajeExcedente = limiteCuenta > 0
-                        ? (excedente / limiteCuenta) * 100
-                        : 0,
-                    Items = ventaCompleta.DetalleVentaPendientes.Select(d => new SaleItemDetailDTO
-                    {
-                        IdProducto = d.IdProducto,
-                        NombreProducto = d.IdProductoNavigation.Nombre ?? "N/A",
-                        MarcaProducto = d.IdProductoNavigation.Marca ?? "N/A",
-                        Cantidad = d.Cantidad,
-                        PrecioUnitario = d.PrecioVenta,
-                        Subtotal = d.Subtotal
-                    }).ToList()
-                };
-
                 _logger.LogInformation(
                     "Venta pendiente creada: {codigo}, Excedente: ${excedente}",
-                    codigoVenta, excedente
-                );
+                    codigoVenta, ventaCompleta.Excedente ?? 0);
 
-                return Result<PendingSaleResponseDTO>.Success(response);
+                return Result<PendingSaleResponseDTO>.Success(MapToPendingSaleResponseDTO(ventaCompleta));
             }
             catch (Exception ex)
             {
@@ -159,9 +163,6 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
-        /// <summary>
-        /// Obtiene el detalle de una venta pendiente por ID
-        /// </summary>
         public async Task<Result<PendingSaleResponseDTO>> GetPendingSaleByIdAsync(int idVentaPendiente)
         {
             try
@@ -169,44 +170,9 @@ namespace venta_stock_webapi.Sale.Services
                 var ventaPendiente = await _pendingSaleRepository.GetByIdAsync(idVentaPendiente);
 
                 if (ventaPendiente == null)
-                {
                     return Result<PendingSaleResponseDTO>.Failure(SaleErrorCode.pending_sale_not_found);
-                }
 
-                var response = new PendingSaleResponseDTO
-                {
-                    IdVentaPendiente = ventaPendiente.IdVentaPendiente,
-                    CodigoVenta = ventaPendiente.CodigoVenta,
-                    Total = ventaPendiente.Total,
-                    Cliente = !string.IsNullOrEmpty(ventaPendiente.IdClienteNavigation.RazonSocial)
-                        ? ventaPendiente.IdClienteNavigation.RazonSocial
-                        : (ventaPendiente.IdClienteNavigation.Nombre + " " + ventaPendiente.IdClienteNavigation.Apellido),
-                    ClienteDni = ventaPendiente.IdClienteNavigation.Dni ?? ventaPendiente.IdClienteNavigation.Cuit ?? "N/A",
-                    ClienteTelefono = ventaPendiente.IdClienteNavigation.Telefono ?? "N/A",
-                    Vendedor = ventaPendiente.IdUsuarioVendedorNavigation.Nombre + " " +
-                              ventaPendiente.IdUsuarioVendedorNavigation.Apellido,
-                    MedioPago = ventaPendiente.IdMedioPagoNavigation.MedioPago1 ?? "N/A",
-                    Estado = ventaPendiente.IdEstadoNavigation.Estado1 ?? "N/A",
-                    FechaRegistro = ventaPendiente.FechaRegistro,
-                    SaldoActual = ventaPendiente.SaldoActual ?? 0,
-                    LimiteCuenta = ventaPendiente.LimiteCuenta ?? 0,
-                    SaldoDespuesVenta = ventaPendiente.SaldoDespuesVenta ?? 0,
-                    Excedente = ventaPendiente.Excedente ?? 0,
-                    PorcentajeExcedente = ventaPendiente.LimiteCuenta > 0
-                        ? ((ventaPendiente.Excedente ?? 0) / (ventaPendiente.LimiteCuenta ?? 1)) * 100
-                        : 0,
-                    Items = ventaPendiente.DetalleVentaPendientes.Select(d => new SaleItemDetailDTO
-                    {
-                        IdProducto = d.IdProducto,
-                        NombreProducto = d.IdProductoNavigation.Nombre ?? "N/A",
-                        MarcaProducto = d.IdProductoNavigation.Marca ?? "N/A",
-                        Cantidad = d.Cantidad,
-                        PrecioUnitario = d.PrecioVenta,
-                        Subtotal = d.Subtotal
-                    }).ToList()
-                };
-
-                return Result<PendingSaleResponseDTO>.Success(response);
+                return Result<PendingSaleResponseDTO>.Success(MapToPendingSaleResponseDTO(ventaPendiente));
             }
             catch (Exception ex)
             {
@@ -215,9 +181,6 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
-        /// <summary>
-        /// Lista ventas pendientes con filtro opcional por estado
-        /// </summary>
         public async Task<Result<List<PendingSaleListDTO>>> GetPendingSalesAsync(int? idEstado = null)
         {
             try
@@ -233,9 +196,165 @@ namespace venta_stock_webapi.Sale.Services
             }
         }
 
-        /// <summary>
-        /// Autoriza o rechaza una venta pendiente
-        /// </summary>
+        private static (bool flowControl, Result<AuthorizeSaleResponseDTO> value) ValidateAuthorizeSale(VentaPendiente? ventaPendiente)
+        {
+            if (ventaPendiente == null)
+                return (false, Result<AuthorizeSaleResponseDTO>.Failure(SaleErrorCode.pending_sale_not_found));
+
+            if (ventaPendiente.IdEstado != 1)
+                return (false, Result<AuthorizeSaleResponseDTO>.Failure(SaleErrorCode.pending_sale_already_processed));
+
+            return (true, null);
+        }
+
+        private static Ventum BuildVentaDesdeAprobacion(VentaPendiente ventaPendiente, string codigoVenta)
+        {
+            return new Ventum
+            {
+                CodigoVenta = codigoVenta,
+                IdCliente   = ventaPendiente.IdCliente,
+                IdMedioPago = ventaPendiente.IdMedioPago,
+                IdUsuario   = ventaPendiente.IdUsuarioVendedor,
+                Fecha       = DateTime.Now,
+                Total       = ventaPendiente.Total,
+                IdEstado    = 2
+            };
+        }
+
+        private static MovimientoCc BuildMovimientoCCAprobacion(
+            VentaPendiente ventaPendiente, Ventum venta, MovimientoCc? lastMovement, decimal saldoAntes, int idUsuario)
+        {
+            decimal? montoPagado    = saldoAntes < 0 ? Math.Min(Math.Abs(saldoAntes), ventaPendiente.Total) : null;
+            decimal  saldoAFavor    = Math.Max(0, -saldoAntes);
+            decimal  amountFromLimit = Math.Max(0, ventaPendiente.Total - saldoAFavor);
+            decimal  limiteDespues  = (lastMovement?.LimiteCuenta ?? 0) - amountFromLimit;
+
+            return new MovimientoCc
+            {
+                IdCliente         = ventaPendiente.IdCliente,
+                IdVenta           = venta.IdVenta,
+                IdTipoMovimiento  = 5,
+                Importe           = ventaPendiente.Total,
+                Fecha             = DateTime.Now,
+                Detalle           = $"Venta {venta.CodigoVenta} (aprobada por autorización)",
+                SaldoActual       = ventaPendiente.SaldoDespuesVenta,
+                LimiteCuenta      = limiteDespues,
+                IdUsuarioRegistra = idUsuario,
+                IdEstado          = 2,
+                MontoPagado       = montoPagado
+            };
+        }
+
+        private async Task ActualizarStockAprobacionAsync(ICollection<DetalleVentaPendiente> detalles)
+        {
+            foreach (var detalle in detalles)
+            {
+                await _context.Productos
+                    .Where(p => p.IdProducto == detalle.IdProducto)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(p => p.Stock, p => p.Stock - detalle.Cantidad));
+
+                _logger.LogDebug("Stock actualizado - Producto: {id}, Cantidad: -{cantidad}",
+                    detalle.IdProducto, detalle.Cantidad);
+            }
+        }
+
+        private async Task<AuthorizeSaleResponseDTO> AprobarVentaAsync(
+            VentaPendiente ventaPendiente, AuthorizeSaleDTO dto, int idUsuarioAutoriza)
+        {
+            _logger.LogInformation("Aprobando venta pendiente {codigo} por usuario {usuario}",
+                ventaPendiente.CodigoVenta, idUsuarioAutoriza);
+
+            var codigoVenta = await GenerarCodigoVentaAsync();
+            var venta       = BuildVentaDesdeAprobacion(ventaPendiente, codigoVenta);
+
+            await _context.Venta.AddAsync(venta);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Venta definitiva creada: {codigo}", venta.CodigoVenta);
+
+            foreach (var dp in ventaPendiente.DetalleVentaPendientes)
+                await _context.DetalleVenta.AddAsync(new DetalleVentum
+                {
+                    IdVenta     = venta.IdVenta,
+                    IdProducto  = dp.IdProducto,
+                    Cantidad    = dp.Cantidad,
+                    PrecioVenta = dp.PrecioVenta,
+                    SubTotal    = dp.Subtotal
+                });
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Detalles creados: {count} items", ventaPendiente.DetalleVentaPendientes.Count);
+
+            var lastMovement = await _context.MovimientoCcs
+                .AsNoTracking()
+                .Where(m => m.IdCliente == ventaPendiente.IdCliente)
+                .OrderByDescending(m => m.Fecha)
+                .ThenByDescending(m => m.IdMovimiento)
+                .FirstOrDefaultAsync();
+
+            decimal saldoAntes = lastMovement?.SaldoActual ?? 0;
+
+            var movimiento = BuildMovimientoCCAprobacion(ventaPendiente, venta, lastMovement, saldoAntes, idUsuarioAutoriza);
+
+            await _context.MovimientoCcs.AddAsync(movimiento);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogDebug("Movimiento CC creado para venta {codigo}", venta.CodigoVenta);
+
+            await ActualizarStockAprobacionAsync(ventaPendiente.DetalleVentaPendientes);
+
+            ventaPendiente.IdEstado                  = 2;
+            ventaPendiente.IdUsuarioAutoriza         = idUsuarioAutoriza;
+            ventaPendiente.FechaAutorizacion         = DateTime.Now;
+            ventaPendiente.ObservacionesAutorizacion = dto.Observaciones;
+            ventaPendiente.IdVentaGenerada           = venta.IdVenta;
+
+            await _pendingSaleRepository.UpdateAsync(ventaPendiente);
+
+            _logger.LogInformation("Venta pendiente {codigo} aprobada. Venta generada: {ventaGenerada}",
+                ventaPendiente.CodigoVenta, venta.CodigoVenta);
+
+            return new AuthorizeSaleResponseDTO
+            {
+                IdVentaPendiente    = ventaPendiente.IdVentaPendiente,
+                CodigoVenta         = ventaPendiente.CodigoVenta,
+                Aprobada            = true,
+                IdVentaGenerada     = venta.IdVenta,
+                CodigoVentaGenerada = venta.CodigoVenta,
+                Mensaje             = $"Venta aprobada y procesada exitosamente. Se generó la venta {venta.CodigoVenta}."
+            };
+        }
+
+        private async Task<AuthorizeSaleResponseDTO> RechazarVentaAsync(
+            VentaPendiente ventaPendiente, AuthorizeSaleDTO dto, int idUsuarioAutoriza)
+        {
+            _logger.LogInformation("Rechazando venta pendiente {codigo} por usuario {usuario}",
+                ventaPendiente.CodigoVenta, idUsuarioAutoriza);
+
+            ventaPendiente.IdEstado                  = 3;
+            ventaPendiente.IdUsuarioAutoriza         = idUsuarioAutoriza;
+            ventaPendiente.FechaAutorizacion         = DateTime.Now;
+            ventaPendiente.ObservacionesAutorizacion = dto.Observaciones ?? "Rechazada por administrador";
+
+            await _pendingSaleRepository.UpdateAsync(ventaPendiente);
+
+            _logger.LogInformation("Venta pendiente {codigo} rechazada", ventaPendiente.CodigoVenta);
+
+            return new AuthorizeSaleResponseDTO
+            {
+                IdVentaPendiente    = ventaPendiente.IdVentaPendiente,
+                CodigoVenta         = ventaPendiente.CodigoVenta,
+                Aprobada            = false,
+                IdVentaGenerada     = null,
+                CodigoVentaGenerada = null,
+                Mensaje             = "Venta rechazada. El vendedor será notificado."
+            };
+        }
+
         public async Task<Result<AuthorizeSaleResponseDTO>> AuthorizeSaleAsync(
             AuthorizeSaleDTO dto,
             int idUsuarioAutoriza)
@@ -243,185 +362,21 @@ namespace venta_stock_webapi.Sale.Services
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Necesario para auditoría en triggers de BD (fn_auditoria_generica)
                 await _context.Database.SetAuditContextAsync(idUsuarioAutoriza);
 
-                // 1. Obtener venta pendiente
                 var ventaPendiente = await _pendingSaleRepository.GetByIdAsync(dto.IdVentaPendiente);
+
+                (bool flowControl, Result<AuthorizeSaleResponseDTO> value) = ValidateAuthorizeSale(ventaPendiente);
                 
-                if (ventaPendiente == null)
-                {
-                    _logger.LogWarning("Venta pendiente {id} no encontrada", dto.IdVentaPendiente);
-                    return Result<AuthorizeSaleResponseDTO>.Failure(SaleErrorCode.pending_sale_not_found);
-                }
-                
-                // 2. Validar que esté pendiente
-                if (ventaPendiente.IdEstado != 1)  // 1 = Pendiente
-                {
-                    _logger.LogWarning(
-                        "Venta pendiente {id} ya fue procesada (estado: {estado})",
-                        dto.IdVentaPendiente, ventaPendiente.IdEstado
-                    );
-                    return Result<AuthorizeSaleResponseDTO>.Failure(
-                        SaleErrorCode.pending_sale_already_processed
-                    );
-                }
-                
-                // 3. Si APROBAR
-                if (dto.Aprobar)
-                {
-                    _logger.LogInformation(
-                        "Aprobando venta pendiente {codigo} por usuario {usuario}",
-                        ventaPendiente.CodigoVenta, idUsuarioAutoriza
-                    );
+                if (!flowControl) return value;
 
-                    // 3.1. Crear venta definitiva
-                    var codigoVentaDefinitiva = await GenerarCodigoVentaAsync();
-                    
-                    var venta = new Ventum
-                    {
-                        CodigoVenta = codigoVentaDefinitiva,
-                        IdCliente = ventaPendiente.IdCliente,
-                        IdMedioPago = ventaPendiente.IdMedioPago,
-                        IdUsuario = ventaPendiente.IdUsuarioVendedor,
-                        Fecha = DateTime.Now,
-                        Total = ventaPendiente.Total,
-                        IdEstado = 2  // 2 = Completada
-                    };
-                    
-                    await _context.Venta.AddAsync(venta);
-                    await _context.SaveChangesAsync();
-                    
-                    _logger.LogDebug("Venta definitiva creada: {codigo}", venta.CodigoVenta);
-                    
-                    // 3.2. Crear detalles
-                    foreach (var detallePendiente in ventaPendiente.DetalleVentaPendientes)
-                    {
-                        var detalle = new DetalleVentum
-                        {
-                            IdVenta = venta.IdVenta,
-                            IdProducto = detallePendiente.IdProducto,
-                            Cantidad = detallePendiente.Cantidad,
-                            PrecioVenta = detallePendiente.PrecioVenta,
-                            SubTotal = detallePendiente.Subtotal
-                        };
+                var responseDto = dto.Aprobar
+                    ? await AprobarVentaAsync(ventaPendiente!, dto, idUsuarioAutoriza)
+                    : await RechazarVentaAsync(ventaPendiente!, dto, idUsuarioAutoriza);
 
-                        await _context.DetalleVenta.AddAsync(detalle);
-                    }
-                    
-                    await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
-                    _logger.LogDebug("Detalles de venta creados: {count} items",
-                        ventaPendiente.DetalleVentaPendientes.Count);
-                    
-                    // 3.3. Crear movimiento en cuenta corriente
-                    var lastMovementBeforeApproval = await _context.MovimientoCcs
-                        .AsNoTracking()
-                        .Where(m => m.IdCliente == ventaPendiente.IdCliente)
-                        .OrderByDescending(m => m.Fecha)
-                        .ThenByDescending(m => m.IdMovimiento)
-                        .FirstOrDefaultAsync();
-
-                    decimal saldoAntes = lastMovementBeforeApproval?.SaldoActual ?? 0;
-                    decimal? montoPagadoPendiente = saldoAntes < 0
-                        ? Math.Min(Math.Abs(saldoAntes), ventaPendiente.Total)
-                        : null;
-
-                    decimal saldoAFavor = Math.Max(0, -saldoAntes);
-                    decimal amountFromLimit = Math.Max(0, ventaPendiente.Total - saldoAFavor);
-                    decimal limiteDespues = (lastMovementBeforeApproval?.LimiteCuenta ?? 0) - amountFromLimit;
-
-                    var movimiento = new MovimientoCc
-                    {
-                        IdCliente = ventaPendiente.IdCliente,
-                        IdVenta = venta.IdVenta,
-                        IdTipoMovimiento = 5,
-                        Importe = ventaPendiente.Total,
-                        Fecha = DateTime.Now,
-                        Detalle = $"Venta {venta.CodigoVenta} (aprobada por autorización)",
-                        SaldoActual = ventaPendiente.SaldoDespuesVenta,
-                        LimiteCuenta = limiteDespues,
-                        IdUsuarioRegistra = idUsuarioAutoriza,
-                        IdEstado = 2,
-                        MontoPagado = montoPagadoPendiente
-                    };
-                    
-                    await _context.MovimientoCcs.AddAsync(movimiento);
-                    await _context.SaveChangesAsync();
-                    
-                    _logger.LogDebug("Movimiento CC creado para venta {codigo}", venta.CodigoVenta);
-                    
-                    // 3.4. Actualizar stock de productos
-                    foreach (var detalle in ventaPendiente.DetalleVentaPendientes)
-                    {
-                        await _context.Productos
-                            .Where(p => p.IdProducto == detalle.IdProducto)
-                            .ExecuteUpdateAsync(setters => setters
-                                .SetProperty(p => p.Stock, p => p.Stock - detalle.Cantidad));
-
-                        _logger.LogDebug(
-                            "Stock actualizado - Producto: {id}, Cantidad: -{cantidad}",
-                            detalle.IdProducto, detalle.Cantidad
-                        );
-                    }
-                    
-                    // 3.5. Actualizar venta pendiente
-                    ventaPendiente.IdEstado = 2;  // 2 = Aprobada
-                    ventaPendiente.IdUsuarioAutoriza = idUsuarioAutoriza;
-                    ventaPendiente.FechaAutorizacion = DateTime.Now;
-                    ventaPendiente.ObservacionesAutorizacion = dto.Observaciones;
-                    ventaPendiente.IdVentaGenerada = venta.IdVenta;
-                    
-                    await _pendingSaleRepository.UpdateAsync(ventaPendiente);
-                    
-                    await transaction.CommitAsync();
-                    
-                    _logger.LogInformation(
-                        "Venta pendiente {codigo} aprobada exitosamente. Venta generada: {ventaGenerada}",
-                        ventaPendiente.CodigoVenta, venta.CodigoVenta
-                    );
-                    
-                    return Result<AuthorizeSaleResponseDTO>.Success(new AuthorizeSaleResponseDTO
-                    {
-                        IdVentaPendiente = dto.IdVentaPendiente,
-                        CodigoVenta = ventaPendiente.CodigoVenta,
-                        Aprobada = true,
-                        IdVentaGenerada = venta.IdVenta,
-                        CodigoVentaGenerada = venta.CodigoVenta,
-                        Mensaje = $"Venta aprobada y procesada exitosamente. Se generó la venta {venta.CodigoVenta}."
-                    });
-                }
-                // 4. Si RECHAZAR
-                else
-                {
-                    _logger.LogInformation(
-                        "Rechazando venta pendiente {codigo} por usuario {usuario}",
-                        ventaPendiente.CodigoVenta, idUsuarioAutoriza
-                    );
-
-                    ventaPendiente.IdEstado = 3;  // 3 = Rechazada
-                    ventaPendiente.IdUsuarioAutoriza = idUsuarioAutoriza;
-                    ventaPendiente.FechaAutorizacion = DateTime.Now;
-                    ventaPendiente.ObservacionesAutorizacion = dto.Observaciones ?? "Rechazada por administrador";
-                    
-                    await _pendingSaleRepository.UpdateAsync(ventaPendiente);
-                    await transaction.CommitAsync();
-                    
-                    _logger.LogInformation(
-                        "Venta pendiente {codigo} rechazada",
-                        ventaPendiente.CodigoVenta
-                    );
-                    
-                    return Result<AuthorizeSaleResponseDTO>.Success(new AuthorizeSaleResponseDTO
-                    {
-                        IdVentaPendiente = dto.IdVentaPendiente,
-                        CodigoVenta = ventaPendiente.CodigoVenta,
-                        Aprobada = false,
-                        IdVentaGenerada = null,
-                        CodigoVentaGenerada = null,
-                        Mensaje = "Venta rechazada. El vendedor será notificado."
-                    });
-                }
+                return Result<AuthorizeSaleResponseDTO>.Success(responseDto);
             }
             catch (Exception ex)
             {

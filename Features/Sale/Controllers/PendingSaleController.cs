@@ -14,6 +14,7 @@ namespace venta_stock_webapi.Sale.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class PendingSaleController : BaseController
     {
         private readonly IPendingSaleService _pendingSaleService;
