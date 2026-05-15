@@ -8,7 +8,8 @@ public enum UserErrorCode
     unexpected_error,
     username_not_found,
     user_not_found,
-    user_already_active
+    user_already_active,
+    operation_not_permitted
 }
 
 public static class UserErrorDictionary
@@ -21,6 +22,7 @@ public static class UserErrorDictionary
         { UserErrorCode.unexpected_error, "Ocurrió un error inesperado, por favor intente nuevamente." },
         { UserErrorCode.username_not_found, "El usuario y/o la contraseña son incorrectos." },
         { UserErrorCode.user_not_found, "El usuario indicado no existe." },
-        { UserErrorCode.user_already_active, "El usuario ya se encuentra activo." }
+        { UserErrorCode.user_already_active, "El usuario ya se encuentra activo." },
+        { UserErrorCode.operation_not_permitted, "No tiene permisos para realizar esta operación sobre este usuario." }
     };
 }

@@ -256,14 +256,17 @@ public class ListaPrecioItemServices : IListaPrecioItemServices
         if (existed) resultado.Actualizados++;
         else         resultado.Insertados++;
 
-        if (row.Margen.HasValue)
+        if (actualizarPrecioVenta)
         {
-            decimal nuevoPrecio = costoConIva * (1 + row.Margen.Value / 100m);
-            await _repo.UpdateProductoCostoNoSaveAsync(idProducto.Value, costoConIva, row.Margen.Value, nuevoPrecio);
-        }
-        else if (actualizarPrecioVenta)
-        {
-            await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, costoConIva);
+            if (row.Margen.HasValue)
+            {
+                decimal nuevoPrecio = costoConIva * (1 + row.Margen.Value / 100m);
+                await _repo.UpdateProductoCostoNoSaveAsync(idProducto.Value, costoConIva, row.Margen.Value, nuevoPrecio);
+            }
+            else
+            {
+                await _repo.UpdateProductoPrecioNoSaveAsync(idProducto.Value, costoConIva);
+            }
         }
     }
 

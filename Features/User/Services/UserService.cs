@@ -128,10 +128,22 @@ namespace proyecto_venta_stock.User.Services
 
 
 
-        private async Task<(bool flowControl, Result<bool> value)> ValidateUpdate(UserUpdateDTO dto)
+        private async Task<(bool flowControl, Result<bool> value)> ValidateUpdate(UserUpdateDTO dto, Usuario? targetUser)
         {
-            if (!await _userRepository.ExistsActive(dto.IdUsuario))
+            if (targetUser is null)
                 return (false, Result<bool>.Failure(UserErrorCode.user_not_found));
+
+            // Regla 1: el admin maestro solo puede ser modificado por sí mismo
+            if (targetUser.Root && _userContext.UserId != dto.IdUsuario)
+                return (false, Result<bool>.Failure(UserErrorCode.operation_not_permitted));
+
+            // Regla 2: un admin solo puede ser modificado por el admin maestro o por sí mismo
+            if (targetUser.Rol == "Administracion" && _userContext.UserId != dto.IdUsuario)
+            {
+                var requester = await _userRepository.GetActiveByIdAsync(_userContext.UserId);
+                if (requester is null || !requester.Root)
+                    return (false, Result<bool>.Failure(UserErrorCode.operation_not_permitted));
+            }
 
             if (await _userRepository.UserNameInUseAsync(dto.IdUsuario, dto.Usuario))
                 return (false, Result<bool>.Failure(UserErrorCode.user_name_in_use));
@@ -171,7 +183,8 @@ namespace proyecto_venta_stock.User.Services
             using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                (bool flowControl, Result<bool> value) = await ValidateUpdate(userDTO);
+                var targetUser = await _userRepository.GetActiveByIdAsync(userDTO.IdUsuario);
+                (bool flowControl, Result<bool> value) = await ValidateUpdate(userDTO, targetUser);
                 
                 if (!flowControl) return value;
 
@@ -206,6 +219,18 @@ namespace proyecto_venta_stock.User.Services
             {
                 var user = await _userRepository.GetActiveByIdAsync(dto.IdUsuario);
                 if (user is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
+
+                // Regla 1: la contraseña del admin maestro solo la puede cambiar él mismo
+                if (user.Root && _userContext.UserId != dto.IdUsuario)
+                    return Result<bool>.Failure(UserErrorCode.operation_not_permitted);
+
+                // Regla 2: la contraseña de un admin solo la puede cambiar el admin maestro o él mismo
+                if (user.Rol == "Administracion" && _userContext.UserId != dto.IdUsuario)
+                {
+                    var requester = await _userRepository.GetActiveByIdAsync(_userContext.UserId);
+                    if (requester is null || !requester.Root)
+                        return Result<bool>.Failure(UserErrorCode.operation_not_permitted);
+                }
 
                 var passwordHashed = _passwordService.HashPassword(user, dto.NewPassword);
                 var row = await _userRepository.UpdatePasswordAsync(dto.IdUsuario, passwordHashed);
@@ -254,6 +279,18 @@ namespace proyecto_venta_stock.User.Services
             {
                 var userToDelete = await _userRepository.GetActiveByIdAsync(id);
                 if (userToDelete is null) return Result<bool>.Failure(UserErrorCode.user_not_found);
+
+                // El admin maestro no puede ser dado de baja
+                if (userToDelete.Root)
+                    return Result<bool>.Failure(UserErrorCode.operation_not_permitted);
+
+                // Un admin solo puede ser dado de baja por el admin maestro
+                if (userToDelete.Rol == "Administracion")
+                {
+                    var requester = await _userRepository.GetActiveByIdAsync(_userContext.UserId);
+                    if (requester is null || !requester.Root)
+                        return Result<bool>.Failure(UserErrorCode.operation_not_permitted);
+                }
 
                 var row = await _userRepository.DeleteAsync(id);
                 if (row == 0) return Result<bool>.Failure(UserErrorCode.user_not_found);
