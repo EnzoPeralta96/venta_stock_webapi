@@ -1,4 +1,4 @@
-# Venta Stock WebAPI
+# SVS - Sistema de Venta y Stock (Backend)
 
 API REST para gestión de ventas e inventario, desarrollada como proyecto final universitario (Programador Universitario). Implementada con ASP.NET Core 8.0 y PostgreSQL.
 
@@ -490,3 +490,10 @@ dotnet tool run dotnet-ef migrations list
 # Revertir última migración
 dotnet tool run dotnet-ef migrations remove
 ```
+
+## Equipo
+
+- Peralta Enzo
+- Ruiz Rodriguez Juan Ignacio
+
+Universidad Nacional de Tucumán — FACET — 2025
