@@ -31,6 +31,19 @@ public partial class MovimientoCc
 
     public int? IdUsuarioRegistra { get; set; }
 
+    /// <summary>
+    /// Solo relevante para movimientos de tipo movimiento_cc.
+    /// Acumula el total pagado contra este consumo (pago_factura o allocación de pago_global).
+    /// Permite derivar EstadoPago: pendiente / parcial / pagado.
+    /// </summary>
+    public decimal? MontoPagado { get; set; }
+
+    /// <summary>
+    /// Indica si este movimiento de pago fue anulado.
+    /// Solo relevante para tipos pago_global (6) y pago_factura (8).
+    /// </summary>
+    public bool EsAnulado { get; set; }
+
     public virtual Cliente? IdClienteNavigation { get; set; }
 
     public virtual Estado? IdEstadoNavigation { get; set; }
@@ -42,4 +55,14 @@ public partial class MovimientoCc
     public virtual Usuario? IdUsuarioRegistraNavigation { get; set; }
 
     public virtual Ventum? IdVentaNavigation { get; set; }
+
+    /// <summary>
+    /// Solo relevante para movimientos de tipo NOTA_DEBITO (3).
+    /// Referencia al motivo de nota de débito seleccionado.
+    /// </summary>
+    public int? IdMotivoNd { get; set; }
+    public virtual MotivoNotaDebito? IdMotivoNdNavigation { get; set; }
+
+    public int? IdMotivoNc { get; set; }
+    public virtual MotivoNotaCredito? IdMotivoNcNavigation { get; set; }
 }

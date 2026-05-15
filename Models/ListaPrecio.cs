@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
-
+﻿namespace proyecto_venta_stock.Models;
 public partial class ListaPrecio
 {
     public int IdLista { get; set; }
@@ -16,6 +12,10 @@ public partial class ListaPrecio
     public string? Observaciones { get; set; }
 
     public int? IdUsuarioRegistra { get; set; }
+
+    public bool Activo { get; set; }
+
+    public decimal IvaPorDefecto { get; set; } = 21;
 
     public virtual Proveedor? IdProveedorNavigation { get; set; }
 

@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
-
+﻿namespace proyecto_venta_stock.Models;
 public partial class Ventum
 {
     public int IdVenta { get; set; }
+    public string CodigoVenta { get; set; }
 
     public DateTime? Fecha { get; set; }
 
@@ -18,6 +15,13 @@ public partial class Ventum
     public int? IdUsuario { get; set; }
 
     public int? IdEstado { get; set; }
+
+    /// <summary>Motivo de la nota de crédito cuando la venta es anulada. Null si no está anulada.</summary>
+    public int? IdMotivoNc { get; set; }
+    public virtual MotivoNotaCredito? IdMotivoNcNavigation { get; set; }
+
+    /// <summary>Detalle adicional opcional ingresado al anular la venta.</summary>
+    public string? DetalleNc { get; set; }
 
     public virtual ICollection<DetalleVentum> DetalleVenta { get; set; } = new List<DetalleVentum>();
 

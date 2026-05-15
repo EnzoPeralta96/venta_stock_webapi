@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace proyecto_venta_stock.Models;
-
+﻿namespace proyecto_venta_stock.Models;
 public partial class Usuario
 {
     public int IdUsuario { get; set; }
@@ -10,7 +6,7 @@ public partial class Usuario
     public string Usuario1 { get; set; } = null!;
 
     public string Password { get; set; } = null!;
-
+    
     public string Nombre { get; set; }
 
     public string Apellido { get; set; }
@@ -22,8 +18,7 @@ public partial class Usuario
     public DateOnly? FechaBaja { get; set; }
 
     public string Rol { get; set; }
-
-    public virtual ICollection<Compra> Compras { get; set; } = new List<Compra>();
+    public bool Root { get; set; } = false;
 
     public virtual ICollection<ListaPrecio> ListaPrecios { get; set; } = new List<ListaPrecio>();
 

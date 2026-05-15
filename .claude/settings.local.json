@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git restore:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(git log:*)",
+      "Bash(test:*)",
+      "Bash(git checkout:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(dotnet build:*)",
+      "Bash(git branch:*)",
+      "Bash(Select-String -Pattern \"error |Error |succeeded|failed\")",
+      "Bash(Select-Object -First 20)",
+      "Bash(tree:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(\"C:/Program Files/PostgreSQL/18/bin/psql.exe\" \"postgresql://postgres:VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH@shuttle.proxy.rlwy.net:23500/railway\" -c \"UPDATE motivo_nota_debito SET categoria = 'interes_mora' WHERE nombre = 'Interés por mora'; UPDATE motivo_nota_debito SET categoria = 'ajuste_precio' WHERE nombre = 'Ajuste de precio'; SELECT id_motivo, nombre, categoria FROM motivo_nota_debito;\" 2>&1)",
+      "Bash(\"C:/Program Files/PostgreSQL/18/bin/psql.exe\" \"postgresql://postgres:VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH@shuttle.proxy.rlwy.net:23500/railway\" -c \"UPDATE motivo_nota_debito SET categoria = 'interes_mora' WHERE nombre ILIKE '%nteres%mora%'; UPDATE motivo_nota_debito SET categoria = 'ajuste_precio' WHERE nombre ILIKE '%ajuste%precio%'; SELECT id_motivo, nombre, categoria FROM motivo_nota_debito;\" 2>&1)",
+      "Bash(\"C:/Program Files/PostgreSQL/18/bin/psql.exe\" \"postgresql://postgres:VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH@shuttle.proxy.rlwy.net:23500/railway\" -c \"UPDATE motivo_nota_debito SET categoria = 'interes_mora' WHERE nombre ILIKE '%mora%'; SELECT id_motivo, nombre, categoria FROM motivo_nota_debito;\" 2>&1)",
+      "Bash(cd \"C:/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/venta_stock_webapi\" && PGPASSWORD=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH psql -h shuttle.proxy.rlwy.net -p 23500 -U postgres -d railway -c \"INSERT INTO motivo_nota_credito \\(nombre, activo\\) VALUES \\('Devolucion de producto', true\\), \\('Error en la venta', true\\), \\('Producto defectuoso', true\\) ON CONFLICT DO NOTHING;\" 2>&1)",
+      "Bash(find:*)",
+      "Bash(grep -v \"//\")",
+      "Bash(xargs grep:*)",
+      "Bash(del:*)",
+      "Bash(psql \"Host=shuttle.proxy.rlwy.net;Port=23500;Database=railway;Username=postgres;Password=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH\" --no-psqlrc -c \"SELECT id_movimiento, id_tipo_movimiento, importe, saldo_actual, limite_cuenta, fecha FROM movimiento_cc WHERE id_cliente = 34 ORDER BY fecha, id_movimiento;\")",
+      "Bash(PGPASSWORD=VDdeNKPwzMrcxDZnQoAAAdODxdbJydIH psql -h shuttle.proxy.rlwy.net -p 23500 -U postgres -d railway -c \"SELECT id_movimiento, id_tipo_movimiento, importe, saldo_actual, limite_cuenta, fecha FROM movimiento_cc WHERE id_cliente = 34 ORDER BY fecha, id_movimiento;\")",
+      "Bash(dotnet script *)",
+      "Bash(where dotnet *)",
+      "Bash(grep -E \"\\\\.\\(cs|dto|entity\\)$\")",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff --name-only)",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal diff --name-only)",
+      "Bash(git -C /c/Users/enzo_/OneDrive/Documentos/Facultad/ProyectoFinal/ProyectoFerreteria diff src/components/Proveedores/ListaDetailsPage.jsx)",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\InterestConfigRepository\\\\IInterestConfigRepository.cs\" -Pattern \"GetCurrentAsync\")",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\DebitNoteReasonRepository\\\\IDebitNoteReasonRepository.cs\" -Pattern \"GetByIdAsync\")",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\enzo_\\\\OneDrive\\\\Documentos\\\\Facultad\\\\ProyectoFinal\\\\venta_stock_webapi\\\\Features\\\\CurrentAccount\\\\Repository\\\\AccountConfigRepository\\\\IAccountConfigRepository.cs\" -Pattern \"GetAccountConfigByIdAsync\")"
+    ]
+  }
+}

@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace proyecto_venta_stock.Models;
-
 public partial class DetalleVentum
 {
     public int IdVenta { get; set; }
 
     public int IdProducto { get; set; }
 
-    public int? Cantidad { get; set; }
+    public decimal? Cantidad { get; set; }
 
     public decimal? PrecioVenta { get; set; }
 

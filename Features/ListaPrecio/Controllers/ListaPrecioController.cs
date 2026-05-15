@@ -1,0 +1,123 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using venta_stock_webapi.Shared.Controllers;
+using proyecto_venta_stock.ListaPrecio.DTO;
+using proyecto_venta_stock.ListaPrecio.Services;
+using proyecto_venta_stock.Message;
+using venta_stock_webapi.Shared.MessageProvider;
+
+namespace proyecto_venta_stock.Controllers;
+
+[ApiController]
+[Route("[controller]")]
+[Authorize]
+public class ListaPrecioController : BaseController
+{
+    private readonly IListaPrecioServices _listaPrecioServices;
+
+    public ListaPrecioController(IListaPrecioServices listaPrecioServices)
+    {
+        _listaPrecioServices = listaPrecioServices;
+    }
+
+    [Authorize(Policy = "PERM:LP_READ")]
+    [HttpGet("proveedor/{idProveedor:int}")]
+    public async Task<IActionResult> GetByProveedor(int idProveedor)
+    {
+        var result = await _listaPrecioServices.GetByProveedorAsync(idProveedor);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);    
+        }
+
+        return Ok(result.Value);
+    }
+
+    [Authorize(Policy = "PERM:LP_READ")]
+    [HttpGet("{idLista:int}")]
+    public async Task<IActionResult> GetById(int idLista)
+    {
+        var result = await _listaPrecioServices.GetByIdAsync(idLista);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return NotFound(errorMessage);
+        }
+
+        return Ok(result.Value);
+    }
+
+    [Authorize(Policy = "PERM:LP_CREATE")]
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] ListaPrecioCreateDTO dto)
+    {
+        if (!TryGetUserId(out int idUsuario)) return Unauthorized();
+
+        var result = await _listaPrecioServices.CreateAsync(dto, idUsuario);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
+        }
+        return Ok();
+    }
+
+    [Authorize(Policy = "PERM:LP_UPDATE")]
+    [HttpPut]
+    public async Task<IActionResult> Update([FromBody] ListaPrecioUpdateDTO dto)
+    {
+        var result = await _listaPrecioServices.UpdateAsync(dto);
+
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+
+            if (code == ListaPrecioErrorCode.lista_not_found)
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
+        }
+
+        return Ok();
+    }
+
+    [Authorize(Policy = "PERM:LP_DELETE")]
+    [HttpDelete("{idLista:int}")]
+    public async Task<IActionResult> Delete(int idLista)
+    {
+        var result = await _listaPrecioServices.DeleteAsync(idLista);
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+
+            if (code == ListaPrecioErrorCode.lista_not_found)
+                return NotFound(errorMessage);
+
+            return BadRequest(errorMessage);
+        }
+        return NoContent();
+    }
+
+    [Authorize(Policy = "PERM:LP_TOGGLE")]
+    [HttpPatch("{idLista:int}/toggle-activo")]
+    public async Task<IActionResult> ToggleActivo(int idLista)
+    {
+        var result = await _listaPrecioServices.ToggleActivoAsync(idLista);
+        if (!result.IsSuccess)
+        {
+            var code = (ListaPrecioErrorCode)result.ErrorCode;
+            var errorMessage = MessageProvider.Get(ListaPrecioErrorDictionary.Messages, code);
+            return BadRequest(errorMessage);
+        }
+        return Ok();
+    }
+}
