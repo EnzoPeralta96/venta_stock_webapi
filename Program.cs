@@ -12,7 +12,6 @@ using venta_stock_webapi.Sale.Repository;
 using venta_stock_webapi.Sale.Services;
 using venta_stock_webapi.Sale.Services.CreditNoteReasonService;
 using venta_stock_webapi.Sale.Strategies;
-
 using proyecto_venta_stock.Services;
 using proyecto_venta_stock.User.Repository.PermitRepository;
 using proyecto_venta_stock.User.Services;
@@ -32,7 +31,6 @@ using proyecto_venta_stock.CompraProveedor.Repository;
 using proyecto_venta_stock.CompraProveedor.Services;
 using proyecto_venta_stock.Report.Repository;
 using proyecto_venta_stock.Report.Services;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -46,7 +44,6 @@ using Microsoft.AspNetCore.Authorization;
 using venta_stock_webapi.Shared.Auth.Authorization;
 using proyecto_venta_stock.Configuration;
 using venta_stock_webapi.Shared.Identity;
-using Microsoft.Extensions.Options;
 using venta_stock_webapi.Data;
 using venta_stock_webapi.Features.Audit.Repository;
 using venta_stock_webapi.Features.Audit.Services;
@@ -61,7 +58,7 @@ using venta_stock_webapi.Features.UnidadMedida.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // =======================
-// 📦 Servicios base
+// Servicios base
 // =======================
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -73,7 +70,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // =======================
-// 🌐 CORS CONFIG
+// CORS CONFIG
 // =======================
 // Nombre de la política CORS
 const string FrontendCorsPolicy = "Frontend";
@@ -102,7 +99,7 @@ builder.Services.AddScoped<IUserContext, UserContext>();
 
 
 // =======================
-// 💾 Base de datos
+// Base de datos
 // =======================
 builder.Services.AddScoped<AuditSessionInterceptor>();
 
@@ -148,7 +145,7 @@ builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
 
 
 // =======================
-// 🧩 AutoMapper
+//  AutoMapper
 // =======================
 builder.Services.AddAutoMapper(typeof(Program));
 
@@ -171,7 +168,7 @@ builder.Services.AddScoped<IInterestConfigService, InterestConfigService>();
 
 builder.Services.AddSingleton<MovementStrategyFactory>();
 // =======================
-// 👥 Servicios de usuario y permisos
+// Servicios de usuario y permisos
 // =======================
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILoginService, LoginService>();
@@ -182,7 +179,7 @@ builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 // =======================
-// 📦 Servicios de Product, Category y Location
+// Servicios de Product, Category y Location
 // =======================
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProductServices, ProductServices>();
@@ -221,7 +218,7 @@ builder.Services.AddScoped<IListaPrecioItemRepository, ListaPrecioItemRepository
 builder.Services.AddScoped<IListaPrecioItemServices, ListaPrecioItemServices>();
 
 // =======================
-// 🏪 Servicios de Ferreteria
+// Servicios de Ferreteria
 // =======================
 builder.Services.AddScoped<IFerreteriaRepository, FerreteriaRepository>();
 builder.Services.AddScoped<IFerreteriaService, FerreteriaService>();
@@ -248,7 +245,7 @@ builder.Services.AddScoped<IUnidadMedidaService, UnidadMedidaService>();
 var app = builder.Build();
 
 // =======================
-// 🚀 Middleware
+// Middleware
 // =======================
 if (app.Environment.IsDevelopment())
 {
@@ -256,9 +253,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// ⚠️ El orden de los middlewares importa:
+//El orden de los middlewares importa:
 app.UseHttpsRedirection();
-// ✅ CORS debe ir antes de Authentication / Authorization
+//CORS debe ir antes de Authentication / Authorization
 app.UseCors(FrontendCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
