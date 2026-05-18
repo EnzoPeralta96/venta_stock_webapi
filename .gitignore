@@ -545,3 +545,6 @@ obj/
 # Claude Code
 CLAUDE.md
 .claude/
+
+#Documentation 
+Doc/
