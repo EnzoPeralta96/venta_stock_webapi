@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+.claude/
+Doc/
+*.md
+.gitignore
+.gitattributes
+global.json
