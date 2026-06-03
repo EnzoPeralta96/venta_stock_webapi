@@ -121,10 +121,10 @@ namespace venta_stock_webapi.Client.DTO
                     );
                 }
 
-                if (SaldoInicial.HasValue && SaldoInicial.Value < 0)
+                if (SaldoInicial.HasValue && SaldoInicial.Value == 0)
                 {
                     yield return new ValidationResult(
-                        "El saldo inicial no puede ser negativo.",
+                        "El saldo inicial no puede ser cero.",
                         new[] { nameof(SaldoInicial) }
                     );
                 }
