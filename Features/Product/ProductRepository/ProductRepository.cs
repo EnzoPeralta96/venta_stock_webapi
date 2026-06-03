@@ -51,6 +51,7 @@ namespace proyecto_venta_stock.Product.ProductRepository
        .Include(p => p.CodigoBarras)
        .Include(p => p.IdCategoriaNavigation)
        .Include(p => p.IdUbicacionNavigation)
+       .Include(p => p.IdUnidadMedidaNavigation)
        .AsQueryable();
 
             if (activo.HasValue)
@@ -77,6 +78,7 @@ namespace proyecto_venta_stock.Product.ProductRepository
                 .Include(p => p.CodigoBarras)
                 .Include(p => p.IdCategoriaNavigation)
                 .Include(p => p.IdUbicacionNavigation)
+                .Include(p => p.IdUnidadMedidaNavigation)
                 .AsQueryable();
 
             if (activo.HasValue)
